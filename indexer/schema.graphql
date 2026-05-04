@@ -1,0 +1,74 @@
+"""
+BolaoCore read model — generated tables for PostGraphile auto-exposure.
+PostGraphile reads directly from PostgreSQL; this file documents the intended shape.
+"""
+
+type BolaoMatch @entity {
+  id: ID!
+  matchId: BigInt! @index
+  phase: String! @index
+  home: String!
+  away: String!
+  kickOff: BigInt!
+  status: String! @index
+  scoreHome: Int
+  scoreAway: Int
+  penaltyWinner: String
+  prizePoolRaw: String!
+  betsCount: Int!
+  createdAt: DateTime! @index
+  updatedAt: DateTime! @index
+}
+
+type Bet @entity {
+  id: ID!
+  user: String! @index
+  matchRef: BolaoMatch!
+  matchId: BigInt! @index
+  scoreHome: Int!
+  scoreAway: Int!
+  penaltyWinner: String
+  stakeRaw: String!
+  blockNumber: BigInt! @index
+  timestamp: DateTime! @index
+}
+
+type UserStat @entity {
+  id: ID!
+  totalBets: Int!
+  totalStakedRaw: String!
+  totalPoints: Int!
+  totalClaimedRaw: String!
+  finalPrizeClaimedRaw: String!
+  updatedAt: DateTime! @index
+}
+
+type MatchReward @entity {
+  id: ID!
+  matchRef: BolaoMatch!
+  matchId: BigInt! @index
+  user: String! @index
+  amountRaw: String!
+  blockNumber: BigInt! @index
+  timestamp: DateTime! @index
+}
+
+type FinalPrizeClaim @entity {
+  id: ID!
+  user: String! @index
+  amountRaw: String!
+  blockNumber: BigInt! @index
+  timestamp: DateTime! @index
+}
+
+type ActivityRecord @entity {
+  id: ID!
+  type: String! @index
+  user: String @index
+  matchId: BigInt @index
+  amountRaw: String
+  points: Int
+  meta: String
+  blockNumber: BigInt! @index
+  timestamp: DateTime! @index
+}

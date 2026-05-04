@@ -1,0 +1,106 @@
+type ProposalKind = enum {
+  SetFeeBps: struct {
+    new_fee_bps: u128
+  },
+  SetFinalPrizeBps: struct {
+    new_final_prize_bps: u128
+  },
+  SetMaxPayoutChunk: struct {
+    new_max_payout_chunk: u128
+  },
+  AddPhase: struct {
+    name: str,
+    start_time: u64,
+    end_time: u64,
+  },
+  AddMatch: struct {
+    phase: str,
+    home: str,
+    away: str,
+    kick_off: u64,
+  },
+  SetQuorum: struct {
+    new_quorum_bps: u16
+  },
+  SetVotingPeriod: struct {
+    new_voting_period: u64
+  },
+};
+
+type VoteChoice = enum {
+  Yes,
+  No,
+  Abstain,
+};
+
+type ProposalStatus = enum {
+  Active,
+  Defeated,
+  Succeeded,
+  Executed,
+  Expired,
+};
+
+type Proposal = struct {
+  id: u64,
+  proposer: actor_id,
+  kind: ProposalKind,
+  description: str,
+  start_time: u64,
+  end_time: u64,
+  yes: u32,
+  no: u32,
+  abstain: u32,
+  status: ProposalStatus,
+  executed: bool,
+};
+
+type IoDaoState = struct {
+  owner: actor_id,
+  market_contract: actor_id,
+  kyc_contract: opt actor_id,
+  quorum_bps: u16,
+  voting_period: u64,
+  proposal_count: u64,
+};
+
+constructor {
+  New : (market_contract: actor_id, kyc_contract: actor_id);
+};
+
+service Service {
+  CreateProposal : (kind: ProposalKind, description: str) -> DaoEvent;
+  Execute : (proposal_id: u64) -> vec DaoEvent;
+  FinalizeProposal : (proposal_id: u64) -> DaoEvent;
+  SetMarketContract : (new_market: actor_id) -> DaoEvent;
+  SetOwner : (new_owner: actor_id) -> DaoEvent;
+  Vote : (proposal_id: u64, choice: VoteChoice) -> DaoEvent;
+  query QueryProposal : (proposal_id: u64) -> opt Proposal;
+  query QueryProposals : () -> vec Proposal;
+  query QueryState : () -> IoDaoState;
+  query QueryVote : (proposal_id: u64, voter: actor_id) -> opt VoteChoice;
+
+  events {
+    Seeded: struct {
+      actor_id,
+      actor_id,
+    };
+    ProposalCreated: struct {
+      u64,
+      actor_id,
+    };
+    Voted: struct {
+      u64,
+      actor_id,
+      VoteChoice,
+    };
+    ProposalFinalized: struct {
+      u64,
+      ProposalStatus,
+    };
+    ProposalExecuted: u64;
+    MarketCallDispatched: u64;
+    GovernanceParamUpdated;
+  }
+};
+

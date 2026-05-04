@@ -1,0 +1,18 @@
+[package]
+name = "wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+app = { path = "../app" }
+
+[dev-dependencies]
+sails-rs = { version = "=0.9.2", features = ["gtest"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[build-dependencies]
+sails-rs = { workspace = true, features = ["wasm-builder"] }
+sails-client-gen.workspace = true
+sails-idl-gen.workspace = true
+app = { path = "../app" }

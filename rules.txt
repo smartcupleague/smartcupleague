@@ -1,0 +1,162 @@
+SmartCup League Tournament Rules
+How Match Predictions and the Season Leaderboard Work
+SmartCup League is a decentralized football prediction game built around two simultaneous competitions:
+Match-by-Match Predictions — earn rewards after each match.
+Season-Long Leaderboard — accumulate points across the entire tournament and compete for the Final Prize Pool.
+Every prediction participates in both games at the same time.
+1. Match Predictions (Match-by-Match Game)
+The Pari-Mutuel Pool System
+SmartCup League uses an Automated Market Mechanism (AMM) based on a pari-mutuel pool.
+This means:
+There are no fixed odds
+There is no bookmaker or house
+Payouts depend entirely on player participation
+All predictions for a match are collected into a shared pool, and winners split that pool proportionally once the match result is confirmed.
+How the Match Pool Is Distributed
+For every prediction placed:
+75% goes to the Match Winner Pool
+20% goes to the Season-Long Final Prize Pool
+5% goes to the DAO treasury as a protocol fee
+Only the 75% match pool is distributed among winners of that specific match.
+Why Payouts Are Variable
+The payout is calculated as:
+Match Pool ÷ Number of Winning Predictions
+This means:
+Rare correct predictions pay more
+Popular outcomes pay less
+A correct prediction may sometimes return less than the entry amount if many users predicted the same result
+This is a natural outcome of the shared pari-mutuel pool system.
+
+Example
+100 players enter a match:
+Total entries: 300 USDC
+Match pool (75%): 225 USDC
+Scenario A — 10 winners
+Each winner receives 22.5 USDC
+Scenario B — 150 winners
+Each winner receives 1.5 USDC
+Both predictions are correct — the difference is how many players share the pool.
+
+Prediction Rules
+For each match:
+Minimum prediction entry: 3 USDC
+Only one prediction per wallet per match
+Predictions close 10 minutes before kickoff
+Predictions cannot be edited or cancelled after submission
+These rules are enforced automatically by smart contracts.
+
+
+2. What You Can Predict
+Players submit one score prediction per match.
+Your score determines both points and payout eligibility.
+Group Stage Matches
+Exact score prediction
+→ 3 points + eligible for payout
+Correct outcome (win / draw / loss)
+→ 1 point + eligible for payout
+Incorrect prediction
+→ 0 points
+
+Knockout Matches
+Players predict the full-time score.
+If predicting a draw, they must also select the penalty winner.
+If the match ends in a draw:
+The penalty winner determines the final outcome
+Correct winner after penalties earns points
+
+3. Match Settlement and Rewards
+After the match ends:
+The match result is confirmed by an oracle
+Smart contracts verify the result
+The match pool is distributed automatically
+Winning players can claim their rewards directly from the smart contract.
+Key rules:
+Winners share 75% of the pool
+Rewards are distributed proportionally
+If no one wins, the match pool is added to the Final Prize Pool
+All settlements are executed fully on-chain and cannot be modified by any operator.
+
+4. The Season-Long Leaderboard
+Every prediction also contributes to a global tournament leaderboard.
+Points accumulate throughout the tournament, and players compete to reach the Top 5 positions.
+This leaderboard creates a season-long competition across all matches.
+
+Points System
+Prediction Result
+Points
+Exact Score
+3 points
+Correct Outcome
+1 point
+Incorrect
+0 points
+
+
+Tournament Phase Weights
+Later matches award more points:
+Tournament Phase
+Weight
+Group Stage
+×1
+Round of 32
+×2
+Round of 16
+×3
+Quarter-Finals
+×4
+Semi-Finals
+×5
+Third Place Match
+×6
+Final
+×8
+
+Example:
+Exact score in Quarter-Final → 3 × 4 = 12 points
+Correct outcome in Quarter-Final → 1 × 4 = 4 points
+
+5. Final Prize Pool
+The Final Prize Pool is funded by:
+20% of every match entry
+Unclaimed or unused match pool balances
+After the tournament ends:
+The leaderboard is finalized
+Smart contracts calculate the prize allocation
+Top players claim rewards on-chain
+
+Prize Distribution
+Rank
+Share
+1st
+40%
+2nd
+25%
+3rd
+20%
+4th
+10%
+5th
+5%
+
+
+Tie-Break Rule
+If two or more players finish the tournament with the same number of points, the prize allocations for the tied positions are combined and divided equally among them.
+Examples:
+If two players tie for 1st place, the rewards for 1st and 2nd place (40% + 25%) are combined and split equally between them. Each player receives 32.5% of the Final Prize Pool.
+
+
+If three players tie for 2nd place, the rewards for 2nd, 3rd, and 4th place (25% + 20% + 10%) are combined and divided equally among the three players.
+
+
+This rule ensures fair distribution whenever players finish with the same leaderboard score.
+
+6. Key Principles of SmartCup League
+SmartCup League is designed to be:
+Non-custodial
+Players always control their own wallets.
+House-free
+The protocol never sets odds or takes the opposite side of predictions.
+Transparent
+All pools, payouts, and leaderboard rankings are verifiable on-chain.
+Fully automated
+Smart contracts enforce all rules, including prediction timing, payouts, and leaderboard updates.

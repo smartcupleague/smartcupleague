@@ -1,0 +1,13 @@
+[package]
+name = "bolao-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+sails-rs.workspace = true
+
+[build-dependencies]
+bolao-app = { path = "../app" }
+sails-idl-gen.workspace = true
+sails-client-gen.workspace = true

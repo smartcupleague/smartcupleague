@@ -1,0 +1,22 @@
+:root {
+  --wine-900: #17000c;
+  --wine-800: #240016;
+  --wine-700: #3a0322;
+  --wine-600: #4e0a31;
+  --wine-500: #7a1349;
+  --accent: #ff006e;
+  --accent-soft: #ff4f9c;
+  --text-main: #ffffff;
+  --text-muted: #f3d7e6;
+  --chip-bg: rgba(255, 255, 255, 0.12);
+  --card-bg: rgba(9, 0, 6, 0.85);
+  --border-soft: rgba(255, 255, 255, 0.08);
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+
+  --shadow-deep: 0 20px 40px rgba(0, 0, 0, 0.75);
+
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Montserrat", sans-serif;
+}

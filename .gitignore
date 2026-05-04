@@ -1,0 +1,35 @@
+.DS_Store
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.txt
+
+# Dependencies
+node_modules/
+.yarn/install-state.gz
+
+# Build output
+dist/
+build/
+lib/
+target/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local runtime data
+oracle-server/data/*.json
+!oracle-server/data/.gitkeep

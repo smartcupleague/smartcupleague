@@ -1,0 +1,59 @@
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+*.tmp
+*.swp
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+.venv/
+env/
+venv/
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Bases de datos locales
+# =========================
+*.db
+*.sqlite3
+
+# =========================
+# Configuración local
+# =========================
+.env
+.env.*
+*.local
+
+# =========================
+# Editor / IDE
+# =========================
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# =========================
+# Docker
+# =========================
+*.pid
+*.seed
+*.bak
+docker-compose.override.yml

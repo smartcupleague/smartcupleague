@@ -1,0 +1,5 @@
+image: ghcr.io/vara-lab/smart-program-template-gitpod:latest
+tasks:
+  - init: |
+      rustup target add wasm32v1-none
+      cargo build

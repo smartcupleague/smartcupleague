@@ -1,0 +1,136 @@
+/* Legal pages — Terms of Use / DAO Constitution */
+
+.legal-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #17000c 0%, #240016 60%, #3a0322 100%);
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+}
+
+.legal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 0, 6, 0.5);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.legal-back {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 140ms, border-color 140ms;
+}
+
+.legal-back:hover {
+  color: #fff;
+  border-color: rgba(255, 0, 110, 0.5);
+}
+
+.legal-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.legal-content {
+  flex: 1;
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.legal-badge {
+  display: inline-block;
+  background: rgba(255, 0, 110, 0.2);
+  border: 1px solid rgba(255, 0, 110, 0.4);
+  color: #ff4f9c;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.legal-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.legal-updated {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.legal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legal-section h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 750;
+  color: #ff4f9c;
+}
+
+.legal-section p,
+.legal-section ul {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.legal-section ul {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legal-section li strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.legal-draft-notice {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: rgba(255, 160, 0, 0.1);
+  border: 1px solid rgba(255, 160, 0, 0.3);
+  border-radius: 12px;
+  font-size: 13px;
+  color: rgba(255, 200, 80, 0.9);
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .legal-title {
+    font-size: 20px;
+  }
+
+  .legal-content {
+    padding: 24px 16px 32px;
+  }
+}
