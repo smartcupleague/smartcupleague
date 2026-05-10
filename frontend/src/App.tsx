@@ -6,11 +6,12 @@ import './app-layout.css';
 
 function Component() {
   const { isApiReady } = useApi();
-  const { isAccountReady } = useAccount();
+  useAccount();
 
-  const isAppReady = isApiReady && isAccountReady;
+  const isAppReady = isApiReady;
+  const isPublicLanding = window.location.pathname === '/';
 
-  return isAppReady ? <Routing /> : <ApiLoader />;
+  return isAppReady || isPublicLanding ? <Routing /> : <ApiLoader />;
 }
 
 export const App = withProviders(Component);

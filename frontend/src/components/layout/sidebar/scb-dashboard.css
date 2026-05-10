@@ -335,21 +335,50 @@
 /* ─── Bottom section ─────────────────────────────────────────── */
 .scb-sidebar__bottom {
   margin-top: 1.6rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 0, 110, 0.14);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   position: relative;
 }
-/* Shimmer on separator */
-.scb-sidebar__bottom::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 0, 110, 0.5), transparent);
-  opacity: 0.6;
+
+
+
+.scb-sidebar__socials {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.scb-sidebar__social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.84);
+  text-decoration: none;
+  transition:
+    color 0.18s ease,
+    filter 0.18s ease,
+    transform 0.18s ease;
+}
+
+.scb-sidebar__social svg {
+  width: 21px;
+  height: 21px;
+}
+
+.scb-sidebar__social:hover,
+.scb-sidebar__social:focus-visible {
+  color: #fff;
+  filter: drop-shadow(0 0 10px rgba(255, 0, 110, 0.42));
+  transform: translateY(-2px);
+}
+
+.scb-sidebar__social:focus-visible {
+  outline: 2px solid rgba(255, 143, 184, 0.7);
+  outline-offset: 5px;
 }
 
 

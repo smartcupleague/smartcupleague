@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import field from '../../../public/images/dashboard-prediction.jpeg';
+const field = '/images/dashboard-prediction.jpeg';
 import './styles.css';
 
 interface LayoutProps {

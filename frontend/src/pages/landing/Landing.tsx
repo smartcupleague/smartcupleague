@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './landing.css';
 
-type Slide = { src: string; alt: string; kicker?: string; title: string; subtitle: string };
+type Slide = { src: string; alt: string; kicker?: string; title: string; titleLines?: string[]; subtitle: string };
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export const Landing: React.FC = () => {
         alt: 'Football team lineup',
         kicker: 'EASY TO PLAY, EASY TO SETTLE',
         title: 'No friction. No waiting. No complexity.',
+        titleLines: ['No friction. No waiting.', 'No complexity.'],
         subtitle: 'Connect your SubWallet and start playing in seconds.',
       },
       {
@@ -70,6 +71,7 @@ export const Landing: React.FC = () => {
         </div>
 
         <div className="scb-nav__right">
+          {/* Language switcher kept for future i18n rollout.
           <div className="scb-lang" aria-label="Language options">
             <button className="scb-lang__btn" type="button" aria-label="English">
               EN
@@ -83,8 +85,9 @@ export const Landing: React.FC = () => {
               PT
             </button>
           </div>
+          */}
 
-          <button className="scb-btn scb-btn--primary" onClick={() => navigate('/home')}>
+          <button className="scb-btn scb-btn--primary" onClick={() => navigate('/all-matches')}>
             Enter app
           </button>
         </div>
@@ -97,7 +100,7 @@ export const Landing: React.FC = () => {
           onMouseLeave={() => setPaused(false)}>
           <div className="scb-carousel" role="region" aria-label="Hero carousel">
             {slides.map((s, idx) => (
-              <div key={s.src} className={`scb-slide ${idx === active ? 'is-active' : ''}`}>
+              <div key={s.src} className={`scb-slide scb-slide--${idx + 1} ${idx === active ? 'is-active' : ''}`}>
                 <img src={s.src} alt={s.alt} className="scb-slide__img" />
                 <div className="scb-slide__gradient" />
 
@@ -105,7 +108,9 @@ export const Landing: React.FC = () => {
                   <p className="scb-hero__kicker">{s.kicker ?? 'SMARTCUP LEAGUE'}</p>
 
                   <h1 className="scb-hero__headline">
-                    <span className="scb-hero__headline-main">{s.title}</span>
+                    <span className="scb-hero__headline-main">
+                      {s.titleLines ? s.titleLines.map((line) => <span key={line}>{line}</span>) : s.title}
+                    </span>
                     <span className="scb-hero__headline-line">{s.subtitle}</span>
                     <span className="scb-hero__headline-line">
                       Soccer prediction markets on the <span className="scb-hero__highlight">blockchain</span>
@@ -113,7 +118,7 @@ export const Landing: React.FC = () => {
                   </h1>
 
                   <div className="scb-hero__cta-row">
-                    <button className="scb-btn scb-btn--primary scb-hero__cta" onClick={() => navigate('/home')}>
+                    <button className="scb-btn scb-btn--primary scb-hero__cta" onClick={() => navigate('/all-matches')}>
                       Start predicting
                     </button>
                     <a className="scb-btn scb-btn--ghost" href="#how">
@@ -448,7 +453,7 @@ export const Landing: React.FC = () => {
           <div className="scb-cta">
             <h2>Ready for kickoff?</h2>
             <p>Enter the app and start predicting soccer outcomes on-chain with the community</p>
-            <button className="scb-btn scb-btn--primary scb-btn--lg" onClick={() => navigate('/home')}>
+            <button className="scb-btn scb-btn--primary scb-btn--lg" onClick={() => navigate('/all-matches')}>
               Join SmartCup League
             </button>
           </div>

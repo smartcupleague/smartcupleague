@@ -552,18 +552,18 @@ body {
   z-index: 1;
   padding: 0 18px 16px;
 }
-/* Trophy layout: image on left, content on right */
 .h-prize--with-trophy {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+  display: block;
+  min-height: 300px;
   padding: 8px 18px 20px;
 }
 .h-prize__trophy {
-  width: 130px;
+  position: absolute;
+  top: 34px;
+  right: 26px;
+  width: min(38%, 190px);
   height: auto;
-  flex-shrink: 0;
-  align-self: center;
+  z-index: 0;
   filter:
     drop-shadow(0 0 18px rgba(255, 200, 60, 0.55))
     drop-shadow(0 0 36px rgba(255, 140, 20, 0.30))
@@ -575,22 +575,35 @@ body {
   50%       { transform: translateY(-5px) scale(1.02); }
 }
 .h-prize__content {
-  flex: 1;
+  position: relative;
+  z-index: 1;
   min-width: 0;
 }
 @media (max-width: 600px) {
   .h-prize--with-trophy {
-    flex-direction: column;
-    align-items: center;
+    min-height: auto;
     text-align: center;
   }
-  .h-prize__trophy { width: 100px; }
+  .h-prize__trophy {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100px;
+    display: block;
+    margin: 0 auto 12px;
+  }
+  .h-prize__big,
+  .h-prize__rows,
+  .h-prize__note {
+    max-width: none;
+  }
   .h-prize__rows { text-align: left; }
 }
 .h-prize__big {
   display: flex;
   align-items: baseline;
   gap: 10px;
+  max-width: 56%;
   margin-bottom: 14px;
 }
 .h-prize__value {
@@ -606,7 +619,12 @@ body {
   text-shadow: none;
 }
 .h-prize__unit { color: rgba(255, 255, 255, 0.65); font-weight: 900; font-size: 14px; }
-.h-prize__rows { display: grid; gap: 8px; margin-bottom: 12px; }
+.h-prize__rows {
+  display: grid;
+  gap: 8px;
+  max-width: 56%;
+  margin-bottom: 12px;
+}
 .h-row {
   display: flex;
   justify-content: space-between;
@@ -617,8 +635,17 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 13px;
 }
-.h-prize__note { margin: 8px 0 12px; font-size: 11.5px; color: rgba(255,255,255,0.55); }
-.h-prize__cta  { display: grid; gap: 10px; }
+.h-prize__note {
+  width: 100%;
+  margin: 8px 0 12px;
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.55);
+}
+.h-prize__cta  {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
 .h-prize__cup {
   font-size: 26px;
   opacity: 0.8;

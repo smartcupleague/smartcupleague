@@ -1,8 +1,9 @@
 import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { FaInstagram, FaTelegram, FaXTwitter } from 'react-icons/fa6';
 import './scb-dashboard.css';
 
-type SectionKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches' | 'dao' | 'admin-fixtures';
+type SectionKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches' | 'admin-fixtures';
 
 interface NavItem {
   key: SectionKey;
@@ -10,6 +11,25 @@ interface NavItem {
   path: string;
   icon: React.ReactNode;
 }
+
+
+const socialLinks = [
+  {
+    label: 'X',
+    href: 'https://x.com/smartcupleague',
+    icon: <FaXTwitter aria-hidden="true" />,
+  },
+  {
+    label: 'Instagram',
+    href: 'https://instagram.com/smartcupleague',
+    icon: <FaInstagram aria-hidden="true" />,
+  },
+  {
+    label: 'Telegram',
+    href: 'https://t.me/smartcupcommunity',
+    icon: <FaTelegram aria-hidden="true" />,
+  },
+];
 
 const navItems: NavItem[] = [
   {
@@ -36,12 +56,6 @@ const navItems: NavItem[] = [
     path: '/progress',
     icon: <span className="scb-icon">🏆</span>,
   },
-  {
-    key: 'dao',
-    label: 'DAO',
-    path: '/dao',
-    icon: <span className="scb-icon">🏛️</span>,
-  },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -67,9 +81,9 @@ export const Sidebar: React.FC = () => {
       <div
         className="logo-small"
         style={{ cursor: 'pointer' }}
-        onClick={() => navigate('/progress')}
+        onClick={() => navigate('/')}
         role="link"
-        aria-label="Go to My Progress">
+        aria-label="Go to homepage">
         <img className="logo-small" src="./Logos.png" alt="SmartCup League" />
       </div>
       <div className="scb-sidebar__brand" />
@@ -85,6 +99,22 @@ export const Sidebar: React.FC = () => {
           </NavLink>
         ))}
       </nav>
+
+      <div className="scb-sidebar__bottom" aria-label="SmartCup League social links">
+        <div className="scb-sidebar__socials">
+          {socialLinks.map((item) => (
+            <a
+              key={item.href}
+              className="scb-sidebar__social"
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={item.label}>
+              {item.icon}
+            </a>
+          ))}
+        </div>
+      </div>
     </aside>
   );
 };

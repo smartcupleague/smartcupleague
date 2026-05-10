@@ -6,7 +6,8 @@ import { AppLayout } from './AppLayout';
 import { MatchesTableComponent } from '@/components/predictions/AllMatchs';
 import { QueryBetsByUserComponent } from '@/components/predictions/QueryBetsByUser';
 import Leaderboards from '@/components/leaderboard/Leaderboards';
-import GovernancePanel from '@/components/dao/GovernancePanel';
+// DAO page is disabled until member-only access is ready.
+// import GovernancePanel from '@/components/dao/GovernancePanel';
 import { Simulator } from './simulator';
 import { AdminFixtures } from './admin-fixtures';
 import TermsOfUse from './legal/TermsOfUse';
@@ -41,7 +42,7 @@ function Routing() {
         <Route path="/leaderboard" element={<Leaderboards />} />
         {/* Backwards-compat alias */}
         <Route path="/leaderboards" element={<Leaderboards />} />
-        <Route path="/dao" element={<GovernancePanel />} />
+        {/* DAO route disabled until member-only access is ready. */}
         <Route path="/simulator" element={<Simulator />} />
         <Route path="/predictions/:wallet" element={<MatchesTableComponent />} />
       </Route>
