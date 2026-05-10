@@ -16,9 +16,9 @@ Prepare Vercel and Render so the final launch only requires:
 
 ### Phase 1: Frontend Shell and API Backend
 
-Status: in progress.
+Status: complete for infrastructure staging. The latest Vercel deployment loads successfully with `VITE_NODE_ADDRESS=wss://testnet.vara.network`.
 
-- Vercel frontend is deployed at `https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app`.
+- Vercel frontend is deployed and loading successfully. The previous immutable deployment URL was `https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app`; use the latest Vercel deployment URL until `smartcupleague.com` is connected.
 - Render API backend is deployed at `https://smartcupleague-api.onrender.com`.
 - API health check: `https://smartcupleague-api.onrender.com/api/v1/health/`.
 - CORS currently points to the Vercel URL, not `smartcupleague.com`.
@@ -26,7 +26,7 @@ Status: in progress.
 
 ### Phase 2: Oracle Server Staging
 
-Create the Render oracle service before contracts are deployed, but keep automation disabled:
+Status: complete for staging. Render oracle is live at `https://smartcupleague-oracle.onrender.com`. Keep automation disabled until contracts are deployed:
 
 ```env
 AUTO_FEED_INTERVAL_MS=0
@@ -129,7 +129,7 @@ Manual settings:
 ```text
 Root Directory: oracle-server
 Runtime: Node
-Build Command: yarn install && yarn build
+Build Command: yarn install --frozen-lockfile --production=false && yarn build
 Start Command: yarn start
 Health Check Path: /health
 ```
@@ -162,11 +162,17 @@ FINALIZE_BUFFER_MS=15000
 ALLOWED_ORIGINS=https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app
 ```
 
-Smoke test after real program IDs and signer seeds are set:
+Staging smoke test:
 
 ```text
 https://smartcupleague-oracle.onrender.com/health
 ```
+
+Current staging state:
+
+- `AUTO_FEED_INTERVAL_MS=0`
+- `BOLAO_PROGRAM_ID` empty, so the bridge is disabled
+- contract/admin operations are pending real deployed program IDs and signer seeds
 
 ## Final Launch Order
 
