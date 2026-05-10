@@ -1,0 +1,74 @@
+services:
+  - type: web
+    name: smartcupleague-api
+    env: python
+    region: oregon
+    plan: free
+    rootDir: api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health/
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_NAME
+        value: SmartCup League API
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: DEBUG
+        value: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: COINGECKO_API_KEY
+        sync: false
+      - key: COINGECKO_BASE_URL
+        value: https://api.coingecko.com/api/v3
+      - key: VARA_TOKEN_ID
+        value: vara-network
+      - key: PRICE_CACHE_TTL_SECONDS
+        value: 300
+
+  - type: web
+    name: smartcupleague-oracle
+    env: node
+    region: oregon
+    plan: free
+    rootDir: oracle-server
+    buildCommand: yarn install && yarn build
+    startCommand: yarn start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: VARA_WS
+        value: wss://testnet.vara.network
+      - key: ORACLE_PROGRAM_ID
+        sync: false
+      - key: BOLAO_PROGRAM_ID
+        sync: false
+      - key: GATEWAY_SEED
+        sync: false
+      - key: OPERATOR_SEED
+        sync: false
+      - key: SPORTS_API_KEY
+        sync: false
+      - key: SPORTS_COMPETITION_CODE
+        value: WC
+      - key: FRIENDLIES_COMPETITION_CODES
+        value: PL,CL
+      - key: AUTO_FEED_INTERVAL_MS
+        value: 0
+      - key: CHALLENGE_WINDOW_MS
+        value: 120000
+      - key: FINALIZE_BUFFER_MS
+        value: 15000
+      - key: ALLOWED_ORIGINS
+        sync: false
