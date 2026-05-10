@@ -18,7 +18,7 @@ Prepare Vercel and Render so the final launch only requires:
 
 Status: complete for infrastructure staging. The latest Vercel deployment loads successfully with `VITE_NODE_ADDRESS=wss://testnet.vara.network`.
 
-- Vercel frontend is deployed and loading successfully. The previous immutable deployment URL was `https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app`; use the latest Vercel deployment URL until `smartcupleague.com` is connected.
+- Vercel frontend is deployed and loading successfully at `https://smartcupleague-8216m5w8h-smart-cup-league-s-projects.vercel.app`; use this Vercel deployment URL until `smartcupleague.com` is connected.
 - Render API backend is deployed at `https://smartcupleague-api.onrender.com`.
 - API health check: `https://smartcupleague-api.onrender.com/api/v1/health/`.
 - CORS currently points to the Vercel URL, not `smartcupleague.com`.
@@ -78,7 +78,7 @@ The frontend can be deployed before contracts, but contract-backed pages will no
 Temporary production origin: use the current Vercel URL for CORS until `smartcupleague.com` is connected:
 
 ```text
-https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app
+https://smartcupleague-8216m5w8h-smart-cup-league-s-projects.vercel.app
 ```
 
 ## API Backend: Render
@@ -98,7 +98,7 @@ Health Check Path: /api/v1/health/
 Required environment variables:
 
 ```env
-ALLOWED_ORIGINS=https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app
+ALLOWED_ORIGINS=https://smartcupleague-8216m5w8h-smart-cup-league-s-projects.vercel.app
 SUPABASE_URL=https://REPLACE_WITH_SUPABASE_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=REPLACE_WITH_SUPABASE_SERVICE_ROLE_KEY
 ```
@@ -159,7 +159,7 @@ SPORTS_COMPETITION_CODE=WC
 FRIENDLIES_COMPETITION_CODES=PL,CL
 CHALLENGE_WINDOW_MS=120000
 FINALIZE_BUFFER_MS=15000
-ALLOWED_ORIGINS=https://smartcupleague-lotbq3zmk-smart-cup-league-s-projects.vercel.app
+ALLOWED_ORIGINS=https://smartcupleague-8216m5w8h-smart-cup-league-s-projects.vercel.app
 ```
 
 Staging smoke test:
