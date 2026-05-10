@@ -32,12 +32,16 @@ type MatchInfo = {
 };
 
 function getResultDetails(result: any): {
-  label: 'OPEN' | 'LIVE' | 'FINAL';
+  label: 'OPEN' | 'LIVE' | 'FINAL' | 'CANCELLED';
   home: number;
   away: number;
   penaltyWinner: string | null;
 } {
   try {
+    if (result === 'Cancelled' || result === 'cancelled' || result?.Cancelled !== undefined || result?.cancelled !== undefined) {
+      return { label: 'CANCELLED', home: 0, away: 0, penaltyWinner: null };
+    }
+
     if (result?.Finalized?.score) {
       const s = result.Finalized.score;
       return { label: 'FINAL', home: Number(s.home ?? 0) || 0, away: Number(s.away ?? 0) || 0, penaltyWinner: null };
@@ -81,22 +85,23 @@ function formatDatetime(kickOff: string) {
   });
 }
 
-function closesLabel(kickOff: string) {
+function predictionWindow(kickOff: string): { closed: boolean; label: string } {
   const n = Number(kickOff);
-  if (!Number.isFinite(n) || n <= 0) return '—';
+  if (!Number.isFinite(n) || n <= 0) return { closed: true, label: 'Closed' };
 
   const ms = n < 10_000_000_000 ? n * 1000 : n;
   const closesAt = ms - 10 * 60 * 1000;
   const diff = closesAt - Date.now();
-  if (diff <= 0) return 'Closed';
+  if (diff <= 0) return { closed: true, label: 'Closed' };
 
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `Closes in ${mins}m`;
+  if (mins < 60) return { closed: false, label: `Closes in ${mins}m` };
 
   const hrs = Math.floor(mins / 60);
   const rem = mins % 60;
-  return `Closes in ${hrs}h ${rem}m`;
+  return { closed: false, label: `Closes in ${hrs}h ${rem}m` };
 }
+
 
 function formatAmount(val: unknown, decimals = 12) {
   if (val === null || val === undefined) return '—';
@@ -505,12 +510,19 @@ export const MatchesTableComponent: React.FC = () => {
               const r = getResultDetails(m.result);
               const totalPoolHuman = formatAmount(m.match_prize_pool, 12);
 
+              const prediction = predictionWindow(m.kick_off);
+              const displayLabel = r.label === "OPEN" && prediction.closed ? "CLOSED" : r.label;
+
               const statusText =
-                r.label === 'FINAL'
-                  ? `Final score ${r.home}-${r.away}.`
-                  : r.label === 'LIVE'
-                    ? `Live now ${r.home}-${r.away} (proposed).`
-                    : `Open for predictions • ${closesLabel(m.kick_off)}.`;
+                r.label === "FINAL"
+                  ? "Final score " + r.home + "-" + r.away + "."
+                  : r.label === "LIVE"
+                    ? "Live now " + r.home + "-" + r.away + " (proposed)."
+                    : r.label === "CANCELLED"
+                      ? "Match cancelled • Refund available if eligible."
+                      : prediction.closed
+                        ? "Prediction closed • Awaiting result."
+                        : "Open for predictions • " + prediction.label + ".";
 
               const hasPrediction = userBetMatchIds.has(m.match_id);
 
@@ -530,13 +542,13 @@ export const MatchesTableComponent: React.FC = () => {
                         <TeamFlag className="mxFlag" team={m.away} />
                       </div>
 
-                      <span className={'mxStatus mxStatus--' + r.label.toLowerCase()}>
-                        {r.label === 'OPEN' ? 'OPEN' : r.label === 'LIVE' ? 'LIVE' : 'FINAL'}
+                      <span className={"mxStatus mxStatus--" + displayLabel.toLowerCase()}>
+                        {displayLabel}
                       </span>
                     </div>
 
                     <div className="mxCard__topRight">
-                      {r.label !== 'FINAL' ? <span className="mxPill">{closesLabel(m.kick_off)}</span> : null}
+                      {r.label === "OPEN" ? <span className="mxPill">{prediction.label}</span> : null}
 
                       {/* Prediction Made badge on the right */}
                       {hasPrediction && (
@@ -555,7 +567,7 @@ export const MatchesTableComponent: React.FC = () => {
                           type="button">
                           Details
                         </button>
-                      ) : r.label !== 'FINAL' && closesLabel(m.kick_off) !== 'Closed' ? (
+                      ) : r.label === "OPEN" && !prediction.closed ? (
                         <button
                           className="mxBtn mxBtn--primary"
                           onClick={() => navigate(matchPath(m.phase, m.match_id))}
@@ -579,13 +591,21 @@ export const MatchesTableComponent: React.FC = () => {
 
                     <div className="mxScore">
                       <div className="mxScore__label">
-                        {r.label === 'OPEN' ? 'OPEN' : r.label === 'LIVE' ? 'LIVE SCORE' : 'FINAL SCORE'}
+                        {displayLabel === "OPEN" ? "OPEN" : displayLabel === "CLOSED" ? "CLOSED" : r.label === "LIVE" ? "LIVE SCORE" : r.label === "CANCELLED" ? "CANCELLED" : "FINAL SCORE"}
                       </div>
                       <div className="mxScore__value">
                         {r.home}-{r.away}
                       </div>
                       <div className="mxScore__sub">
-                        {r.label === 'FINAL' ? 'On-chain finalized result' : 'On-chain proposed score'}
+                        {r.label === "FINAL"
+                          ? "On-chain finalized result"
+                          : r.label === "LIVE"
+                            ? "On-chain proposed score"
+                            : r.label === "CANCELLED"
+                              ? "Match cancelled"
+                              : prediction.closed
+                                ? "Awaiting on-chain result"
+                                : "Open for predictions"}
                       </div>
                     </div>
 
