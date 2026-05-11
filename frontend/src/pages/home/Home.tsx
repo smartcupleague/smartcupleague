@@ -12,8 +12,6 @@ import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useNavigate } from 'react-router-dom';
-import { useOnboarding } from '@/hooks/useOnboarding';
-import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { matchPath } from '@/utils';
 
 const CORE_PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
@@ -210,9 +208,6 @@ export default function Home() {
   const toast = useToast();
   const { account } = useAccount();
   const navigate = useNavigate();
-  const onboarding = useOnboarding();
-
-  const showOnboarding = !!account && !onboarding.accepted;
 
   const myWalletHex = useMemo(() => {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
@@ -645,8 +640,6 @@ export default function Home() {
 
   return (
     <div className="h-dash">
-      {showOnboarding && <OnboardingModal onAccept={onboarding.accept} />}
-
       <div className="h-bg" aria-hidden="true" />
 
       <header className="h-topbar">

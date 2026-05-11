@@ -159,3 +159,22 @@ Files:
 - Kept them icon-only with accessible labels and external-link behavior.
 - Updated styling to use larger simple white icons with no circular background and no divider above the social row.
 
+## Onboarding nickname/profile cleanup
+
+Files:
+
+- src/components/onboarding/OnboardingModal.tsx
+- src/hooks/useOnboarding.ts
+- src/hooks/useWalletProfile.ts
+- src/App.tsx
+- src/pages/AppLayout.tsx
+- src/pages/home/Home.tsx
+
+- Removed the email request from the terms/onboarding modal because email was only stored locally and is not currently used by the backend.
+- Wired the onboarding nickname to the same wallet profile save flow used by the balance display-name editor.
+- Nickname entry now saves to /api/v1/profiles/{walletHex} as display_name when a connected wallet is available, so it can enrich the leaderboard instead of only living in localStorage.
+- Kept localStorage only for the onboarding acceptance/nickname state.
+- Matched the nickname max length to the backend wallet_profiles display_name limit of 30 characters.
+- Removed the duplicate Progress-page onboarding modal so the root App.tsx owns the terms acceptance flow.
+- Added a wallet-profile update event so the balance display-name widget updates immediately when the onboarding nickname saves.
+- Moved onboarding modal ownership to App.tsx so first-time connected users see it across all routed pages, not only sidebar-layout pages.

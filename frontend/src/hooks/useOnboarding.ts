@@ -5,10 +5,9 @@ const STORAGE_KEY = 'scl_onboarding_v1';
 type OnboardingData = {
   accepted: boolean;
   nickname: string;
-  email: string;
 };
 
-const defaultData: OnboardingData = { accepted: false, nickname: '', email: '' };
+const defaultData: OnboardingData = { accepted: false, nickname: '' };
 
 function readStorage(): OnboardingData {
   try {
@@ -25,8 +24,8 @@ function readStorage(): OnboardingData {
 export function useOnboarding() {
   const [data, setData] = useState<OnboardingData>(readStorage);
 
-  const accept = useCallback((nickname: string, email: string) => {
-    const next: OnboardingData = { accepted: true, nickname: nickname.trim(), email: email.trim() };
+  const accept = useCallback((nickname: string) => {
+    const next: OnboardingData = { accepted: true, nickname: nickname.trim() };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {}
@@ -40,5 +39,5 @@ export function useOnboarding() {
     setData(defaultData);
   }, []);
 
-  return { accepted: data.accepted, nickname: data.nickname, email: data.email, accept, reset };
+  return { accepted: data.accepted, nickname: data.nickname, accept, reset };
 }

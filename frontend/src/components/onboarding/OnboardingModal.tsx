@@ -2,21 +2,26 @@ import React, { useState } from 'react';
 import './OnboardingModal.css';
 
 interface Props {
-  onAccept: (nickname: string, email: string) => void;
+  onAccept: (nickname: string) => void | Promise<void>;
 }
 
 export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
   const [checkedTerms, setCheckedTerms] = useState(false);
   const [checkedAge, setCheckedAge] = useState(false);
   const [nickname, setNickname] = useState('');
-  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canContinue = checkedTerms && checkedAge;
+  const canContinue = checkedTerms && checkedAge && !isSubmitting;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canContinue) return;
-    onAccept(nickname, email);
+    setIsSubmitting(true);
+    try {
+      await onAccept(nickname);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,23 +74,8 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder="Your display name"
-                maxLength={32}
+                maxLength={30}
                 autoComplete="nickname"
-              />
-            </div>
-
-            <div className="ob-field">
-              <label className="ob-field__label" htmlFor="ob-email">
-                Email <span className="ob-optional">(optional)</span>
-              </label>
-              <input
-                id="ob-email"
-                className="ob-field__input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                autoComplete="email"
               />
             </div>
           </div>
@@ -127,7 +117,7 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
             type="submit"
             disabled={!canContinue}
             aria-disabled={!canContinue}>
-            Continue to Match Predictions →
+            {isSubmitting ? 'Saving...' : 'Continue to Match Predictions →'}
           </button>
 
           {!canContinue && (

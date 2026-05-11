@@ -4,6 +4,12 @@ import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
+const PROFILE_EVENT = 'smartcup:wallet-profile-updated';
+
+type ProfileEventDetail = {
+  walletHex: string;
+  displayName: string | null;
+};
 
 function toHex(addr?: string | null): string | null {
   if (!addr) return null;
@@ -35,6 +41,20 @@ export function useWalletProfile() {
       .finally(() => setIsLoading(false));
   }, [walletHex]);
 
+  useEffect(() => {
+    if (!walletHex) return;
+
+    const onProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<ProfileEventDetail>).detail;
+      if (detail?.walletHex === walletHex) {
+        setDisplayName(detail.displayName);
+      }
+    };
+
+    window.addEventListener(PROFILE_EVENT, onProfileUpdated);
+    return () => window.removeEventListener(PROFILE_EVENT, onProfileUpdated);
+  }, [walletHex]);
+
   const save = async (name: string): Promise<boolean> => {
     if (!walletHex) return false;
     setIsSaving(true);
@@ -46,7 +66,11 @@ export function useWalletProfile() {
       });
       if (!res.ok) return false;
       const data = await res.json();
-      setDisplayName(data.display_name ?? null);
+      const nextDisplayName = data.display_name ?? null;
+      setDisplayName(nextDisplayName);
+      window.dispatchEvent(new CustomEvent<ProfileEventDetail>(PROFILE_EVENT, {
+        detail: { walletHex, displayName: nextDisplayName },
+      }));
       return true;
     } catch {
       return false;
