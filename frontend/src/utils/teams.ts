@@ -12,10 +12,13 @@ const TEAM_FLAGS: Record<string, string> = {
   GERMANY: '/flags/germany.jpg',
   GHANA: '/flags/ghana.jpg',
   IRAN: '/flags/iran.jpg',
+  'IR IRAN': '/flags/iran.jpg',
   JAPAN: '/flags/japan.jpg',
   KOREA: '/flags/korea.jpg',
+  'KOREA REPUBLIC': '/flags/korea.jpg',
+  'SOUTH KOREA': '/flags/korea.jpg',
   MEXICO: '/flags/mexico.jpg',
-  MOROCCO: '/flags/morocco.jpg',
+  MOROCCO: '/flags/morroco.jpg',
   NETHERLANDS: '/flags/netherlands.jpg',
   POLAND: '/flags/poland.jpg',
   PORTUGAL: '/flags/portugal.jpg',
@@ -23,9 +26,73 @@ const TEAM_FLAGS: Record<string, string> = {
   'SAUDI ARABIA': '/flags/saudi_arabia.jpg',
   SENEGAL: '/flags/senegal.jpg',
   SERBIA: '/flags/serbia.jpg',
-  'SOUTH AFRICA': '/flags/south_africa.png',
-  'United States':'/flags/usa.jpg'
+  'SOUTH AFRICA': '/flags/South_Africa.png',
+  SPAIN: '/flags/spain.jpg',
+  SWITZERLAND: '/flags/Switzerland.jpg',
+  TUNISIA: '/flags/tunisia.jpg',
+  URUGUAY: '/flags/uruguay.jpg',
+  'UNITED STATES': '/flags/usa.jpg',
+  USA: '/flags/usa.jpg',
 };
 
+type WorldCupTeam = {
+  value: string;
+};
 
-export { TEAM_FLAGS};
+const WORLD_CUP_TEAMS: WorldCupTeam[] = [
+  { value: 'Algeria' },
+  { value: 'Argentina' },
+  { value: 'Australia' },
+  { value: 'Austria' },
+  { value: 'Belgium' },
+  { value: 'Bosnia-Herzegovina' },
+  { value: 'Brazil' },
+  { value: 'Canada' },
+  { value: 'Cape Verde Islands' },
+  { value: 'Colombia' },
+  { value: 'Congo DR' },
+  { value: 'Croatia' },
+  { value: 'Curaçao' },
+  { value: 'Czechia' },
+  { value: 'Ecuador' },
+  { value: 'Egypt' },
+  { value: 'England' },
+  { value: 'France' },
+  { value: 'Germany' },
+  { value: 'Ghana' },
+  { value: 'Haiti' },
+  { value: 'Iran' },
+  { value: 'Iraq' },
+  { value: 'Ivory Coast' },
+  { value: 'Japan' },
+  { value: 'Jordan' },
+  { value: 'Mexico' },
+  { value: 'Morocco' },
+  { value: 'Netherlands' },
+  { value: 'New Zealand' },
+  { value: 'Norway' },
+  { value: 'Panama' },
+  { value: 'Paraguay' },
+  { value: 'Portugal' },
+  { value: 'Qatar' },
+  { value: 'Saudi Arabia' },
+  { value: 'Scotland' },
+  { value: 'Senegal' },
+  { value: 'South Africa' },
+  { value: 'South Korea' },
+  { value: 'Spain' },
+  { value: 'Sweden' },
+  { value: 'Switzerland' },
+  { value: 'Tunisia' },
+  { value: 'Turkey' },
+  { value: 'United States' },
+  { value: 'Uruguay' },
+  { value: 'Uzbekistan' },
+].sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: 'base' }));
+
+const WORLD_CUP_TEAM_LABELS = WORLD_CUP_TEAMS.reduce<Record<string, string>>((acc, team) => {
+  acc[team.value] = team.value;
+  return acc;
+}, {});
+
+export { TEAM_FLAGS, WORLD_CUP_TEAMS, WORLD_CUP_TEAM_LABELS };

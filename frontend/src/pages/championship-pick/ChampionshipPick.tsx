@@ -12,7 +12,7 @@ import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { useDynamicMinimumBet } from '@/hooks/useDynamicMinimumBet';
 import { Program, Service } from '@/hocs/lib';
-import { TEAM_FLAGS } from '@/utils/teams';
+import { WORLD_CUP_TEAMS, WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
 import '../matchs/match.css';
 import './championship-pick.css';
 
@@ -50,9 +50,8 @@ const pickSlots: PickSlot[] = [
   { key: 'thirdPlace', medal: '🥉', title: '3rd Place', points: '+5 pts', condition: 'If your predicted third-place team wins the 3rd-place match' },
 ];
 
-const teams = Object.keys(TEAM_FLAGS).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
 function displayTeamName(team: string) {
+  if (WORLD_CUP_TEAM_LABELS[team]) return WORLD_CUP_TEAM_LABELS[team];
   return team
     .toLowerCase()
     .split(' ')
@@ -509,9 +508,13 @@ export function ChampionshipPick() {
                             aria-label={slot.title}
                             disabled={submitted || submitting || isLocked}>
                             <option value="">Select Team</option>
-                            {teams.map((team) => (
-                              <option key={team} value={team} disabled={value !== team && selectedTeams.includes(team)}>
-                                {displayTeamName(team)}
+                            {WORLD_CUP_TEAMS.map((team) => (
+                              <option
+                                key={team.value}
+                                value={team.value}
+                                disabled={value !== team.value && selectedTeams.includes(team.value)}
+                              >
+                                {team.value}
                               </option>
                             ))}
                           </select>
