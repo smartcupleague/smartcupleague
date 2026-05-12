@@ -183,6 +183,36 @@
   color: #fff;
 }
 
+.ob-terms-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid rgba(255, 79, 156, 0.34);
+  border-radius: 10px;
+  background: rgba(255, 0, 110, 0.10);
+  color: #ff8fbe;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color 140ms, background 140ms, color 140ms;
+}
+
+.ob-terms-btn:hover {
+  border-color: rgba(255, 79, 156, 0.58);
+  background: rgba(255, 0, 110, 0.16);
+  color: #fff;
+}
+
+.ob-check__input:disabled + .ob-check__box {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ob-check__input:disabled ~ .ob-check__text {
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .ob-cta {
   width: 100%;
   padding: 14px;

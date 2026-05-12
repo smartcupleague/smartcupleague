@@ -31,6 +31,11 @@ type MatchInfo = {
   dust_swept?: boolean;
 };
 
+type CoreState = {
+  r32_lock_time?: string | number | bigint | null;
+  podium_finalized?: boolean;
+};
+
 function getResultDetails(result: any): {
   label: 'OPEN' | 'LIVE' | 'FINAL' | 'CANCELLED';
   home: number;
@@ -83,6 +88,17 @@ function formatDatetime(kickOff: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function timestampToMs(value?: string | number | bigint | null) {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 10_000_000_000 ? n * 1000 : n;
+}
+
+function podiumStorageKey(wallet?: string) {
+  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
 }
 
 function predictionWindow(kickOff: string): { closed: boolean; label: string } {
@@ -139,6 +155,76 @@ function getPhases(matches: MatchInfo[]): string[] {
   return Array.from(set).sort();
 }
 
+type UserBetView = {
+  match_id: string;
+  score: { home: number; away: number };
+  penalty_winner?: any;
+};
+
+const LOCAL_PREVIEW_MATCHES: MatchInfo[] = [
+  {
+    match_id: '1',
+    phase: 'GROUP_STAGE',
+    home: 'Mexico',
+    away: 'Canada',
+    kick_off: '1774558800',
+    result: { finalized: { score: { home: 2, away: 0 } } },
+    match_prize_pool: '8100000000000000',
+    has_bets: true,
+    settlement_prepared: true,
+  },
+  {
+    match_id: '2',
+    phase: 'GROUP_STAGE',
+    home: 'England',
+    away: 'Argentina',
+    kick_off: '1774645200',
+    result: { finalized: { score: { home: 1, away: 3 } } },
+    match_prize_pool: '6475000000000000',
+    has_bets: true,
+    settlement_prepared: true,
+  },
+  {
+    match_id: '3',
+    phase: 'GROUP_STAGE',
+    home: 'Brazil',
+    away: 'Belgium',
+    kick_off: '1774731600',
+    result: { finalized: { score: { home: 2, away: 1 } } },
+    match_prize_pool: '6180000000000000',
+    has_bets: true,
+    settlement_prepared: true,
+  },
+];
+
+function isLocalPredictedPreview() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  if (!isLocalhost) return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('previewPredicted') === '1';
+}
+
+function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
+  const previewBets = new Map<string, UserBetView>();
+  for (const m of matches.slice(0, 4)) {
+    const result = getResultDetails(m.result);
+    const seed = Number(m.match_id);
+    const fallbackHome = Number.isFinite(seed) ? seed % 3 : 1;
+    const fallbackAway = Number.isFinite(seed) ? (seed + 1) % 3 : 0;
+    previewBets.set(m.match_id, {
+      match_id: m.match_id,
+      score: {
+        home: result.label === 'FINAL' || result.label === 'LIVE' ? result.home : fallbackHome,
+        away: result.label === 'FINAL' || result.label === 'LIVE' ? result.away : fallbackAway,
+      },
+      penalty_winner: null,
+    });
+  }
+  return previewBets;
+}
+
 type SortField = 'match_id_asc' | 'match_id_desc' | 'date_asc' | 'date_desc';
 type StatusFilter = '' | 'predicted' | 'not_predicted';
 type CompTab = 'leagues' | 'worldcup';
@@ -176,23 +262,32 @@ export const MatchesTableComponent: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>('match_id_asc');
 
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('');
-  const [activeTab, setActiveTab] = useState<CompTab>('leagues');
+  const [activeTab, setActiveTab] = useState<CompTab>(isLocalPredictedPreview() ? 'worldcup' : 'leagues');
   const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
   const { planckToUsd } = useVaraPrice();
-  const [userBetMatchIds, setUserBetMatchIds] = useState<Set<string>>(new Set());
+  const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
+  const [r32LockTime, setR32LockTime] = useState<CoreState['r32_lock_time']>(null);
+  const [podiumFinalized, setPodiumFinalized] = useState(false);
+  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
 
   useEffect(() => {
     void web3Enable('Bolao Matches UI');
   }, []);
 
   const fetchMatches = useCallback(async () => {
-    if (!api || !isApiReady) return;
+    const useLocalPreview = isLocalPredictedPreview();
+    if (!api || !isApiReady) {
+      if (useLocalPreview) setMatches(LOCAL_PREVIEW_MATCHES);
+      return;
+    }
     setLoading(true);
 
     try {
       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const state = await (svc as any).queryState();
+      const state = (await (svc as any).queryState()) as CoreState & { matches?: any[] };
       const list = (state as any)?.matches ?? [];
+      setR32LockTime(state?.r32_lock_time ?? null);
+      setPodiumFinalized(Boolean(state?.podium_finalized));
 
       const normalized: MatchInfo[] = (Array.isArray(list) ? list : []).map((m: any) => ({
         match_id: String(m?.match_id ?? ''),
@@ -201,20 +296,18 @@ export const MatchesTableComponent: React.FC = () => {
         away: String(m?.away ?? ''),
         kick_off: String(m?.kick_off ?? '0'),
         result: m?.result ?? null,
-        // Prefer match_prize_pool, fall back to total_pool field
         match_prize_pool: String(m?.match_prize_pool ?? m?.total_pool ?? '0'),
         has_bets: Boolean(m?.has_bets),
-
         total_winner_stake: m?.total_winner_stake != null ? String(m.total_winner_stake) : undefined,
         total_claimed: m?.total_claimed != null ? String(m.total_claimed) : undefined,
         settlement_prepared: m?.settlement_prepared != null ? Boolean(m.settlement_prepared) : false,
         dust_swept: m?.dust_swept != null ? Boolean(m.dust_swept) : undefined,
       }));
 
-      setMatches(normalized);
+      setMatches(useLocalPreview && !normalized.length ? LOCAL_PREVIEW_MATCHES : normalized);
     } catch (e) {
       console.error('fetchMatches error', e);
-      setMatches(null);
+      setMatches(useLocalPreview ? LOCAL_PREVIEW_MATCHES : null);
     } finally {
       setLoading(false);
     }
@@ -225,16 +318,42 @@ export const MatchesTableComponent: React.FC = () => {
   }, [fetchMatches]);
 
   const fetchUserBets = useCallback(async () => {
-    if (!api || !isApiReady || !account) return;
+    const previewBets = isLocalPredictedPreview() ? buildPreviewBets(matches ?? []) : null;
+    if (!api || !isApiReady || !account) {
+      if (previewBets?.size) setUserBetsByMatchId(previewBets);
+      return;
+    }
     try {
       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
       const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
-      const ids = new Set((bets ?? []).map((b: any) => String(b?.match_id ?? '')));
-      setUserBetMatchIds(ids);
-    } catch { setUserBetMatchIds(new Set()); }
-  }, [api, isApiReady, account]);
+      const byMatchId = new Map<string, UserBetView>();
+      for (const b of bets ?? []) {
+        const matchId = String(b?.match_id ?? '');
+        if (!matchId) continue;
+        byMatchId.set(matchId, {
+          match_id: matchId,
+          score: {
+            home: Number(b?.score?.home ?? 0) || 0,
+            away: Number(b?.score?.away ?? 0) || 0,
+          },
+          penalty_winner: b?.penalty_winner ?? null,
+        });
+      }
+      setUserBetsByMatchId(byMatchId.size ? byMatchId : previewBets ?? new Map());
+    } catch { setUserBetsByMatchId(previewBets ?? new Map()); }
+  }, [api, isApiReady, account, matches]);
 
   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
+
+  useEffect(() => {
+    const key = podiumStorageKey(account?.decodedAddress);
+    setPodiumSubmitted(key ? window.localStorage.getItem(key) === 'true' : false);
+  }, [account?.decodedAddress]);
+
+  const podiumLockMs = useMemo(() => timestampToMs(r32LockTime ?? null), [r32LockTime]);
+  const podiumLocked = !!podiumLockMs && Date.now() >= podiumLockMs;
+  const showChampionshipPickCard = activeTab === 'worldcup' && !podiumFinalized;
+  const championshipPickState = podiumSubmitted ? 'submitted' : podiumLocked ? 'locked' : 'open';
 
   const phases = useMemo(() => getPhases(matches ?? []), [matches]);
 
@@ -277,9 +396,9 @@ export const MatchesTableComponent: React.FC = () => {
 
     // Status filter
     if (filterStatus === 'predicted') {
-      list = list.filter((m) => userBetMatchIds.has(m.match_id));
+      list = list.filter((m) => userBetsByMatchId.has(m.match_id));
     } else if (filterStatus === 'not_predicted') {
-      list = list.filter((m) => !userBetMatchIds.has(m.match_id));
+      list = list.filter((m) => !userBetsByMatchId.has(m.match_id));
     }
 
     // Sort
@@ -310,7 +429,7 @@ export const MatchesTableComponent: React.FC = () => {
     );
 
     return list;
-  }, [matches, filterSearch, headerSearch, filterStage, filterDate, sortField, filterStatus, userBetMatchIds, activeTab]);
+  }, [matches, filterSearch, headerSearch, filterStage, filterDate, sortField, filterStatus, userBetsByMatchId, activeTab]);
 
   const handleClaim = useCallback(
     async (matchId: string) => {
@@ -500,6 +619,30 @@ export const MatchesTableComponent: React.FC = () => {
           </div>
         </div>
 
+        {showChampionshipPickCard ? (
+          <section className={`mxChampPick mxChampPick--${championshipPickState}`} aria-label="Championship Prediction">
+            <div className="mxChampPick__glow" aria-hidden="true" />
+            <div className="mxChampPick__copy">
+              <div className="mxChampPick__title">
+                <span className="mxChampPick__icon" aria-hidden="true">🏆</span>
+                <span>Championship Prediction</span>
+              </div>
+              <p>Pick Top 3 Teams before R32 kickoff</p>
+            </div>
+            <button
+              className="mxChampPick__cta"
+              type="button"
+              disabled={championshipPickState === 'locked'}
+              onClick={() => navigate('/championship-pick')}>
+              {championshipPickState === 'submitted'
+                ? 'View Picks ✓'
+                : championshipPickState === 'locked'
+                  ? 'Locked 🔒'
+                  : 'Make Picks →'}
+            </button>
+          </section>
+        ) : null}
+
         {loading ? (
           <div className="mxLoading">
             <span className="mxSpinner" aria-hidden="true" /> Loading matches…
@@ -524,7 +667,9 @@ export const MatchesTableComponent: React.FC = () => {
                         ? "Prediction closed • Awaiting result."
                         : "Open for predictions • " + prediction.label + ".";
 
-              const hasPrediction = userBetMatchIds.has(m.match_id);
+              const userBet = userBetsByMatchId.get(m.match_id);
+              const hasPrediction = !!userBet;
+              const pickText = userBet ? `${userBet.score.home}-${userBet.score.away}` : '';
 
               return (
                 <article className={'mxCard' + (hasPrediction ? ' mxCard--predicted' : '')} key={m.match_id}>
@@ -578,6 +723,13 @@ export const MatchesTableComponent: React.FC = () => {
                     </div>
 
                     <div className="mxStatusLine">{statusText}</div>
+
+                    {userBet ? (
+                      <div className="mxYourPick" aria-label={`Your pick ${pickText}`}>
+                        <span className="mxYourPick__label">Your Pick</span>
+                        <span className="mxYourPick__score">{pickText}</span>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="mxCard__mid">

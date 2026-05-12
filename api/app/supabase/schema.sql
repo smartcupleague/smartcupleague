@@ -122,6 +122,7 @@ select
     wp.display_name                                 as display_name,
     coalesce(p.matches_count, 0)                    as matches_count,
     coalesce(c.exact_count, 0)                      as exact_count,
+    coalesce(c.outcome_count, 0)                    as outcome_count,
     coalesce(c.total_claimed_planck, 0)             as total_claimed_planck,
     greatest(
         coalesce(p.last_bet_at,   '1970-01-01'::timestamptz),
@@ -139,6 +140,7 @@ full outer join (
     select
         wallet_address,
         count(*) filter (where is_exact)    as exact_count,
+        count(*)                            as outcome_count,
         coalesce(sum(amount_planck), 0)     as total_claimed_planck,
         max(claimed_at)                     as last_claim_at
     from public.claim_events
@@ -186,4 +188,3 @@ $$;
 
 comment on function public.cleanup_old_prices is
     'Deletes price records older than 30 days. Returns number of rows deleted.';
-

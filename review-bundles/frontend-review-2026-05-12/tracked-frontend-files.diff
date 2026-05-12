@@ -1,0 +1,2726 @@
+diff --git a/frontend/HOMEPAGE_PREVIEW_CHANGES.md b/frontend/HOMEPAGE_PREVIEW_CHANGES.md
+index b6e5ece..b78ff13 100644
+--- a/frontend/HOMEPAGE_PREVIEW_CHANGES.md
++++ b/frontend/HOMEPAGE_PREVIEW_CHANGES.md
+@@ -2,6 +2,10 @@
+ 
+ Status: local preview only. Do not commit/push until explicitly approved.
+ 
++Observation: after these latest changes, dev has not yet received the updates because I did not want to push them on my own. Exception: the homepage changes were already shared.
++
++Commit boundary note: the onboarding nickname/profile cleanup was committed separately in `4e835ce`. The Championship Pick pages, widgets, modals, related frontend entry points, preview-route work, and bolao-core contract changes are intentionally still local/uncommitted and have not been pushed.
++
+ ## Preview-only local fixes
+ 
+ These were added to make localhost preview usable:
+@@ -109,6 +113,7 @@ Files:
+ File:
+ 
+ - `src/pages/home/dashboard.css`
++- `src/pages/home/Home.tsx`
+ 
+ ### Final Prize Pool widget
+ 
+@@ -117,6 +122,46 @@ File:
+ - Made the distribution bar and `Claim Prize` CTA span the full widget width.
+ - Made the Final Prize Pool note lines span the full widget width.
+ - Added responsive fallback so the trophy stacks cleanly on small screens.
++- Wired the Total Earned KPI to the backend `/api/v1/leaderboard` enrichment row for the connected wallet, using `total_claimed_planck` from the database instead of a placeholder.
++- Attenuated the Championship Picks row inside Your Prediction Performance so it uses a darker wine treatment with reduced glow, softer border, and a less saturated CTA.
++- Updated the Championship Picks `Make Picks` CTA to use the same pink primary button color treatment as the Final Prize Pool `Claim Prize` CTA.
++- Aligned the empty-state `View all matches` CTA in Your Prediction Performance with the `View full Leaderboard` CTA in Your SmartCup Status by anchoring both card footers to the bottom of their widgets.
++- Updated the next-match fallback state in Your Prediction Performance: if every upcoming match has already been predicted, the card now says `Next Predicted Match` and the primary CTA becomes `View your predictions ->`, routing to `/my-predictions`.
++
++## Data wiring audit notes
++
++Files:
++
++- api/app/services/leaderboard_service.py
++- api/app/schemas/leaderboard.py
++- api/app/supabase/schema.sql
++- frontend/src/components/leaderboard/Leaderboards.tsx
++- frontend/src/components/leaderboard/UserProfileModal.tsx
++- frontend/src/pages/matchs/MatchCard.tsx
++- frontend/src/components/predictions/QueryBetsByUser.tsx
++- frontend/src/pages/home/Home.tsx
++
++- Fixed backend leaderboard responses to include `display_name` from the `user_leaderboard_stats` Supabase view, so wallet profile names can actually reach the frontend leaderboard.
++- Added `outcome_count` to the Supabase leaderboard view/API response and changed the Leaderboard page from `Won (VARA)` to `Outcomes`, so the table now reads Matches, Exact, Outcomes, Points.
++- IMPORTANT DEPLOYMENT BLOCKER: the live Supabase `user_leaderboard_stats` view must be updated with the `outcome_count` path from `api/app/supabase/schema.sql`. Until that database view is applied in Supabase, the frontend/API can only safely fall back to `—` or `0` for Outcomes even though the UI column is now present.
++- Added database stats reporting after successful `claimMatchReward` transactions from both the direct match prediction page and My Predictions.
++- Claim reporting now sends the observed balance delta to `/api/v1/stats/record-claim` and marks exact-score claims when the local finalized result/prediction comparison confirms an exact hit.
++- My Progress now reads the connected wallet's `/api/v1/leaderboard` row to display Total Earned from database claim events.
++- Remaining known caveat: Championship Pick submitted state still needs a wallet-scoped bolao-core query such as `query_podium_pick(user)` to replace localStorage after contract deployment.
++
++## Terms of Use update
++
++Files:
++
++- `src/pages/legal/TermsOfUse.tsx`
++- `src/pages/legal/legal.css`
++- `src/components/onboarding/OnboardingModal.tsx`
++- `src/components/onboarding/OnboardingModal.css`
++
++- Replaced the short placeholder Terms page with the updated SmartCup League Terms of Use content from `SMARTCUP LEAGUE 2026 - TERMS OF USE (DRAFT).pdf`.
++- Formatted the page with a prominent Important Notice, numbered sections, subsections, and bullet lists so users can read the document in-app before agreeing.
++- Updated the Terms metadata to Version 1.0 and Last updated: May 12, 2026.
++- Strengthened first-connect onboarding so the Terms agreement checkbox remains disabled until the user opens the Terms of Use page.
+ 
+ ## Homepage app entry routing
+ 
+@@ -127,6 +172,25 @@ File:
+ - Updated landing-page app-entry CTAs to navigate to `/all-matches` instead of `/home`.
+ - Affected visible CTAs include `Enter app`, carousel `Start predicting`, and the lower large CTA.
+ 
++## Footer standard
++
++Files:
++
++- src/components/layout/footer/AppFooter.tsx
++- src/pages/landing/Landing.tsx
++- src/pages/landing/landing.css
++- src/pages/matchs/Matchs.tsx
++- src/pages/championship-pick/ChampionshipPick.tsx
++
++- All user-facing pages should show the same legal footer content:
++  - © 2026 SmartCup League
++  - Terms of Use
++  - Rules
++  - DAO Constitution
++- This applies to the public homepage, app/dashboard pages using AppFooter, match prediction pages, Championship Pick, and legal pages.
++- Updated the public homepage footer to use the same copy and legal links instead of the shorter SmartCupLeague-only footer.
++- Updated Championship Pick to match the same footer standard as the match prediction page.
++
+ ## Sidebar logo routing
+ 
+ File:
+@@ -177,4 +241,157 @@ Files:
+ - Matched the nickname max length to the backend wallet_profiles display_name limit of 30 characters.
+ - Removed the duplicate Progress-page onboarding modal so the root App.tsx owns the terms acceptance flow.
+ - Added a wallet-profile update event so the balance display-name widget updates immediately when the onboarding nickname saves.
+-- Moved onboarding modal ownership to App.tsx so first-time connected users see it across all routed pages, not only sidebar-layout pages.
++- Moved onboarding modal ownership to App.tsx so first-time connected users see it across all routed pages, including Championship Pick and match pages, not only sidebar-layout pages.
++
++## Championship Pick page and on-chain caveat
++
++Files:
++
++- src/pages/championship-pick/ChampionshipPick.tsx
++- src/pages/championship-pick/championship-pick.css
++- src/pages/championship-pick/index.tsx
++- src/pages/index.tsx
++- src/App.tsx
++
++### Current frontend implementation
++
++- Added standalone /championship-pick page for the tournament-wide podium prediction.
++- UI lets the player choose Champion, Runner-Up, and 3rd Place from existing team/flag data.
++- Dropdowns prevent selecting the same team in more than one podium slot.
++- The selected flags are rendered proportionally with object-fit: contain.
++- The page reads r32_lock_time from queryState() and disables submission after the lock.
++- The submit action calls bolao-core submitPodiumPick(champion, runner_up, third_place) through the generated Sails service.
++- The page now includes a VARA stake input and sends the selected amount with the submitPodiumPick transaction, matching the match-prediction payment pattern.
++
++
++### Match-page visual treatment
++
++- Updated /championship-pick to use the same stadium background image as the match pages: /images/dashboard-prediction.jpeg.
++- Moved the route outside the standard AppLayout so the page owns the full match-style arena canvas instead of rendering inside the app sidebar shell.
++- Added a match-style left sidebar with these reviewable widgets: Tournament Status, Bonus Points, Allocation, and Rules.
++- Kept the main panel focused on the three podium dropdowns and VARA stake/submission flow.
++- Updated the Championship Pick footer to match the other app pages: © 2026 SmartCup League, Terms of Use, Rules, and DAO Constitution.
++- Added the same Your Tournament Stats sidebar card used on the match prediction page, showing Position, Points, Matches Predicted, Exact Results, Correct Outcomes, and Match Phase.
++- Updated the Championship Pick and match prediction arena headers so the SmartCup League logo appears first on the left, followed by the All Matches button.
++- Fixed the match prediction sidebar pool hint so it no longer says `No predictions yet` when the current match already has VARA in the pool, recorded bets, participants, or the connected wallet's prediction; it now shows a pool-syncing message when the split data is unavailable.
++
++
++
++### All Matches local preview guard
++
++File:
++
++- src/App.tsx
++
++- Added /all-matches to the temporary preview routes list so the page can render on localhost without waiting for Gear API/contract readiness.
++- Purpose: lets reviewers inspect the All Matches page and Championship Prediction callout before the contract wiring is available.
++- This should be reviewed before production deployment; the guard can be kept only if product wants public/pre-contract rendering for this route.
++
++### All Matches Championship Pick entry point
++
++Files:
++
++- src/components/predictions/AllMatchs.tsx
++- src/components/predictions/all-matchs.css
++
++- Added a Championship Prediction callout above the World Cup match list on /all-matches.
++- Card states:
++  - Not submitted: Make Picks -> routes to /championship-pick.
++  - Submitted: View Picks ✓ routes to /championship-pick.
++  - Locked: Locked 🔒 disabled after r32_lock_time.
++- Current submitted detection uses the same local storage marker as the Championship Pick page until bolao-core exposes a wallet-scoped podium-pick query.
++- Added a `Your Pick` score tag to predicted match rows, using the connected wallet's `queryBetsByUser` result so each row can show the user's predicted score beside the official score chip.
++- Rounded the `Your Pick` tag to match the pill shape of the official score chip while keeping its yellow prediction accent.
++- Added a localhost-only `?previewPredicted=1` simulation mode for reviewers, which seeds a few visible `Your Pick` tags when no wallet prediction data is available locally.
++
++
++### My Progress Championship Picks row
++
++Files:
++
++- src/pages/home/Home.tsx
++- src/pages/home/dashboard.css
++
++- Added a Championship Picks row below Net Performance in Your Prediction Performance.
++- States:
++  - Not Submitted: shows Not Submitted, Earn up to +35 pts, and Make Picks ->.
++  - Submitted: shows Submitted ✓, Potential: +35 pts, and View Picks ->.
++  - Completed: shows +30 pts with no CTA.
++- Current Submitted detection uses the same temporary local storage marker as the Championship Pick page until bolao-core exposes a wallet-scoped podium-pick query.
++
++
++### Leaderboard Championship Picks card
++
++Files:
++
++- src/components/leaderboard/Leaderboards.tsx
++- src/components/leaderboard/leaderboards.css
++- src/pages/championship-pick/ChampionshipPick.tsx
++- src/App.tsx
++
++- Replaced the right-side Top Earnings card on the Leaderboard page with a Your Championship Picks card.
++- States:
++  - Not Submitted: explanation, +35 pts potential, and Make Your Picks -> CTA.
++  - Submitted: shows locally saved Champion, Runner-Up, and 3rd Place picks plus Potential: +35 pts.
++  - After Results: visual layout shows per-pick points and Total: +30 pts when podium_finalized is true.
++- Persisted submitted podium pick values locally from /championship-pick so the Leaderboard can show the selected teams before bolao-core exposes a wallet-scoped query.
++- Added /leaderboard to the temporary preview routes list so the card can be reviewed locally without contract/API readiness.
++- Caveat: After Results scoring is UI-ready but needs a bolao-core query exposing final podium/result scoring to be production-accurate.
++
++
++### Temporary preview route guard summary
++
++File:
++
++- src/App.tsx
++
++- Temporary preview routes currently include /, /all-matches, /all-predictions, /progress, /home, /my-predictions, /leaderboard, /leaderboards, /championship-pick, /simulator, /terms-of-use, /dao-constitution, /rules, and /admin/fixtures.
++- Temporary preview route prefixes currently include /2026worldcup/match/, /leagues/match/, /match/, and /predictions/.
++- Purpose: lets reviewers inspect the app pages, Championship Pick UI entry points, widgets, CTAs, and prediction surfaces locally while Gear API/contract readiness is unavailable.
++- This is review/dev convenience and should be revisited before production deployment.
++
++### Required bolao-core payment change
++
++- Updated bolao-core submit_podium_pick locally so Championship Pick submissions require the same minimum stake as match predictions: 3 VARA.
++- The submitted value is split as 95% final prize pool and 5% protocol fee.
++- This changes contract behavior and requires a new bolao-core build/deploy before the frontend payment flow is safe for production.
++- Without the updated contract deployed, attaching VARA from the frontend would not correctly update final_prize_accumulated/protocol_fee_accumulated.
++
++### Caveat for deployment
++
++- Bolao-core stores picks in state.podium_picks, but queryState() does not expose the connected wallet's existing podium pick.
++- Because of that, the frontend cannot reliably rehydrate a user's already-submitted Championship Pick from chain after a page reload, different browser, or new device.
++- The current UI can mark the pick as submitted locally after a successful transaction, but local storage is only a temporary frontend convenience and should not be treated as canonical.
++- If a user already submitted on-chain and later opens the page in a fresh session, the frontend may not know that a pick exists until the contract rejects a second submitPodiumPick call with Podium pick already submitted.
++
++### Proposed bolao-core solution
++
++Add a wallet-scoped query to bolao-core:
++
++```rust
++query_podium_pick(user: ActorId) -> Option<PodiumPick>
++```
++
++Recommended behavior:
++
++- Read state.podium_picks.get(&user).
++- Return Option<PodiumPick> containing champion, runner_up, and third_place.
++- Do not mutate state.
++- No attached payment and no signer requirement beyond normal query access.
++
++After adding the query:
++
++- Regenerate/update the frontend Sails bindings in src/hocs/lib.ts.
++- Add a frontend method such as queryPodiumPick(user).
++- On /championship-pick load, call queryPodiumPick(account.decodedAddress) when the wallet is connected.
++- If a pick exists, prefill all three dropdowns, disable editing/submission, and show Championship Pick Submitted.
++- If no pick exists, allow submission until r32_lock_time.
++
++Optional future query additions:
++
++- Add podium_result to queryState() when the FE needs to display the official final podium.
++- Add podium_picks_count to queryState() for aggregate public stats without exposing every wallet pick.
++
++Recommendation:
++
++- Do not expose the full podium_picks map in queryState() unless the product explicitly wants all users' picks to be public. A per-wallet query is lighter and cleaner.
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 24c273d..3357969 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -14,7 +14,25 @@ function Component() {
+   const { save: saveWalletProfile } = useWalletProfile();
+ 
+   const isAppReady = isApiReady;
+-  const isPublicLanding = window.location.pathname === '/';
++  const previewRoutes = [
++    '/',
++    '/all-matches',
++    '/all-predictions',
++    '/progress',
++    '/home',
++    '/my-predictions',
++    '/leaderboard',
++    '/leaderboards',
++    '/championship-pick',
++    '/simulator',
++    '/terms-of-use',
++    '/dao-constitution',
++    '/rules',
++    '/admin/fixtures',
++  ];
++  const previewRoutePrefixes = ['/2026worldcup/match/', '/leagues/match/', '/match/', '/predictions/'];
++  const pathname = window.location.pathname;
++  const isPreviewRoute = previewRoutes.includes(pathname) || previewRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
+   const showOnboarding = !!account && !onboarding.accepted;
+ 
+   const handleOnboardingAccept = async (nickname: string) => {
+@@ -25,7 +43,7 @@ function Component() {
+     onboarding.accept(trimmed);
+   };
+ 
+-  return isAppReady || isPublicLanding ? (
++  return isAppReady || isPreviewRoute ? (
+     <>
+       {showOnboarding && <OnboardingModal onAccept={handleOnboardingAccept} />}
+       <Routing />
+diff --git a/frontend/src/components/leaderboard/Leaderboards.tsx b/frontend/src/components/leaderboard/Leaderboards.tsx
+index 9d97118..73208a5 100644
+--- a/frontend/src/components/leaderboard/Leaderboards.tsx
++++ b/frontend/src/components/leaderboard/Leaderboards.tsx
+@@ -22,6 +22,7 @@ type ApiStatsRow = {
+   display_name?: string | null;
+   matches_count: number;
+   exact_count: number;
++  outcome_count?: number;
+   total_claimed_planck: string;
+ };
+ 
+@@ -32,10 +33,14 @@ type LbRow = {
+   totalPoints: number;
+   matches: number;
+   exact: number;
+-  outcomePlanck: string; // total claimed in planck — formatted as VARA for display
++  outcomes: number;
+ };
+ 
+-type EarningRow = { rank: number; wallet: string; points: number };
++type ChampionshipPicks = {
++  champion: string;
++  runnerUp: string;
++  thirdPlace: string;
++};
+ 
+ // Tabs — removed Match Performance, R32 Bonus (Picks), Earnings/ROI per spec
+ const tabs = ['Global Leaderboard', 'My Leaderboard'] as const;
+@@ -47,6 +52,24 @@ function shortHex(addr: string) {
+   return addr.slice(0, 6) + '…' + addr.slice(-4);
+ }
+ 
++function podiumStorageKey(wallet?: string) {
++  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
++}
++
++function podiumPicksStorageKey(wallet?: string) {
++  return wallet ? `smartcup:podium-pick-values:${wallet}` : '';
++}
++
++function displayTeamName(team: string) {
++  return team
++    ? team
++        .toLowerCase()
++        .split(' ')
++        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
++        .join(' ')
++    : '—';
++}
++
+ function toHexAddress(input?: string | null): `0x${string}` | null {
+   if (!input) return null;
+   const trimmed = input.trim();
+@@ -78,6 +101,7 @@ function formatDateTime(ms: number) {
+ type QueryStateResponse = {
+   user_points?: Array<[string, number]>;
+   matches?: any[];
++  podium_finalized?: boolean;
+ };
+ 
+ type IndexerResult = {
+@@ -160,7 +184,7 @@ async function fetchFromIndexer(apiStats: Map<string, ApiStatsRow>): Promise<Ind
+         totalPoints: Number(u.totalPoints ?? 0),
+         matches: apiRow?.matches_count ?? Number(u.totalBets ?? 0),
+         exact: apiRow?.exact_count ?? 0,
+-        outcomePlanck: apiRow?.total_claimed_planck ?? String(u.totalClaimedRaw ?? '0'),
++        outcomes: apiRow?.outcome_count ?? 0,
+       };
+     });
+ 
+@@ -225,6 +249,9 @@ export default function Leaderboards() {
+   const [rows, setRows] = useState<LbRow[]>([]);
+   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
+   const [profileRow, setProfileRow] = useState<LbRow | null>(null);
++  const [podiumFinalized, setPodiumFinalized] = useState(false);
++  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
++  const [championshipPicks, setChampionshipPicks] = useState<ChampionshipPicks | null>(null);
+ 
+   const listRef = useRef<HTMLDivElement | null>(null);
+ 
+@@ -256,6 +283,28 @@ export default function Leaderboards() {
+     void web3Enable('Leaderboards dApp');
+   }, []);
+ 
++  useEffect(() => {
++    const submittedKey = podiumStorageKey(account?.decodedAddress);
++    const picksKey = podiumPicksStorageKey(account?.decodedAddress);
++    const isSubmitted = submittedKey ? window.localStorage.getItem(submittedKey) === 'true' : false;
++    setPodiumSubmitted(isSubmitted);
++
++    if (isSubmitted && picksKey) {
++      try {
++        const saved = JSON.parse(window.localStorage.getItem(picksKey) ?? '{}');
++        setChampionshipPicks({
++          champion: typeof saved.champion === 'string' ? saved.champion : '',
++          runnerUp: typeof saved.runnerUp === 'string' ? saved.runnerUp : '',
++          thirdPlace: typeof saved.thirdPlace === 'string' ? saved.thirdPlace : '',
++        });
++      } catch {
++        setChampionshipPicks(null);
++      }
++    } else {
++      setChampionshipPicks(null);
++    }
++  }, [account?.decodedAddress]);
++
+   const fetchLeaderboard = useCallback(async () => {
+     if (!api || !isApiReady) return;
+ 
+@@ -264,6 +313,13 @@ export default function Leaderboards() {
+       // Always fetch the supplementary API stats (used by both paths).
+       const statsMap = await fetchApiStats();
+ 
++      let chainState: QueryStateResponse | null = null;
++      try {
++        const svc = new Service(new Program(api, PROGRAM_ID));
++        chainState = (await (svc as any).queryState()) as QueryStateResponse;
++        setPodiumFinalized(Boolean(chainState?.podium_finalized));
++      } catch { /* non-fatal; indexer path can still render leaderboard */ }
++
+       // ── Path 1: indexer-first ─────────────────────────────────────────────
+       try {
+         const { rows: idxRows, upcomingMatches: idxUpcoming } = await fetchFromIndexer(statsMap);
+@@ -276,8 +332,7 @@ export default function Leaderboards() {
+       }
+ 
+       // ── Path 2: on-chain fallback (original logic) ────────────────────────
+-      const svc = new Service(new Program(api, PROGRAM_ID));
+-      const state = (await (svc as any).queryState()) as QueryStateResponse;
++      const state = chainState ?? ({ matches: [], user_points: [] } as QueryStateResponse);
+ 
+       const points = Array.isArray(state?.user_points) ? state.user_points : [];
+ 
+@@ -319,7 +374,7 @@ export default function Leaderboards() {
+             // API data takes precedence; fall back to contract participant count
+             matches: apiRow?.matches_count ?? matchCountMap.get(wallet) ?? 0,
+             exact: apiRow?.exact_count ?? 0,
+-            outcomePlanck: apiRow?.total_claimed_planck ?? '0',
++            outcomes: apiRow?.outcome_count ?? 0,
+           };
+         })
+         .filter((r) => !!r.wallet);
+@@ -372,13 +427,6 @@ export default function Leaderboards() {
+     );
+   }, [query, rows]);
+ 
+-  const topEarnings = useMemo<EarningRow[]>(() => {
+-    return rows
+-      .filter((r) => r.totalPoints > 0)
+-      .slice(0, 3)
+-      .map((r) => ({ rank: r.rank, wallet: shortHex(r.wallet), points: r.totalPoints }));
+-  }, [rows]);
+-
+   const myRow = useMemo(() => {
+     if (!myWalletHex) return null;
+     const target = myWalletHex.toLowerCase();
+@@ -388,7 +436,7 @@ export default function Leaderboards() {
+   const myRank = myRow?.rank ?? null;
+   const myPts = myRow?.totalPoints ?? 0;
+   const myExact = myRow?.exact ?? 0;
+-  const myOutcomeVara = myRow ? (Number(myRow.outcomePlanck) / 1e12).toFixed(2) : '0';
++  const myOutcomes = myRow?.outcomes ?? 0;
+ 
+   const myLbRows = useMemo(() => {
+     if (!followedWallets.length) return [];
+@@ -485,7 +533,7 @@ export default function Leaderboards() {
+               <div>Wallet</div>
+               <div className="lbTH--num">Matches</div>
+               <div className="lbTH--num">Exact</div>
+-              <div className="lbTH--num">Won (VARA)</div>
++              <div className="lbTH--num">Outcomes</div>
+               <div className="lbTH--num lbTH--points">Points</div>
+             </div>
+ 
+@@ -546,14 +594,9 @@ export default function Leaderboards() {
+                         </span>
+                       </div>
+                       <div className="lbNum lbNum--right">
+-                        {(() => {
+-                          const vara = Number(r.outcomePlanck) / 1e12;
+-                          return (
+-                            <span className={vara > 0 ? 'lbNum__main' : 'lbNum__main lbNum__muted'} title={`${r.outcomePlanck} planck`}>
+-                              {vara > 0 ? vara.toFixed(2) : '—'}
+-                            </span>
+-                          );
+-                        })()}
++                        <span className={r.outcomes > 0 ? 'lbNum__main' : 'lbNum__main lbNum__muted'}>
++                          {r.outcomes > 0 ? r.outcomes : '—'}
++                        </span>
+                       </div>
+ 
+                       <div className="lbNum lbNum--right lbNum--points">
+@@ -568,28 +611,34 @@ export default function Leaderboards() {
+         </section>
+ 
+         <aside className="lbRight">
+-          {/* Top Earnings — moved up per spec */}
+-          <section className="lbCard">
++          <section className="lbCard lbChampCard">
+             <div className="lbCard__head">
+-              <div className="lbCard__title">Top Earnings</div>
+-              <div className="lbCard__sub muted tiny">World Cup</div>
++              <div className="lbCard__title">🏆 Your Championship Picks</div>
+             </div>
+ 
+-            <div className="lbEarnings">
+-              {loading ? (
+-                <div className="muted tiny" style={{ padding: '8px 0' }}>Loading…</div>
+-              ) : topEarnings.length === 0 ? (
+-                <div className="muted tiny" style={{ padding: '8px 0' }}>No data yet.</div>
+-              ) : (
+-                topEarnings.map((e) => (
+-                  <div className="lbEarnRow" key={e.rank}>
+-                    <div className="lbEarnRank">#{e.rank}</div>
+-                    <div className="lbEarnWallet">{e.wallet}</div>
+-                    <div className="lbEarnNum mono">{e.points} pts</div>
+-                  </div>
+-                ))
+-              )}
+-            </div>
++            {!podiumSubmitted ? (
++              <div className="lbChampState lbChampState--empty">
++                <p>You haven’t submitted your Championship Picks yet</p>
++                <span>Earn up to +35 pts before Round of 32</span>
++                <button className="lbBtn lbBtn--primary wfull" type="button" onClick={() => navigate('/championship-pick')}>
++                  Make Your Picks →
++                </button>
++              </div>
++            ) : podiumFinalized ? (
++              <div className="lbChampState">
++                <div className="lbChampPickRow"><span>🥇 {displayTeamName(championshipPicks?.champion ?? 'Argentina')} ✓</span><b>+20 pts</b></div>
++                <div className="lbChampPickRow"><span>🥈 {displayTeamName(championshipPicks?.runnerUp ?? 'France')} ✓</span><b>+10 pts</b></div>
++                <div className="lbChampPickRow"><span>🥉 {displayTeamName(championshipPicks?.thirdPlace ?? 'Croatia')} ✕</span><b>+0 pts</b></div>
++                <div className="lbChampTotal">Total: <b>+30 pts</b></div>
++              </div>
++            ) : (
++              <div className="lbChampState">
++                <div className="lbChampPickRow"><span>🥇 {displayTeamName(championshipPicks?.champion ?? '')}</span></div>
++                <div className="lbChampPickRow"><span>🥈 {displayTeamName(championshipPicks?.runnerUp ?? '')}</span></div>
++                <div className="lbChampPickRow"><span>🥉 {displayTeamName(championshipPicks?.thirdPlace ?? '')}</span></div>
++                <div className="lbChampPotential">Potential: <b>+35 pts</b></div>
++              </div>
++            )}
+           </section>
+ 
+           {/* Upcoming Matches — replaces R32 Bonus widget */}
+@@ -649,11 +698,11 @@ export default function Leaderboards() {
+             <span className="dot">•</span>
+             <span className="lbBottom__pts">{myPts}</span>
+             <span className="lbBottom__ptsLabel muted tiny"> points</span>
+-            {(myExact > 0 || Number(myOutcomeVara) > 0) ? (
++            {(myExact > 0 || myOutcomes > 0) ? (
+               <>
+                 <span className="dot">•</span>
+                 <span className="lbBottom__detail muted tiny">
+-                  {myExact > 0 ? `${myExact} exact · ` : ''}{Number(myOutcomeVara) > 0 ? `${myOutcomeVara} VARA` : ''}
++                  {myExact > 0 ? `${myExact} exact · ` : ''}{myOutcomes > 0 ? `${myOutcomes} outcomes` : ''}
+                 </span>
+               </>
+             ) : null}
+diff --git a/frontend/src/components/leaderboard/UserProfileModal.tsx b/frontend/src/components/leaderboard/UserProfileModal.tsx
+index 0ae4e8e..fed7686 100644
+--- a/frontend/src/components/leaderboard/UserProfileModal.tsx
++++ b/frontend/src/components/leaderboard/UserProfileModal.tsx
+@@ -373,7 +373,7 @@ export type ProfileRow = {
+   totalPoints: number;
+   matches: number;
+   exact: number;
+-  outcomePlanck: string;
++  outcomes: number;
+ };
+ 
+ type Props = {
+@@ -411,7 +411,6 @@ export function UserProfileModal({ row, isMe, isFollowed, onFollow, onClose }: P
+     });
+   };
+ 
+-  const vara = (Number(row.outcomePlanck) / 1e12).toFixed(2);
+   const m = medal(row.rank);
+   const displayLabel = row.displayName ?? (row.wallet.slice(0, 8) + '…' + row.wallet.slice(-6));
+   const accuracyPct = row.matches > 0 ? ((row.exact / row.matches) * 100).toFixed(0) : null;
+@@ -473,10 +472,9 @@ export function UserProfileModal({ row, isMe, isFollowed, onFollow, onClose }: P
+           </StatCard>
+ 
+           <StatCard>
+-            <StatLabel>VARA Won</StatLabel>
+-            <StatValue $green={Number(vara) > 0} $plain={Number(vara) === 0}>
+-              {Number(vara) > 0 ? vara : '—'}
+-              {Number(vara) > 0 ? <StatSuffix>VARA</StatSuffix> : null}
++            <StatLabel>Correct Outcomes</StatLabel>
++            <StatValue $plain={true}>
++              {row.outcomes > 0 ? row.outcomes : '—'}
+             </StatValue>
+           </StatCard>
+         </StatsGrid>
+diff --git a/frontend/src/components/leaderboard/leaderboards.css b/frontend/src/components/leaderboard/leaderboards.css
+index 9dd3a28..30d1d3b 100644
+--- a/frontend/src/components/leaderboard/leaderboards.css
++++ b/frontend/src/components/leaderboard/leaderboards.css
+@@ -972,6 +972,79 @@
+     0 0 0 1px rgba(255,46,118,0.20) inset;
+ }
+ 
++
++/* ─── Championship Picks sidebar card ───────────────────────────── */
++.lbChampCard {
++  overflow: hidden;
++}
++
++.lbChampState {
++  display: grid;
++  gap: 10px;
++  padding: 12px 14px 16px;
++}
++
++.lbChampState--empty {
++  gap: 12px;
++}
++
++.lbChampState p {
++  margin: 0;
++  color: rgba(255, 255, 255, 0.9);
++  font-size: 13px;
++  line-height: 1.35;
++  font-weight: 850;
++}
++
++.lbChampState span,
++.lbChampPotential,
++.lbChampTotal {
++  color: rgba(255, 235, 246, 0.74);
++  font-size: 12px;
++  line-height: 1.35;
++}
++
++.lbChampPickRow {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 10px;
++  min-height: 36px;
++  padding: 9px 11px;
++  border-radius: 12px;
++  border: 1px solid rgba(255,255,255,0.09);
++  background:
++    radial-gradient(320px 90px at 10% 50%, rgba(255,46,118,0.08), transparent 62%),
++    rgba(0,0,0,0.18);
++}
++
++.lbChampPickRow span {
++  color: rgba(255,255,255,0.9);
++  font-size: 13px;
++  font-weight: 850;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.lbChampPickRow b {
++  flex: 0 0 auto;
++  color: rgba(255, 225, 160, 0.96);
++  font-size: 12px;
++  font-weight: 950;
++}
++
++.lbChampPotential,
++.lbChampTotal {
++  padding: 2px 2px 0;
++  font-weight: 800;
++}
++
++.lbChampPotential b,
++.lbChampTotal b {
++  color: rgba(255, 225, 160, 0.98);
++}
++
+ /* ─── Upcoming Matches ───────────────────────────────────────────── */
+ 
+ .lbUpcoming {
+diff --git a/frontend/src/components/onboarding/OnboardingModal.css b/frontend/src/components/onboarding/OnboardingModal.css
+index 302e725..e000070 100644
+--- a/frontend/src/components/onboarding/OnboardingModal.css
++++ b/frontend/src/components/onboarding/OnboardingModal.css
+@@ -119,6 +119,27 @@
+   gap: 12px;
+ }
+ 
++.ob-terms-btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  min-height: 38px;
++  border: 1px solid rgba(255, 79, 156, 0.34);
++  border-radius: 10px;
++  background: rgba(255, 0, 110, 0.10);
++  color: #ff8fbe;
++  font-size: 13px;
++  font-weight: 800;
++  text-decoration: none;
++  transition: border-color 140ms, background 140ms, color 140ms;
++}
++
++.ob-terms-btn:hover {
++  border-color: rgba(255, 79, 156, 0.58);
++  background: rgba(255, 0, 110, 0.16);
++  color: #fff;
++}
++
+ .ob-check {
+   display: flex;
+   align-items: flex-start;
+@@ -152,6 +173,15 @@
+   border-color: #ff006e;
+ }
+ 
++.ob-check__input:disabled + .ob-check__box {
++  border-color: rgba(255, 255, 255, 0.12);
++  background: rgba(255, 255, 255, 0.04);
++}
++
++.ob-check__input:disabled ~ .ob-check__text {
++  color: rgba(255, 255, 255, 0.45);
++}
++
+ .ob-check__input:checked + .ob-check__box::after {
+   content: '';
+   display: block;
+diff --git a/frontend/src/components/onboarding/OnboardingModal.tsx b/frontend/src/components/onboarding/OnboardingModal.tsx
+index be569af..20d51b8 100644
+--- a/frontend/src/components/onboarding/OnboardingModal.tsx
++++ b/frontend/src/components/onboarding/OnboardingModal.tsx
+@@ -8,10 +8,11 @@ interface Props {
+ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
+   const [checkedTerms, setCheckedTerms] = useState(false);
+   const [checkedAge, setCheckedAge] = useState(false);
++  const [openedTerms, setOpenedTerms] = useState(false);
+   const [nickname, setNickname] = useState('');
+   const [isSubmitting, setIsSubmitting] = useState(false);
+ 
+-  const canContinue = checkedTerms && checkedAge && !isSubmitting;
++  const canContinue = openedTerms && checkedTerms && checkedAge && !isSubmitting;
+ 
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+@@ -81,21 +82,28 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
+           </div>
+ 
+           <div className="ob-checks">
++            <a
++              href="/terms-of-use"
++              target="_blank"
++              rel="noopener noreferrer"
++              className="ob-terms-btn"
++              onClick={() => setOpenedTerms(true)}
++            >
++              Read Terms of Use
++            </a>
++
+             <label className="ob-check" htmlFor="ob-terms">
+               <input
+                 id="ob-terms"
+                 type="checkbox"
+                 className="ob-check__input"
+                 checked={checkedTerms}
++                disabled={!openedTerms}
+                 onChange={(e) => setCheckedTerms(e.target.checked)}
+               />
+               <span className="ob-check__box" aria-hidden="true" />
+               <span className="ob-check__text">
+-                I have read and agree to the{' '}
+-                <a href="/terms-of-use" target="_blank" rel="noopener noreferrer" className="ob-link">
+-                  Terms of Use
+-                </a>
+-                .
++                I have read the Terms of Use and agree to be bound by them.
+               </span>
+             </label>
+ 
+@@ -122,7 +130,7 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
+ 
+           {!canContinue && (
+             <p className="ob-hint" role="alert">
+-              Please accept both checkboxes to continue.
++              Please open the Terms of Use and accept both checkboxes to continue.
+             </p>
+           )}
+         </form>
+diff --git a/frontend/src/components/predictions/AllMatchs.tsx b/frontend/src/components/predictions/AllMatchs.tsx
+index 4eeae26..42a4bff 100644
+--- a/frontend/src/components/predictions/AllMatchs.tsx
++++ b/frontend/src/components/predictions/AllMatchs.tsx
+@@ -31,6 +31,56 @@ type MatchInfo = {
+   dust_swept?: boolean;
+ };
+ 
++type CoreState = {
++  r32_lock_time?: string | number | bigint | null;
++  podium_finalized?: boolean;
++};
++
++type UserBetView = {
++  match_id: string;
++  score: {
++    home: number;
++    away: number;
++  };
++  penalty_winner?: any;
++};
++
++const LOCAL_PREVIEW_MATCHES: MatchInfo[] = [
++  {
++    match_id: '1',
++    phase: 'GROUP_STAGE',
++    home: 'Mexico',
++    away: 'Canada',
++    kick_off: '1774558800',
++    result: { finalized: { score: { home: 2, away: 0 } } },
++    match_prize_pool: '8100000000000000',
++    has_bets: true,
++    settlement_prepared: true,
++  },
++  {
++    match_id: '2',
++    phase: 'GROUP_STAGE',
++    home: 'England',
++    away: 'Argentina',
++    kick_off: '1774645200',
++    result: { finalized: { score: { home: 1, away: 3 } } },
++    match_prize_pool: '6475000000000000',
++    has_bets: true,
++    settlement_prepared: true,
++  },
++  {
++    match_id: '3',
++    phase: 'GROUP_STAGE',
++    home: 'Brazil',
++    away: 'Belgium',
++    kick_off: '1774731600',
++    result: { finalized: { score: { home: 2, away: 1 } } },
++    match_prize_pool: '6180000000000000',
++    has_bets: true,
++    settlement_prepared: true,
++  },
++];
++
+ function getResultDetails(result: any): {
+   label: 'OPEN' | 'LIVE' | 'FINAL' | 'CANCELLED';
+   home: number;
+@@ -85,6 +135,17 @@ function formatDatetime(kickOff: string) {
+   });
+ }
+ 
++function timestampToMs(value?: string | number | bigint | null) {
++  if (value === null || value === undefined) return null;
++  const n = Number(value);
++  if (!Number.isFinite(n) || n <= 0) return null;
++  return n < 10_000_000_000 ? n * 1000 : n;
++}
++
++function podiumStorageKey(wallet?: string) {
++  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
++}
++
+ function predictionWindow(kickOff: string): { closed: boolean; label: string } {
+   const n = Number(kickOff);
+   if (!Number.isFinite(n) || n <= 0) return { closed: true, label: 'Closed' };
+@@ -102,6 +163,34 @@ function predictionWindow(kickOff: string): { closed: boolean; label: string } {
+   return { closed: false, label: `Closes in ${hrs}h ${rem}m` };
+ }
+ 
++function isLocalPredictedPreview() {
++  if (typeof window === 'undefined') return false;
++  const host = window.location.hostname;
++  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
++  if (!isLocalhost) return false;
++  const params = new URLSearchParams(window.location.search);
++  return params.get('previewPredicted') === '1';
++}
++
++function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
++  const previewBets = new Map<string, UserBetView>();
++  for (const m of matches.slice(0, 4)) {
++    const result = getResultDetails(m.result);
++    const seed = Number(m.match_id);
++    const fallbackHome = Number.isFinite(seed) ? seed % 3 : 1;
++    const fallbackAway = Number.isFinite(seed) ? (seed + 1) % 3 : 0;
++    previewBets.set(m.match_id, {
++      match_id: m.match_id,
++      score: {
++        home: result.label === 'FINAL' || result.label === 'LIVE' ? result.home : fallbackHome,
++        away: result.label === 'FINAL' || result.label === 'LIVE' ? result.away : fallbackAway,
++      },
++      penalty_winner: null,
++    });
++  }
++  return previewBets;
++}
++
+ 
+ function formatAmount(val: unknown, decimals = 12) {
+   if (val === null || val === undefined) return '—';
+@@ -176,23 +265,32 @@ export const MatchesTableComponent: React.FC = () => {
+   const [sortField, setSortField] = useState<SortField>('match_id_asc');
+ 
+   const [filterStatus, setFilterStatus] = useState<StatusFilter>('');
+-  const [activeTab, setActiveTab] = useState<CompTab>('leagues');
++  const [activeTab, setActiveTab] = useState<CompTab>(isLocalPredictedPreview() ? 'worldcup' : 'leagues');
+   const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
+   const { planckToUsd } = useVaraPrice();
+-  const [userBetMatchIds, setUserBetMatchIds] = useState<Set<string>>(new Set());
++  const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
++  const [r32LockTime, setR32LockTime] = useState<CoreState['r32_lock_time']>(null);
++  const [podiumFinalized, setPodiumFinalized] = useState(false);
++  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
+ 
+   useEffect(() => {
+     void web3Enable('Bolao Matches UI');
+   }, []);
+ 
+   const fetchMatches = useCallback(async () => {
+-    if (!api || !isApiReady) return;
++    const useLocalPreview = isLocalPredictedPreview();
++    if (!api || !isApiReady) {
++      if (useLocalPreview) setMatches(LOCAL_PREVIEW_MATCHES);
++      return;
++    }
+     setLoading(true);
+ 
+     try {
+       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
+-      const state = await (svc as any).queryState();
++      const state = (await (svc as any).queryState()) as CoreState & { matches?: any[] };
+       const list = (state as any)?.matches ?? [];
++      setR32LockTime(state?.r32_lock_time ?? null);
++      setPodiumFinalized(Boolean(state?.podium_finalized));
+ 
+       const normalized: MatchInfo[] = (Array.isArray(list) ? list : []).map((m: any) => ({
+         match_id: String(m?.match_id ?? ''),
+@@ -211,10 +309,10 @@ export const MatchesTableComponent: React.FC = () => {
+         dust_swept: m?.dust_swept != null ? Boolean(m.dust_swept) : undefined,
+       }));
+ 
+-      setMatches(normalized);
++      setMatches(useLocalPreview && !normalized.length ? LOCAL_PREVIEW_MATCHES : normalized);
+     } catch (e) {
+       console.error('fetchMatches error', e);
+-      setMatches(null);
++      setMatches(useLocalPreview ? LOCAL_PREVIEW_MATCHES : null);
+     } finally {
+       setLoading(false);
+     }
+@@ -225,17 +323,43 @@ export const MatchesTableComponent: React.FC = () => {
+   }, [fetchMatches]);
+ 
+   const fetchUserBets = useCallback(async () => {
+-    if (!api || !isApiReady || !account) return;
++    const previewBets = isLocalPredictedPreview() ? buildPreviewBets(matches ?? []) : null;
++    if (!api || !isApiReady || !account) {
++      if (previewBets?.size) setUserBetsByMatchId(previewBets);
++      return;
++    }
+     try {
+       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
+       const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+-      const ids = new Set((bets ?? []).map((b: any) => String(b?.match_id ?? '')));
+-      setUserBetMatchIds(ids);
+-    } catch { setUserBetMatchIds(new Set()); }
+-  }, [api, isApiReady, account]);
++      const byMatchId = new Map<string, UserBetView>();
++      for (const b of bets ?? []) {
++        const matchId = String(b?.match_id ?? '');
++        if (!matchId) continue;
++        byMatchId.set(matchId, {
++          match_id: matchId,
++          score: {
++            home: Number(b?.score?.home ?? 0) || 0,
++            away: Number(b?.score?.away ?? 0) || 0,
++          },
++          penalty_winner: b?.penalty_winner ?? null,
++        });
++      }
++      setUserBetsByMatchId(byMatchId.size ? byMatchId : previewBets ?? new Map());
++    } catch { setUserBetsByMatchId(previewBets ?? new Map()); }
++  }, [api, isApiReady, account, matches]);
+ 
+   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
+ 
++  useEffect(() => {
++    const key = podiumStorageKey(account?.decodedAddress);
++    setPodiumSubmitted(key ? window.localStorage.getItem(key) === 'true' : false);
++  }, [account?.decodedAddress]);
++
++  const podiumLockMs = useMemo(() => timestampToMs(r32LockTime ?? null), [r32LockTime]);
++  const podiumLocked = !!podiumLockMs && Date.now() >= podiumLockMs;
++  const showChampionshipPickCard = activeTab === 'worldcup' && !podiumFinalized;
++  const championshipPickState = podiumSubmitted ? 'submitted' : podiumLocked ? 'locked' : 'open';
++
+   const phases = useMemo(() => getPhases(matches ?? []), [matches]);
+ 
+   const tabCounts = useMemo(() => {
+@@ -277,9 +401,9 @@ export const MatchesTableComponent: React.FC = () => {
+ 
+     // Status filter
+     if (filterStatus === 'predicted') {
+-      list = list.filter((m) => userBetMatchIds.has(m.match_id));
++      list = list.filter((m) => userBetsByMatchId.has(m.match_id));
+     } else if (filterStatus === 'not_predicted') {
+-      list = list.filter((m) => !userBetMatchIds.has(m.match_id));
++      list = list.filter((m) => !userBetsByMatchId.has(m.match_id));
+     }
+ 
+     // Sort
+@@ -310,7 +434,7 @@ export const MatchesTableComponent: React.FC = () => {
+     );
+ 
+     return list;
+-  }, [matches, filterSearch, headerSearch, filterStage, filterDate, sortField, filterStatus, userBetMatchIds, activeTab]);
++  }, [matches, filterSearch, headerSearch, filterStage, filterDate, sortField, filterStatus, userBetsByMatchId, activeTab]);
+ 
+   const handleClaim = useCallback(
+     async (matchId: string) => {
+@@ -500,6 +624,30 @@ export const MatchesTableComponent: React.FC = () => {
+           </div>
+         </div>
+ 
++        {showChampionshipPickCard ? (
++          <section className={`mxChampPick mxChampPick--${championshipPickState}`} aria-label="Championship Prediction">
++            <div className="mxChampPick__glow" aria-hidden="true" />
++            <div className="mxChampPick__copy">
++              <div className="mxChampPick__title">
++                <span className="mxChampPick__icon" aria-hidden="true">🏆</span>
++                <span>Championship Prediction</span>
++              </div>
++              <p>Pick Top 3 Teams before R32 kickoff</p>
++            </div>
++            <button
++              className="mxChampPick__cta"
++              type="button"
++              disabled={championshipPickState === 'locked'}
++              onClick={() => navigate('/championship-pick')}>
++              {championshipPickState === 'submitted'
++                ? 'View Picks ✓'
++                : championshipPickState === 'locked'
++                  ? 'Locked 🔒'
++                  : 'Make Picks →'}
++            </button>
++          </section>
++        ) : null}
++
+         {loading ? (
+           <div className="mxLoading">
+             <span className="mxSpinner" aria-hidden="true" /> Loading matches…
+@@ -524,7 +672,9 @@ export const MatchesTableComponent: React.FC = () => {
+                         ? "Prediction closed • Awaiting result."
+                         : "Open for predictions • " + prediction.label + ".";
+ 
+-              const hasPrediction = userBetMatchIds.has(m.match_id);
++              const userBet = userBetsByMatchId.get(m.match_id);
++              const hasPrediction = !!userBet;
++              const pickText = userBet ? `${userBet.score.home}-${userBet.score.away}` : '';
+ 
+               return (
+                 <article className={'mxCard' + (hasPrediction ? ' mxCard--predicted' : '')} key={m.match_id}>
+@@ -589,6 +739,13 @@ export const MatchesTableComponent: React.FC = () => {
+                       <span className="mxMeta__chip">Pool: {totalPoolHuman} VARA</span>
+                     </div>
+ 
++                    {userBet ? (
++                      <div className="mxYourPick" aria-label={`Your pick ${pickText}`}>
++                        <span className="mxYourPick__label">Your Pick</span>
++                        <span className="mxYourPick__score">{pickText}</span>
++                      </div>
++                    ) : null}
++
+                     <div className="mxScore">
+                       <div className="mxScore__label">
+                         {displayLabel === "OPEN" ? "OPEN" : displayLabel === "CLOSED" ? "CLOSED" : r.label === "LIVE" ? "LIVE SCORE" : r.label === "CANCELLED" ? "CANCELLED" : "FINAL SCORE"}
+diff --git a/frontend/src/components/predictions/QueryBetsByUser.tsx b/frontend/src/components/predictions/QueryBetsByUser.tsx
+index fa78ec4..c6b7183 100644
+--- a/frontend/src/components/predictions/QueryBetsByUser.tsx
++++ b/frontend/src/components/predictions/QueryBetsByUser.tsx
+@@ -7,6 +7,7 @@ import { Program, Service } from '@/hocs/lib';
+ import { TransactionBuilder } from 'sails-js';
+ import { TeamFlag } from '@/components/common/TeamFlag';
+ import { Header } from '../layout';
++import { reportClaim } from '@/utils/statsReporter';
+ 
+ const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
+ 
+@@ -508,18 +509,38 @@ export const QueryBetsByUserComponent: React.FC = () => {
+ 
+       setClaimingByMatch((p) => ({ ...p, [matchId]: true }));
+       try {
++        const bet = (bets ?? []).find((item) => Number(item.match_id) === Number(matchId));
++        const match = matchById.get(Number(matchId));
++        const { score: finalScore } = match ? getFinalizedResult(match.result) : {};
++        const isExact = !!bet && isExactScore(bet.score, finalScore);
++
+         const svc = new Service(new Program(api, PROGRAM_ID));
+         const tx: TransactionBuilder<unknown> = (svc as any).claimMatchReward(matchId);
+ 
+         const injector = await web3FromSource(account.meta.source);
+         tx.withAccount(account.decodedAddress, { signer: injector.signer });
+ 
++        let balanceBefore = 0n;
++        try {
++          const raw = await (api as any).balance.findOut(account.decodedAddress);
++          balanceBefore = BigInt(raw.toString());
++        } catch { /* non-fatal; DB report can fall back to zero */ }
++
+         await tx.calculateGas();
+         const { blockHash, response } = await tx.signAndSend();
+ 
+         toast.info(`Transaction included in block ${blockHash}`);
+         await response();
+ 
++        try {
++          const raw = await (api as any).balance.findOut(account.decodedAddress);
++          const balanceAfter = BigInt(raw.toString());
++          const diff = balanceAfter - balanceBefore;
++          reportClaim(account.decodedAddress, String(matchId), diff > 0n ? diff.toString() : '0', isExact);
++        } catch {
++          reportClaim(account.decodedAddress, String(matchId), '0', isExact);
++        }
++
+         toast.success('Claim completed!');
+         await fetchBets();
+         await fetchState();
+@@ -530,7 +551,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
+         setClaimingByMatch((p) => ({ ...p, [matchId]: false }));
+       }
+     },
+-    [api, isApiReady, account, toast, fetchBets, fetchState],
++    [api, isApiReady, account, bets, matchById, toast, fetchBets, fetchState],
+   );
+ 
+   const claimRefund = useCallback(async () => {
+@@ -948,4 +969,4 @@ export const QueryBetsByUserComponent: React.FC = () => {
+       </div>
+     </div>
+   );
+-};
+\ No newline at end of file
++};
+diff --git a/frontend/src/components/predictions/all-matchs.css b/frontend/src/components/predictions/all-matchs.css
+index 35021aa..a81d6cf 100644
+--- a/frontend/src/components/predictions/all-matchs.css
++++ b/frontend/src/components/predictions/all-matchs.css
+@@ -453,6 +453,166 @@
+   font-size: 13px;
+ }
+ 
++
++/* ─── Championship Prediction Callout ───────────────────────────── */
++.mxChampPick {
++  position: relative;
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 16px;
++  margin-top: 12px;
++  margin-bottom: 14px;
++  min-height: 76px;
++  padding: 16px 18px;
++  overflow: hidden;
++  border-radius: 13px;
++  border: 1px solid rgba(255, 209, 126, 0.58);
++  background:
++    radial-gradient(480px 150px at 72% 52%, rgba(255, 205, 91, 0.18), transparent 62%),
++    linear-gradient(95deg, rgba(41, 0, 21, 0.96) 0%, rgba(74, 11, 38, 0.88) 45%, rgba(58, 19, 15, 0.82) 100%);
++  box-shadow:
++    0 1px 0 rgba(255, 245, 220, 0.2) inset,
++    0 0 0 1px rgba(255, 46, 118, 0.1),
++    0 12px 36px rgba(0, 0, 0, 0.38),
++    0 0 28px rgba(255, 178, 66, 0.13);
++}
++
++.mxChampPick::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  pointer-events: none;
++  background:
++    linear-gradient(90deg, rgba(255, 216, 135, 0.18), transparent 24%, transparent 76%, rgba(255, 216, 135, 0.1)),
++    radial-gradient(circle at 82% 34%, rgba(255, 237, 178, 0.36) 0 1px, transparent 2px),
++    radial-gradient(circle at 67% 58%, rgba(255, 196, 93, 0.30) 0 1px, transparent 2px),
++    radial-gradient(circle at 77% 70%, rgba(255, 255, 255, 0.22) 0 1px, transparent 2px);
++  opacity: 0.92;
++}
++
++.mxChampPick::after {
++  content: '';
++  position: absolute;
++  left: 0;
++  top: 0;
++  bottom: 0;
++  width: 3px;
++  background: linear-gradient(180deg, #ffe1a0, #f7b845, #ff2e76);
++  box-shadow: 0 0 18px rgba(255, 193, 82, 0.74);
++}
++
++.mxChampPick__glow {
++  position: absolute;
++  left: 20px;
++  right: 120px;
++  bottom: -26px;
++  height: 44px;
++  background: radial-gradient(ellipse, rgba(255, 185, 75, 0.28), transparent 68%);
++  pointer-events: none;
++}
++
++.mxChampPick__copy,
++.mxChampPick__cta {
++  position: relative;
++  z-index: 1;
++}
++
++.mxChampPick__title {
++  display: flex;
++  align-items: center;
++  gap: 9px;
++  color: rgba(255, 225, 160, 0.98);
++  font-size: 18px;
++  font-weight: 980;
++  letter-spacing: -0.01em;
++  text-shadow: 0 0 14px rgba(255, 185, 75, 0.32);
++}
++
++.mxChampPick__icon {
++  font-size: 22px;
++  filter: drop-shadow(0 0 10px rgba(255, 194, 82, 0.6));
++}
++
++.mxChampPick p {
++  margin: 4px 0 0 32px;
++  color: rgba(255, 238, 208, 0.82);
++  font-size: 13px;
++  font-weight: 750;
++}
++
++.mxChampPick__cta {
++  min-width: 132px;
++  min-height: 40px;
++  padding: 0 18px;
++  border: 1px solid rgba(178, 255, 192, 0.38);
++  border-radius: 9px;
++  background:
++    radial-gradient(140px 54px at 50% 0%, rgba(129, 255, 150, 0.35), transparent 65%),
++    linear-gradient(180deg, rgba(29, 154, 61, 0.96), rgba(8, 99, 42, 0.96));
++  color: #fff;
++  cursor: pointer;
++  font-size: 13px;
++  font-weight: 950;
++  box-shadow:
++    0 1px 0 rgba(255, 255, 255, 0.20) inset,
++    0 10px 26px rgba(0, 0, 0, 0.34),
++    0 0 18px rgba(41, 214, 88, 0.22);
++  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
++}
++
++.mxChampPick__cta:not(:disabled):hover {
++  transform: translateY(-1px);
++  filter: brightness(1.08);
++  box-shadow:
++    0 1px 0 rgba(255, 255, 255, 0.24) inset,
++    0 12px 30px rgba(0, 0, 0, 0.38),
++    0 0 24px rgba(41, 214, 88, 0.30);
++}
++
++.mxChampPick--submitted .mxChampPick__cta {
++  border-color: rgba(255, 255, 255, 0.20);
++  background:
++    radial-gradient(140px 54px at 50% 0%, rgba(255, 255, 255, 0.16), transparent 65%),
++    linear-gradient(180deg, rgba(255, 46, 118, 0.92), rgba(168, 5, 69, 0.92));
++  box-shadow:
++    0 1px 0 rgba(255, 255, 255, 0.18) inset,
++    0 10px 26px rgba(0, 0, 0, 0.34),
++    0 0 18px rgba(255, 46, 118, 0.24);
++}
++
++.mxChampPick--locked {
++  border-color: rgba(255, 255, 255, 0.18);
++  background:
++    radial-gradient(480px 150px at 72% 52%, rgba(255, 255, 255, 0.08), transparent 62%),
++    linear-gradient(95deg, rgba(35, 0, 18, 0.88), rgba(38, 16, 28, 0.78));
++}
++
++.mxChampPick--locked .mxChampPick__title,
++.mxChampPick--locked p {
++  color: rgba(255, 255, 255, 0.68);
++  text-shadow: none;
++}
++
++.mxChampPick--locked .mxChampPick__cta {
++  cursor: not-allowed;
++  border-color: rgba(255, 255, 255, 0.14);
++  background: rgba(255, 255, 255, 0.08);
++  color: rgba(255, 255, 255, 0.62);
++  box-shadow: none;
++}
++
++@media (max-width: 720px) {
++  .mxChampPick {
++    align-items: flex-start;
++    flex-direction: column;
++  }
++
++  .mxChampPick__cta {
++    width: 100%;
++  }
++}
++
+ /* ─── List ───────────────────────────────────────────────────────── */
+ 
+ .mxList {
+@@ -716,6 +876,49 @@
+   background: rgba(255,46,118,0.06);
+ }
+ 
++/* ─── Your Pick — inline prediction tag ─────────────────────────── */
++
++.mxYourPick {
++  display: inline-flex;
++  align-items: stretch;
++  min-height: 30px;
++  border-radius: 999px;
++  border: 1px solid rgba(255, 224, 80, 0.72);
++  background:
++    linear-gradient(90deg, rgba(255, 224, 80, 0.12), rgba(255, 46, 118, 0.08)),
++    rgba(0, 0, 0, 0.22);
++  box-shadow:
++    0 0 0 1px rgba(255, 224, 80, 0.12) inset,
++    0 0 18px rgba(255, 224, 80, 0.10);
++  overflow: hidden;
++  flex-shrink: 0;
++}
++
++.mxYourPick__label,
++.mxYourPick__score {
++  display: inline-flex;
++  align-items: center;
++  white-space: nowrap;
++  font-size: 11px;
++  font-weight: 950;
++}
++
++.mxYourPick__label {
++  padding: 0 12px;
++  color: rgba(255, 240, 135, 0.98);
++  letter-spacing: 0.04em;
++}
++
++.mxYourPick__score {
++  min-width: 42px;
++  justify-content: center;
++  padding: 0 10px;
++  border-left: 1px solid rgba(255, 224, 80, 0.32);
++  background: rgba(255, 224, 80, 0.10);
++  color: rgba(255, 255, 255, 0.96);
++  letter-spacing: 0.02em;
++}
++
+ /* ─── Filter Input ───────────────────────────────────────────────── */
+ 
+ .mxFilter {
+diff --git a/frontend/src/pages/home/Home.tsx b/frontend/src/pages/home/Home.tsx
+index 55c0714..cfa7090 100644
+--- a/frontend/src/pages/home/Home.tsx
++++ b/frontend/src/pages/home/Home.tsx
+@@ -16,6 +16,7 @@ import { matchPath } from '@/utils';
+ 
+ const CORE_PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
+ const DAO_PROGRAM_ID = import.meta.env.VITE_DAOPROGRAM as string;
++const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
+ 
+ const VARA_DECIMALS = 12;
+ 
+@@ -42,6 +43,7 @@ type CoreState = {
+   final_prize_claimable_total: string | number | bigint;
+   final_prize_rounding_dust: string | number | bigint;
+   podium_finalized: boolean;
++  r32_lock_time?: string | number | bigint | null;
+   matches: CoreMatch[];
+   phases: Array<{ name: string; start_time: number; end_time: number }>;
+   user_points: Array<[string, number]>;
+@@ -70,6 +72,13 @@ type FinalPrizeClaimStatus = {
+   points: number;
+ };
+ 
++type ApiLeaderboardRow = {
++  wallet_address: string;
++  matches_count: number;
++  exact_count: number;
++  total_claimed_planck: string;
++};
++
+ 
+ function shortHex(addr: string) {
+   if (!addr) return '-';
+@@ -77,6 +86,10 @@ function shortHex(addr: string) {
+   return addr.slice(0, 6) + '…' + addr.slice(-4);
+ }
+ 
++function podiumStorageKey(wallet?: string) {
++  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
++}
++
+ function toHexAddress(input?: string | null): `0x${string}` | null {
+   if (!input) return null;
+   const trimmed = input.trim();
+@@ -220,6 +233,8 @@ export default function Home() {
+   const [userBets, setUserBets] = useState<any[]>([]);
+   const [claimStatus, setClaimStatus] = useState<FinalPrizeClaimStatus | null>(null);
+   const [claimLoading, setClaimLoading] = useState(false);
++  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
++  const [apiLeaderboardRow, setApiLeaderboardRow] = useState<ApiLeaderboardRow | null>(null);
+ 
+   useEffect(() => {
+     void (async () => {
+@@ -229,6 +244,11 @@ export default function Home() {
+     })();
+   }, []);
+ 
++  useEffect(() => {
++    const key = podiumStorageKey(account?.decodedAddress);
++    setPodiumSubmitted(key ? window.localStorage.getItem(key) === 'true' : false);
++  }, [account?.decodedAddress]);
++
+   const coreProgram = useMemo(() => {
+     if (!api || !isApiReady) return null;
+     if (!CORE_PROGRAM_ID) return null;
+@@ -332,6 +352,29 @@ export default function Home() {
+     }
+   }, [coreProgram, account]);
+ 
++  const fetchApiLeaderboardRow = useCallback(async () => {
++    if (!myWalletHex) {
++      setApiLeaderboardRow(null);
++      return;
++    }
++
++    try {
++      const res = await fetch(`${API_BASE}/api/v1/leaderboard?limit=2000`);
++      if (!res.ok) {
++        setApiLeaderboardRow(null);
++        return;
++      }
++
++      const data = (await res.json()) as { rows?: ApiLeaderboardRow[] };
++      const row = (data.rows ?? []).find(
++        (item) => item.wallet_address.toLowerCase() === myWalletHex.toLowerCase(),
++      );
++      setApiLeaderboardRow(row ?? null);
++    } catch {
++      setApiLeaderboardRow(null);
++    }
++  }, [myWalletHex]);
++
+   const fetchDaoProposals = useCallback(async () => {
+     if (!daoProgram) return;
+ 
+@@ -367,6 +410,7 @@ export default function Home() {
+         fetchDaoProposals(),
+         fetchUserBets(),
+         fetchFinalPrizeClaimStatus(),
++        fetchApiLeaderboardRow(),
+       ]);
+     } catch (e) {
+       console.error(e);
+@@ -380,6 +424,7 @@ export default function Home() {
+     fetchDaoProposals,
+     fetchUserBets,
+     fetchFinalPrizeClaimStatus,
++    fetchApiLeaderboardRow,
+     toast,
+   ]);
+ 
+@@ -467,6 +512,10 @@ export default function Home() {
+     return unpredicted[0] ?? upcoming[0] ?? null;
+   }, [upcoming, predictedMatchIds]);
+ 
++  const nextMatchAlreadyPredicted = nextMatch
++    ? predictedMatchIds.has(String(nextMatch.match_id))
++    : false;
++
+   const userPredStats = useMemo(() => {
+     if (!account || !userBets.length || !coreState?.matches) {
+       return { made: 0, exactResults: 0, correctOutcomes: 0 };
+@@ -501,6 +550,12 @@ export default function Home() {
+     return { made: userBets.length, exactResults: exact, correctOutcomes: outcome };
+   }, [account, userBets, coreState?.matches]);
+ 
++  const totalEarnedText = useMemo(() => {
++    if (!account) return '—';
++    if (!apiLeaderboardRow) return '—';
++    return formatTokenCompact(apiLeaderboardRow.total_claimed_planck ?? '0', VARA_DECIMALS);
++  }, [account, apiLeaderboardRow]);
++
+   const governance = useMemo(() => {
+     const active = daoProposals.filter((p) => (p.status ?? '').toLowerCase() === 'active');
+     const last = [...daoProposals].sort((a, b) => b.id - a.id)[0] ?? null;
+@@ -523,6 +578,14 @@ export default function Home() {
+     return closesLabel(Number(nextMatch.kick_off));
+   }, [nextMatch]);
+ 
++  const championshipPickState = coreState?.podium_finalized ? 'completed' : podiumSubmitted ? 'submitted' : 'open';
++  const championshipPickStatus = championshipPickState === 'completed'
++    ? '+30 pts'
++    : championshipPickState === 'submitted'
++      ? 'Submitted ✓'
++      : 'Not Submitted';
++  const championshipPickSubtext = championshipPickState === 'submitted' ? 'Potential: +35 pts' : 'Earn up to +35 pts';
++
+   const claimablePrizeBn = useMemo(
+     () => safeBigInt(claimStatus?.amount_claimable ?? 0),
+     [claimStatus]
+@@ -746,7 +809,7 @@ export default function Home() {
+               <div className="h-kpi">
+                 <div className="h-kpi__label">Total Earned</div>
+                 <div className="h-kpi__value">
+-                  — <span className="muted">{usdcLabel}</span>
++                  {totalEarnedText} <span className="muted">{usdcLabel}</span>
+                 </div>
+               </div>
+ 
+@@ -756,10 +819,33 @@ export default function Home() {
+               </div>
+             </div>
+ 
++            <div className={`h-champ-pick h-champ-pick--${championshipPickState}`}>
++              <div className="h-champ-pick__main">
++                <div className="h-champ-pick__row">
++                  <span className="h-champ-pick__title">Championship Picks</span>
++                  <span className="h-champ-pick__status">{championshipPickStatus}</span>
++                </div>
++                {championshipPickState !== 'completed' ? (
++                  <div className="h-champ-pick__sub">{championshipPickSubtext}</div>
++                ) : null}
++              </div>
++
++              {championshipPickState !== 'completed' ? (
++                <button
++                  className="h-champ-pick__cta"
++                  type="button"
++                  onClick={() => navigate('/championship-pick')}>
++                  {championshipPickState === 'submitted' ? 'View Picks →' : 'Make Picks →'}
++                </button>
++              ) : null}
++            </div>
++
+             {nextMatch && (
+               <div className="h-next-match">
+                 <div className="h-next-match__head">
+-                  <span className="h-next-match__label">Next Match to Predict:</span>
++                  <span className="h-next-match__label">
++                    {nextMatchAlreadyPredicted ? 'Next Predicted Match:' : 'Next Match to Predict:'}
++                  </span>
+                 </div>
+                 <div className="h-next-match__info">
+                   <span className="h-next-match__teams">
+@@ -776,8 +862,14 @@ export default function Home() {
+                   <button
+                     className="h-btn h-btn--primary"
+                     type="button"
+-                    onClick={() => navigate(matchPath(nextMatch.phase, nextMatch.match_id))}>
+-                    Predict now
++                    onClick={() =>
++                      navigate(
++                        nextMatchAlreadyPredicted
++                          ? '/my-predictions'
++                          : matchPath(nextMatch.phase, nextMatch.match_id)
++                      )
++                    }>
++                    {nextMatchAlreadyPredicted ? 'View your predictions →' : 'Predict now'}
+                   </button>
+                   <button
+                     className="h-btn h-btn--ghost"
+@@ -790,7 +882,7 @@ export default function Home() {
+             )}
+ 
+             {!nextMatch && (
+-              <div className="h-card__foot">
++              <div className="h-card__foot h-card__foot--bottomCenter">
+                 <button className="h-btn h-btn--ghost" type="button" onClick={() => navigate('/all-matches')}>
+                   View all matches →
+                 </button>
+@@ -1033,4 +1125,4 @@ export default function Home() {
+ 
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/frontend/src/pages/home/dashboard.css b/frontend/src/pages/home/dashboard.css
+index 08df0b9..6de9b1f 100644
+--- a/frontend/src/pages/home/dashboard.css
++++ b/frontend/src/pages/home/dashboard.css
+@@ -312,6 +312,15 @@ body {
+   align-items: center;
+   gap: 10px;
+ }
++.h-card__foot--bottomCenter {
++  margin-top: auto;
++  justify-content: center;
++  padding-top: 22px;
++}
++.h-card--perf .h-card__foot--bottomCenter {
++  padding-top: 10px;
++  padding-bottom: 6px;
++}
+ 
+ /* ─── Buttons ────────────────────────────────────────────────── */
+ .h-btn {
+@@ -363,6 +372,11 @@ body {
+ .h-card--leader  { grid-column: 1 / 3; }
+ .h-card--activity{ grid-column: 3 / 4; }
+ .h-card--matches { grid-column: 1 / 4; }
++.h-card--status,
++.h-card--perf {
++  display: flex;
++  flex-direction: column;
++}
+ @media (max-width: 1100px) {
+   .h-card--status  { grid-column: 1 / 2; }
+   .h-card--perf    { grid-column: 2 / 3; }
+@@ -378,6 +392,13 @@ body {
+   position: relative;
+   z-index: 1;
+   padding: 2px 18px 8px;
++  display: flex;
++  flex: 1;
++  flex-direction: column;
++}
++.h-card--status .h-card__foot {
++  margin-top: auto;
++  padding-bottom: 6px;
+ }
+ .h-status__top {
+   display: flex;
+@@ -494,6 +515,10 @@ body {
+   position: relative;
+   z-index: 1;
+   padding: 0 18px 10px;
++  min-height: 294px;
++  display: flex;
++  flex-direction: column;
++  flex: 1;
+ }
+ .h-perf__kpis { display: grid; gap: 8px; }
+ .h-kpi {
+@@ -515,6 +540,162 @@ body {
+ .h-kpi__label { color: rgba(255, 255, 255, 0.6); font-size: 12px; }
+ .h-kpi__value { font-weight: 980; letter-spacing: -0.01em; font-size: 15px; }
+ 
++
++/* ─── Championship Picks row ─────────────────────────────────── */
++.h-champ-pick {
++  position: relative;
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 10px;
++  margin-top: 10px;
++  padding: 10px 12px;
++  min-height: 54px;
++  overflow: hidden;
++  border-radius: 14px;
++  border: 1px solid rgba(255, 255, 255, 0.10);
++  background:
++    radial-gradient(360px 110px at 82% 52%, rgba(255, 46, 118, 0.08), transparent 62%),
++    linear-gradient(95deg, rgba(24, 0, 13, 0.88), rgba(39, 0, 21, 0.78) 52%, rgba(24, 0, 14, 0.82));
++  box-shadow:
++    0 1px 0 rgba(255, 255, 255, 0.06) inset,
++    0 8px 20px rgba(0, 0, 0, 0.24);
++}
++
++.h-champ-pick::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  pointer-events: none;
++  background:
++    linear-gradient(90deg, rgba(255, 46, 118, 0.06), transparent 30%, transparent 78%, rgba(255, 255, 255, 0.03));
++}
++
++.h-champ-pick::after {
++  content: '';
++  position: absolute;
++  left: 0;
++  top: 0;
++  bottom: 0;
++  width: 3px;
++  background: linear-gradient(180deg, rgba(255, 46, 118, 0.74), rgba(255, 46, 118, 0.36));
++  box-shadow: none;
++}
++
++.h-champ-pick__main,
++.h-champ-pick__cta {
++  position: relative;
++  z-index: 1;
++}
++
++.h-champ-pick__main {
++  min-width: 0;
++  flex: 1;
++}
++
++.h-champ-pick__row {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: 3px;
++  min-width: 0;
++}
++
++.h-champ-pick__title {
++  color: rgba(255, 255, 255, 0.88);
++  font-size: 13px;
++  font-weight: 950;
++  letter-spacing: -0.01em;
++  white-space: nowrap;
++}
++
++.h-champ-pick__status {
++  color: rgba(255, 235, 246, 0.66);
++  font-size: 12px;
++  font-weight: 750;
++  white-space: nowrap;
++}
++
++.h-champ-pick__sub {
++  margin-top: 4px;
++  color: rgba(255, 255, 255, 0.62);
++  font-size: 11.5px;
++  font-weight: 760;
++}
++
++.h-champ-pick__sub strong {
++  color: rgba(255, 225, 160, 0.98);
++}
++
++.h-champ-pick__cta {
++  min-width: 96px;
++  min-height: 30px;
++  padding: 0 12px;
++  border: 1px solid rgba(255, 46, 118, 0.30);
++  border-radius: 9px;
++  background: linear-gradient(135deg, #ff2e76, #a80545);
++  color: #fff;
++  cursor: pointer;
++  font-size: 11.5px;
++  font-weight: 920;
++  box-shadow:
++    0 8px 28px rgba(255, 46, 118, 0.25),
++    0 0 0 1px rgba(255, 46, 118, 0.15) inset;
++  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
++}
++
++.h-champ-pick__cta:hover {
++  transform: translateY(-1px);
++  filter: brightness(1.06);
++  box-shadow:
++    0 12px 38px rgba(255, 46, 118, 0.38),
++    0 0 0 1px rgba(255, 46, 118, 0.20) inset;
++}
++
++.h-champ-pick--submitted .h-champ-pick__cta {
++  border-color: rgba(255, 255, 255, 0.20);
++  background:
++    radial-gradient(120px 46px at 50% 0%, rgba(255, 255, 255, 0.16), transparent 65%),
++    linear-gradient(180deg, rgba(255, 46, 118, 0.92), rgba(168, 5, 69, 0.92));
++  box-shadow:
++    0 1px 0 rgba(255, 255, 255, 0.18) inset,
++    0 8px 20px rgba(0, 0, 0, 0.32),
++    0 0 16px rgba(255, 46, 118, 0.24);
++}
++
++.h-champ-pick--completed {
++  min-height: 48px;
++  border-color: rgba(255, 46, 118, 0.22);
++  background:
++    radial-gradient(420px 120px at 76% 52%, rgba(255, 46, 118, 0.12), transparent 62%),
++    linear-gradient(95deg, rgba(34, 0, 18, 0.9), rgba(44, 0, 25, 0.8));
++}
++
++.h-champ-pick--completed .h-champ-pick__row {
++  gap: 4px;
++}
++
++.h-champ-pick--completed .h-champ-pick__status {
++  color: rgba(255, 225, 160, 0.98);
++  font-size: 13px;
++  font-weight: 950;
++}
++
++@media (max-width: 520px) {
++  .h-champ-pick {
++    align-items: stretch;
++    flex-direction: column;
++  }
++
++  .h-champ-pick__row {
++    justify-content: flex-start;
++  }
++
++  .h-champ-pick__cta {
++    width: 100%;
++  }
++}
++
+ .h-next-match {
+   margin-top: 12px;
+   padding: 14px;
+diff --git a/frontend/src/pages/index.tsx b/frontend/src/pages/index.tsx
+index e277387..4ecba28 100644
+--- a/frontend/src/pages/index.tsx
++++ b/frontend/src/pages/index.tsx
+@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
+ import { Landing } from './landing';
+ import { Match } from './matchs';
+ import { Home } from './home';
++import { ChampionshipPick } from './championship-pick';
+ import { AppLayout } from './AppLayout';
+ import { MatchesTableComponent } from '@/components/predictions/AllMatchs';
+ import { QueryBetsByUserComponent } from '@/components/predictions/QueryBetsByUser';
+@@ -23,6 +24,7 @@ function Routing() {
+       <Route path="/leagues/match/:id" element={<Match />} />
+       {/* Legacy redirect kept for backwards compatibility */}
+       <Route path="/match/:id" element={<Match />} />
++      <Route path="/championship-pick" element={<ChampionshipPick />} />
+       {/* Legal pages — accessible without auth */}
+       <Route path="/terms-of-use" element={<TermsOfUse />} />
+       <Route path="/dao-constitution" element={<DaoConstitution />} />
+diff --git a/frontend/src/pages/landing/Landing.tsx b/frontend/src/pages/landing/Landing.tsx
+index 71fc6f0..fcf6c8a 100644
+--- a/frontend/src/pages/landing/Landing.tsx
++++ b/frontend/src/pages/landing/Landing.tsx
+@@ -1,5 +1,5 @@
+ import React, { useEffect, useMemo, useState } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { Link, useNavigate } from 'react-router-dom';
+ import './landing.css';
+ 
+ type Slide = { src: string; alt: string; kicker?: string; title: string; titleLines?: string[]; subtitle: string };
+@@ -460,9 +460,17 @@ export const Landing: React.FC = () => {
+         </section>
+       </main>
+ 
+-      <footer className="scb-footer">© {new Date().getFullYear()} SmartCupLeague</footer>
++      <footer className="scb-footer">
++        <span>© 2026 SmartCup League</span>
++        <span className="scb-footer__sep" aria-hidden="true">·</span>
++        <Link to="/terms-of-use" className="scb-footer__link">Terms of Use</Link>
++        <span className="scb-footer__sep" aria-hidden="true">·</span>
++        <Link to="/rules" className="scb-footer__link">Rules</Link>
++        <span className="scb-footer__sep" aria-hidden="true">·</span>
++        <Link to="/dao-constitution" className="scb-footer__link">DAO Constitution</Link>
++      </footer>
+     </div>
+   );
+ };
+ 
+-export default Landing;
+\ No newline at end of file
++export default Landing;
+diff --git a/frontend/src/pages/landing/landing.css b/frontend/src/pages/landing/landing.css
+index fe7f5c4..b5c6de6 100644
+--- a/frontend/src/pages/landing/landing.css
++++ b/frontend/src/pages/landing/landing.css
+@@ -766,6 +766,11 @@ a:hover {
+ }
+ 
+ .scb-footer {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  flex-wrap: wrap;
++  gap: 6px 12px;
+   text-align: center;
+   padding: 34px 0 54px;
+   color: rgba(255, 255, 255, 0.55);
+@@ -774,6 +779,21 @@ a:hover {
+   background: rgba(7, 3, 10, 0.55);
+ }
+ 
++.scb-footer__sep {
++  color: rgba(255, 255, 255, 0.28);
++}
++
++.scb-footer__link {
++  color: rgba(255, 255, 255, 0.68);
++  text-decoration: none;
++  transition: color 160ms ease;
++}
++
++.scb-footer__link:hover {
++  color: #ff4f9c;
++  text-decoration: underline;
++}
++
+ @media (max-width: 980px) {
+   .scb-nav {
+     padding: 16px 5%;
+@@ -810,4 +830,4 @@ a:hover {
+     height: 40px;
+     line-height: 40px;
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/frontend/src/pages/legal/TermsOfUse.tsx b/frontend/src/pages/legal/TermsOfUse.tsx
+index dbdd17f..24fda75 100644
+--- a/frontend/src/pages/legal/TermsOfUse.tsx
++++ b/frontend/src/pages/legal/TermsOfUse.tsx
+@@ -3,6 +3,424 @@ import { useNavigate } from 'react-router-dom';
+ import { AppFooter } from '@/components/layout/footer/AppFooter';
+ import './legal.css';
+ 
++type LegalSubsection = {
++  title: string;
++  body?: string[];
++  bullets?: string[];
++};
++
++type LegalSection = {
++  title: string;
++  body?: string[];
++  bullets?: string[];
++  subsections?: LegalSubsection[];
++};
++
++const noticeBullets = [
++  'the Interface is distinct from the Protocol;',
++  'the Protocol consists of autonomous blockchain-based smart contracts;',
++  'the Protocol is non-custodial and permissionless;',
++  'no entity or individual controls participant funds or acts as a bookmaker or betting counterparty;',
++  'rewards are distributed according to transparent, Protocol-defined competition logic;',
++  'participation involves substantial technological, financial, and regulatory risks;',
++  'you are solely responsible for ensuring that your use of the Interface and Protocol is lawful in your jurisdiction.',
++];
++
++const termsSections: LegalSection[] = [
++  {
++    title: '1. Eligibility and Legal Compliance',
++    subsections: [
++      {
++        title: '1.1 Minimum Age Requirement',
++        body: [
++          'You must be at least eighteen (18) years old, or the minimum legal age required in your jurisdiction to access and use the Interface or Protocol, whichever is higher.',
++          'By accessing or using the Interface or Protocol, you represent and warrant that you satisfy all applicable age requirements under the laws of your jurisdiction.',
++        ],
++      },
++      {
++        title: '1.2 Restricted Persons',
++        body: ['You may not access or use the Interface or Protocol if you are:'],
++        bullets: [
++          'subject to sanctions or restrictive measures administered or enforced by any governmental or international authority, including OFAC, the European Union, the United Nations, or the UK HM Treasury;',
++          'acting on behalf of a sanctioned person or entity;',
++          'otherwise prohibited from participating under applicable law.',
++        ],
++      },
++      {
++        title: '1.3 Restricted Jurisdictions',
++        body: [
++          'You may not access, use, or interact with the Interface or Protocol if your jurisdiction prohibits or restricts blockchain-based forecasting competitions, digital asset activities, or similar online services.',
++          'Restricted jurisdictions may include, without limitation: United States, United Kingdom, Spain, France, Netherlands, Germany, Australia, Singapore, China, North Korea, Iran, Syria, Cuba, Belarus, Myanmar, Russia, Sudan, South Sudan, Afghanistan, Yemen, Venezuela, Iraq, Ontario (Canada), and any other jurisdiction where participation may be restricted or prohibited.',
++          'This list is non-exhaustive and may be modified or updated at any time without notice.',
++        ],
++        bullets: [
++          'your participation would violate any applicable law, regulation, or governmental order;',
++          'you access the Interface or Protocol from a prohibited jurisdiction.',
++        ],
++      },
++      {
++        title: '1.4 Circumvention Prohibited',
++        body: [
++          'You may not use VPNs, proxies, routing services, or any other method intended to circumvent geographic restrictions, sanctions restrictions, or compliance controls.',
++          'The Interface may implement geo-blocking measures, wallet restrictions, sanctions screening, access controls, or other compliance mechanisms at its discretion.',
++        ],
++      },
++      {
++        title: '1.5 User Responsibility for Legal Compliance',
++        body: [
++          'You are solely responsible for determining whether your access to and use of the Interface or Protocol is lawful in your jurisdiction.',
++          'Laws relating to blockchain systems, digital assets, online forecasting competitions, gaming activities, financial technologies, and decentralized protocols vary significantly between jurisdictions and may change rapidly.',
++          'If you are uncertain whether your participation is lawful in your country, state, province, or territory, you must seek independent legal advice before accessing or using the Interface or Protocol.',
++          'By using the Interface or Protocol, you represent and warrant that:',
++        ],
++        bullets: [
++          'your participation is lawful under all laws applicable to you;',
++          'you are legally permitted to access and use the Services;',
++          'you are acting solely on your own behalf;',
++          'you assume full responsibility for all legal, regulatory, financial, and tax consequences associated with your use of the Interface or Protocol.',
++        ],
++      },
++    ],
++  },
++  {
++    title: '2. Nature of the Protocol',
++    subsections: [
++      {
++        title: '2.1 The Interface Is Not the Protocol',
++        body: [
++          'The Interface is only one possible method of accessing the Protocol.',
++          'Users may interact directly with the Protocol using wallets, blockchain explorers, or third-party applications without using the Interface.',
++          'The Protocol may continue operating independently even if the Interface becomes unavailable.',
++        ],
++      },
++      {
++        title: '2.2 Autonomous and Non-Custodial Infrastructure',
++        body: [
++          'The Protocol is designed to operate through autonomous smart contracts deployed on blockchain networks.',
++          'No contributor, Foundation member, DAO participant, Interface operator, developer, or related party:',
++        ],
++        bullets: [
++          'controls User wallets;',
++          'holds User private keys;',
++          'approves individual transactions;',
++          'reverses blockchain transactions;',
++          'manually distributes rewards.',
++        ],
++      },
++      {
++        title: '2.3 No Bookmaking or Custodial Gaming Operations',
++        body: [
++          'The Interface and Protocol are designed as decentralized football forecasting competition infrastructure and not as a custodial sportsbook or betting operator.',
++          'The Interface and Protocol:',
++        ],
++        bullets: [
++          'do not offer fixed-odds wagering;',
++          'do not act as a bookmaker or betting counterparty;',
++          'do not manage participant exposure for profit;',
++          'do not guarantee rewards or returns;',
++          'do not manually determine competition outcomes or rankings;',
++          'do not custody participant Digital Assets.',
++        ],
++      },
++      {
++        title: '2.4 Skill-Based Forecasting System',
++        body: [
++          'The Protocol is structured around predictive football forecasting competitions in which participants:',
++        ],
++        bullets: [
++          'submit football score forecasts;',
++          'accumulate ranking points based on predictive accuracy;',
++          'compete across multiple matches or tournaments;',
++          'may qualify for Protocol-defined reward allocations.',
++          'Leaderboard rankings are influenced by predictive performance, consistency, and scoring accuracy.',
++        ],
++      },
++    ],
++  },
++  {
++    title: '3. Definitions',
++    subsections: [
++      { title: '3.1 Protocol', body: ['The SmartCup League Protocol is a decentralized blockchain-based software system designed to facilitate football forecasting competitions through autonomous smart-contract logic.'] },
++      { title: '3.2 Interface', body: ['The front-end software applications and related websites that enable interaction with the Protocol.'] },
++      { title: '3.3 User or You', body: ['Any person or entity accessing or interacting with the Interface, Protocol, or Services.'] },
++      { title: '3.4 Wallet', body: ['A non-custodial blockchain wallet controlled exclusively by the User and the User private keys.'] },
++      { title: '3.5 Digital Assets', body: ['Blockchain-based cryptographic assets used in connection with the Protocol.'] },
++      { title: '3.6 Forecasting Competition', body: ['A Protocol-defined competition in which participants submit football score forecasts and may receive ranking points or reward allocations based on predictive accuracy.'] },
++      { title: '3.7 Leaderboard', body: ['An on-chain or off-chain ranking system that tracks participant forecasting performance according to Protocol-defined scoring rules.'] },
++      { title: '3.8 DAO', body: ['A decentralized governance system that may manage certain Protocol configuration parameters through on-chain governance mechanisms.', 'The DAO does not custody User assets.'] },
++      { title: '3.9 Foundation', body: ['A supporting entity that may assist with software development, communications, interface maintenance, documentation, or related off-chain services.', 'The Foundation does not operate the Protocol and does not custody User assets.'] },
++      { title: '3.10 Oracle', body: ['A third-party or decentralized data provider responsible for publishing football match data and results to blockchain systems.'] },
++    ],
++  },
++  {
++    title: '4. User Responsibility and Self-Custody',
++    subsections: [
++      {
++        title: '4.1 Wallet Responsibility',
++        body: ['You retain exclusive control over your Wallet and private keys. You are solely responsible for:'],
++        bullets: [
++          'securing your Wallet;',
++          'maintaining backup credentials;',
++          'authorizing transactions;',
++          'reviewing all blockchain activity associated with your Wallet.',
++          'Loss of private keys may result in permanent loss of access to Digital Assets.',
++        ],
++      },
++      {
++        title: '4.2 No Custody',
++        body: ['No contributor, Foundation member, DAO participant, or Interface operator has custody or control over User Digital Assets at any time.'],
++      },
++      {
++        title: '4.3 Irreversible Transactions',
++        body: ['Blockchain transactions are generally irreversible.', 'Completed transactions cannot typically be canceled, reversed, or recovered.'],
++      },
++    ],
++  },
++  {
++    title: '5. Forecasting Competition Mechanics',
++    subsections: [
++      {
++        title: '5.1 Protocol-Defined Reward Allocation',
++        body: ['The Protocol may automatically allocate portions of participant entries toward:'],
++        bullets: [
++          'match-specific competition pools;',
++          'seasonal or tournament leaderboard reward pools;',
++          'Protocol maintenance fees;',
++          'governance-defined operational allocations.',
++          'All allocations are determined through transparent Protocol logic.',
++        ],
++      },
++      {
++        title: '5.2 No Fixed Returns',
++        body: ['The Protocol does not guarantee:'],
++        bullets: [
++          'profits;',
++          'rewards;',
++          'financial returns;',
++          'successful outcomes;',
++          'specific reward allocations.',
++          'Any reward allocation depends on participant activity, competition outcomes, and Protocol-defined rules.',
++        ],
++      },
++      {
++        title: '5.3 Variable Reward Distributions',
++        body: ['Reward distributions may vary significantly depending on:'],
++        bullets: [
++          'the number of participants;',
++          'forecasting performance;',
++          'scoring outcomes;',
++          'pool allocation structures;',
++          'governance-defined parameters.',
++          'Participants may receive less than the value of their submitted Digital Assets or no reward allocation at all.',
++        ],
++      },
++      {
++        title: '5.4 No Treasury Balancing or Market Making',
++        body: ['The Protocol does not:'],
++        bullets: [
++          'inject capital to rebalance outcomes;',
++          'guarantee liquidity;',
++          'subsidize competition pools;',
++          'manage participant exposure for profit.',
++          'All participation risk is borne exclusively by Users.',
++        ],
++      },
++    ],
++  },
++  {
++    title: '6. Governance',
++    subsections: [
++      {
++        title: '6.1 DAO Governance',
++        body: ['The DAO may adjust certain non-custodial Protocol parameters, including:'],
++        bullets: ['scoring weights;', 'reward allocation percentages;', 'Oracle configuration;', 'competition structures;', 'operational parameters.'],
++      },
++      {
++        title: '6.2 Governance Limitations',
++        body: ['The DAO cannot:'],
++        bullets: ['access User funds;', 'reverse blockchain transactions;', 'modify finalized competition results;', 'retroactively alter settled reward distributions.'],
++      },
++    ],
++  },
++  {
++    title: '7. Oracles and Data',
++    subsections: [
++      { title: '7.1 Third-Party Data Sources', body: ['The Protocol may rely on third-party or decentralized Oracle systems for football match data and results.'] },
++      {
++        title: '7.2 Oracle Risks',
++        body: ['Oracle systems may experience:'],
++        bullets: ['delays;', 'outages;', 'inaccuracies;', 'corruption;', 'manipulation attempts;', 'technical failures.', 'No guarantee is made regarding Oracle accuracy or availability.'],
++      },
++      { title: '7.3 No Manual Outcome Manipulation', body: ['No contributor, Foundation member, DAO participant, or Interface operator may manually alter finalized Protocol reward calculations.'] },
++    ],
++  },
++  {
++    title: '8. Experimental Technology',
++    body: [
++      'The Protocol utilizes emerging blockchain technologies and experimental smart-contract systems.',
++      'The Protocol may contain bugs, vulnerabilities, security failures, economic design flaws, governance risks, or unexpected technical behavior.',
++      'Use of the Protocol is entirely at your own risk.',
++    ],
++  },
++  {
++    title: '9. User Risks',
++    body: ['By using the Interface or Protocol, you acknowledge and accept that:'],
++    bullets: [
++      'Digital Assets may lose value;',
++      'blockchain systems may fail;',
++      'smart contracts may malfunction;',
++      'Oracle systems may be inaccurate;',
++      'transactions may be delayed or reordered;',
++      'gas fees may fluctuate;',
++      'regulatory frameworks may change rapidly;',
++      'participation may result in partial or total loss of Digital Assets.',
++      'You should not participate with an expectation of guaranteed profit, investment return, or financial gain.',
++    ],
++  },
++  {
++    title: '10. Regulatory Uncertainty',
++    body: [
++      'The legal and regulatory treatment of blockchain technologies, decentralized protocols, digital assets, forecasting competitions, and autonomous reward systems remains uncertain in many jurisdictions.',
++      'Regulatory authorities may classify or regulate the Protocol differently in the future.',
++    ],
++  },
++  {
++    title: '11. Fees and Treasury',
++    subsections: [
++      {
++        title: '11.1 Protocol Fees',
++        body: ['The Protocol may automatically collect governance-defined fees associated with participation. Fees may support:'],
++        bullets: ['Protocol maintenance;', 'ecosystem development;', 'infrastructure costs;', 'community operations;', 'DAO-controlled initiatives.'],
++      },
++      {
++        title: '11.2 DAO Treasury',
++        body: ['The DAO Treasury:'],
++        bullets: ['does not custody User assets;', 'receives only Protocol-defined fee allocations;', 'cannot access participant Wallets;', 'operates through governance-controlled smart contracts.'],
++      },
++    ],
++  },
++  {
++    title: '12. Tax Responsibility',
++    body: ['You are solely responsible for:'],
++    bullets: ['determining whether taxes apply to your activities;', 'reporting taxable events;', 'calculating gains or losses;', 'complying with all applicable tax obligations.', 'No contributor or related party provides tax advice.'],
++  },
++  {
++    title: '13. No Warranty',
++    body: [
++      'THE INTERFACE, PROTOCOL, AND SERVICES ARE PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND.',
++      'No guarantee is made regarding uptime, availability, accessibility, security, accuracy, or uninterrupted operation.',
++    ],
++  },
++  {
++    title: '14. No Financial, Legal, or Investment Advice',
++    body: ['Nothing provided through the Interface, Protocol, or Services constitutes:'],
++    bullets: ['financial advice;', 'investment advice;', 'legal advice;', 'tax advice;', 'professional advisory services.'],
++  },
++  {
++    title: '15. No Offer or Solicitation',
++    body: ['Nothing in the Interface, Protocol, or Services constitutes:'],
++    bullets: ['an offer to sell securities;', 'an investment solicitation;', 'a financial product offering;', 'a custodial gaming service;', 'a guarantee of financial return.'],
++  },
++  {
++    title: '16. Limitation of Liability',
++    body: ['To the maximum extent permitted by law, no contributor, Foundation member, DAO participant, Interface operator, developer, or related party shall be liable for:'],
++    bullets: ['loss of Digital Assets;', 'smart-contract failures;', 'Oracle failures;', 'governance actions;', 'data loss;', 'economic losses;', 'indirect or consequential damages.'],
++  },
++  {
++    title: '17. Indemnification',
++    body: ['You agree to indemnify and hold harmless all contributors and related parties from claims arising from:'],
++    bullets: ['your use of the Interface or Protocol;', 'your violation of law;', 'your breach of these Terms.'],
++  },
++  {
++    title: '18. Third-Party Services',
++    body: [
++      'The Interface may integrate with or link to third-party services.',
++      'No responsibility is assumed for third-party infrastructure, wallets, APIs, hosting services, blockchain networks, or external providers.',
++    ],
++  },
++  {
++    title: '19. Termination and Interface Access',
++    body: [
++      'Access to the Interface may be restricted, suspended, or terminated at any time.',
++      'The Protocol itself may continue operating independently of the Interface.',
++    ],
++  },
++  {
++    title: '20. Intellectual Property',
++    body: [
++      'Interface branding, content, and associated materials may belong to the Foundation or respective licensors.',
++      'Open-source Protocol components remain subject to their applicable licenses.',
++    ],
++  },
++  {
++    title: '21. No Partnership or Fiduciary Relationship',
++    body: ['Your use of the Interface or Protocol does not create:'],
++    bullets: ['a partnership;', 'fiduciary relationship;', 'agency relationship;', 'joint venture.'],
++  },
++  {
++    title: '22. Force Majeure',
++    body: ['No contributor or related party shall be responsible for delays or failures caused by events beyond reasonable control, including:'],
++    bullets: ['blockchain outages;', 'network congestion;', 'cyberattacks;', 'regulatory actions;', 'infrastructure failures.'],
++  },
++  {
++    title: '23. Disputes',
++    body: [
++      'To the extent permitted by applicable law, parties agree to attempt to resolve disputes arising from these Terms through good-faith discussions before initiating formal legal proceedings.',
++      'Additional dispute resolution procedures, governing law provisions, or arbitration frameworks may be adopted or published in the future in connection with the Interface or related off-chain services.',
++    ],
++  },
++  {
++    title: '24. Changes to Terms',
++    body: [
++      'These Terms may be modified or updated at any time.',
++      'Continued use of the Interface or Protocol constitutes acceptance of updated Terms.',
++    ],
++  },
++  {
++    title: '25. Survival',
++    body: ['All disclaimers, limitations of liability, indemnities, and risk disclosures survive termination of access to the Interface or Protocol.'],
++  },
++  {
++    title: '26. Entire Agreement',
++    body: [
++      'These Terms constitute the entire agreement between you and the providers of the Interface with respect to your access to and use of the Interface, Protocol, and Services, and supersede all prior or contemporaneous communications, understandings, discussions, or agreements, whether oral or written, relating to the subject matter herein.',
++      'No statement, representation, or information not expressly contained in these Terms shall be relied upon as creating any warranty, obligation, or contractual relationship with respect to the Interface, Protocol, or Services.',
++    ],
++  },
++];
++
++function Paragraphs({ items }: { items?: string[] }) {
++  if (!items?.length) return null;
++  return (
++    <>
++      {items.map((item) => (
++        <p key={item}>{item}</p>
++      ))}
++    </>
++  );
++}
++
++function Bullets({ items }: { items?: string[] }) {
++  if (!items?.length) return null;
++  return (
++    <ul>
++      {items.map((item) => (
++        <li key={item}>{item}</li>
++      ))}
++    </ul>
++  );
++}
++
++function LegalSubsectionBlock({ subsection }: { subsection: LegalSubsection }) {
++  return (
++    <div className="legal-subsection">
++      <h3>{subsection.title}</h3>
++      <Paragraphs items={subsection.body} />
++      <Bullets items={subsection.bullets} />
++    </div>
++  );
++}
++
+ export default function TermsOfUse() {
+   const navigate = useNavigate();
+ 
+@@ -15,117 +433,42 @@ export default function TermsOfUse() {
+         <img src="/Logos.png" alt="SmartCup League" className="legal-logo" />
+       </header>
+ 
+-      <main className="legal-content">
+-        <div className="legal-badge">DRAFT</div>
+-        <h1 className="legal-title">SMARTCUP LEAGUE 2026 — TERMS OF USE (DRAFT)</h1>
+-        <p className="legal-updated">Last updated: March 2026 — Subject to change before mainnet</p>
+-
+-        <section className="legal-section">
+-          <h2>1. Acceptance of Terms</h2>
+-          <p>
+-            By connecting your wallet and participating in SmartCup League predictions, you agree to be
+-            bound by these Terms of Use. If you do not agree to all the terms, you must not access or use the platform.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>2. Eligibility</h2>
+-          <p>
+-            You must be at least 18 years of age to participate in SmartCup League. By using the platform,
+-            you represent and warrant that you meet this requirement and that your use of the platform
+-            is legal in your jurisdiction.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>3. Nature of the Platform</h2>
+-          <p>
+-            SmartCup League is a decentralized, on-chain prediction platform built on the Vara Network.
+-            All predictions, rewards, and governance actions are executed via smart contracts. The platform
+-            operates in a non-custodial manner — your assets remain under your control at all times.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>4. Predictions and Pools</h2>
+-          <p>
+-            Predictions are settled on-chain based on oracle-verified match results. A portion of each
+-            prediction contributes to the match prize pool (85%), the final prize pool (10%), and the
+-            DAO treasury (5%). These parameters may be modified by DAO governance.
+-          </p>
+-        </section>
++      <main className="legal-content legal-content--wide">
++        <div className="legal-badge">Version 1.0</div>
++        <h1 className="legal-title">SmartCup League - Terms of Use</h1>
++        <p className="legal-kicker">Decentralized Football Forecasting Competition Protocol</p>
++        <p className="legal-updated">Last updated: May 12, 2026</p>
+ 
+-        <section className="legal-section">
+-          <h2>5. Risks</h2>
++        <section className="legal-notice">
++          <h2>Important Notice - Please Read Carefully</h2>
+           <p>
+-            Participation in on-chain prediction markets involves risk, including but not limited to
+-            smart contract risk, oracle risk, market volatility, and regulatory risk. You acknowledge
+-            that you are participating at your own risk and that SmartCup League does not guarantee any returns.
++            These Terms of Use ("Terms") govern your access to and use of the SmartCup League
++            websites, dashboards, applications, front-end interfaces, decentralized smart-contract
++            system, blockchain infrastructure, documentation, APIs, analytics, communication
++            channels, and support materials.
+           </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>6. Prohibited Activities</h2>
++          <p>By accessing the Interface or interacting with the Protocol, you acknowledge and agree that:</p>
++          <Bullets items={noticeBullets} />
+           <p>
+-            You agree not to use the platform for any unlawful purpose, including but not limited to
+-            money laundering, market manipulation, or circumventing applicable laws and regulations.
++            If you do not agree to these Terms, you must not access or use the Interface, Protocol,
++            or Services.
+           </p>
+         </section>
+ 
+-        <section className="legal-section">
+-          <h2>7. Intellectual Property</h2>
+-          <p>
+-            All content, logos, and materials on SmartCup League are the property of SmartCupDAO or
+-            its licensors. You may not reproduce or distribute any content without prior written consent.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>8. Governance</h2>
+-          <p>
+-            The platform is governed by SmartCupDAO. Token holders may propose and vote on protocol
+-            parameters, fee structures, and other governance matters as described in the DAO Constitution.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>9. Disclaimer of Warranties</h2>
+-          <p>
+-            The platform is provided "as is" without warranty of any kind. SmartCupDAO expressly
+-            disclaims all warranties, whether express or implied, including but not limited to
+-            implied warranties of merchantability and fitness for a particular purpose.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>10. Limitation of Liability</h2>
+-          <p>
+-            To the fullest extent permitted by applicable law, SmartCupDAO shall not be liable for
+-            any indirect, incidental, special, consequential, or punitive damages arising from your
+-            use of the platform.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>11. Changes to Terms</h2>
+-          <p>
+-            SmartCupDAO reserves the right to modify these Terms at any time. Changes will be announced
+-            via the platform and governance channels. Continued use of the platform after changes
+-            constitutes your acceptance of the new Terms.
+-          </p>
+-        </section>
+-
+-        <section className="legal-section">
+-          <h2>12. Contact</h2>
+-          <p>
+-            For questions about these Terms, please reach out via the official SmartCup League
+-            community channels (Discord, governance forum).
+-          </p>
+-        </section>
++        {termsSections.map((section) => (
++          <section className="legal-section" key={section.title}>
++            <h2>{section.title}</h2>
++            <Paragraphs items={section.body} />
++            <Bullets items={section.bullets} />
++            {section.subsections?.map((subsection) => (
++              <LegalSubsectionBlock key={subsection.title} subsection={subsection} />
++            ))}
++          </section>
++        ))}
+ 
+         <div className="legal-draft-notice">
+-          ⚠️ This document is a draft and has not been finalized. It is provided for informational
+-          purposes prior to the mainnet launch of SmartCup League.
++          This document is provided as the SmartCup League Terms of Use draft for review and user
++          acknowledgement before participating in the Protocol.
+         </div>
+       </main>
+ 
+diff --git a/frontend/src/pages/legal/legal.css b/frontend/src/pages/legal/legal.css
+index acf6646..12b0b10 100644
+--- a/frontend/src/pages/legal/legal.css
++++ b/frontend/src/pages/legal/legal.css
+@@ -54,6 +54,10 @@
+   gap: 28px;
+ }
+ 
++.legal-content--wide {
++  max-width: 920px;
++}
++
+ .legal-badge {
+   display: inline-block;
+   background: rgba(255, 0, 110, 0.2);
+@@ -82,10 +86,54 @@
+   color: rgba(255, 255, 255, 0.45);
+ }
+ 
++.legal-kicker {
++  margin: -18px 0 0;
++  font-size: 14px;
++  font-weight: 650;
++  color: rgba(255, 220, 236, 0.68);
++}
++
++.legal-notice {
++  display: flex;
++  flex-direction: column;
++  gap: 12px;
++  padding: 20px;
++  border-radius: 16px;
++  border: 1px solid rgba(255, 46, 118, 0.28);
++  background:
++    radial-gradient(680px 180px at 10% 0%, rgba(255, 46, 118, 0.14), transparent 58%),
++    linear-gradient(145deg, rgba(36, 0, 22, 0.76), rgba(12, 0, 8, 0.5));
++  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
++}
++
++.legal-notice h2 {
++  margin: 0;
++  color: #ff7db1;
++  font-size: 17px;
++  letter-spacing: 0.06em;
++  text-transform: uppercase;
++}
++
++.legal-notice p,
++.legal-notice ul {
++  margin: 0;
++  font-size: 14px;
++  line-height: 1.65;
++  color: rgba(255, 255, 255, 0.78);
++}
++
++.legal-notice ul {
++  padding-left: 20px;
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
+ .legal-section {
+   display: flex;
+   flex-direction: column;
+-  gap: 10px;
++  gap: 12px;
++  padding-bottom: 8px;
+ }
+ 
+ .legal-section h2 {
+@@ -114,6 +162,20 @@
+   color: rgba(255, 255, 255, 0.9);
+ }
+ 
++.legal-subsection {
++  display: flex;
++  flex-direction: column;
++  gap: 8px;
++  padding: 14px 0 0;
++}
++
++.legal-subsection h3 {
++  margin: 0;
++  color: rgba(255, 235, 246, 0.88);
++  font-size: 14px;
++  font-weight: 850;
++}
++
+ .legal-draft-notice {
+   margin-top: 8px;
+   padding: 14px 16px;
+diff --git a/frontend/src/pages/matchs/MatchCard.tsx b/frontend/src/pages/matchs/MatchCard.tsx
+index 9af0468..8e1864b 100644
+--- a/frontend/src/pages/matchs/MatchCard.tsx
++++ b/frontend/src/pages/matchs/MatchCard.tsx
+@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/useToast';
+ import './matchcard.css';
+ import { HexString } from '@gear-js/api';
+ import { TeamFlag } from '@/components/common/TeamFlag';
+-import { reportBet } from '@/utils/statsReporter';
++import { reportBet, reportClaim } from '@/utils/statsReporter';
+ 
+ const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
+ 
+@@ -810,6 +810,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
+       const { signer } = await web3FromSource(account.meta.source);
+       tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
+ 
++      let balanceBefore = 0n;
++      try {
++        const raw = await (api as any).balance.findOut(account.decodedAddress);
++        balanceBefore = BigInt(raw.toString());
++      } catch { /* non-fatal; DB report can fall back to deterministic amount */ }
++
+       await tx.calculateGas();
+       const { blockHash, response } = await tx.signAndSend();
+ 
+@@ -817,6 +823,26 @@ export const MatchCard: React.FC<MatchCardProps> = ({
+       await response();
+       toast.success('Reward claimed ✅');
+ 
++      const isExact =
++        !!userBetScore &&
++        chainResult.tag === 'FINAL' &&
++        userBetScore.home === chainResult.home &&
++        userBetScore.away === chainResult.away;
++
++      try {
++        const raw = await (api as any).balance.findOut(account.decodedAddress);
++        const balanceAfter = BigInt(raw.toString());
++        const diff = balanceAfter - balanceBefore;
++        reportClaim(
++          account.decodedAddress,
++          String(match.match_id),
++          diff > 0n ? diff.toString() : claimableBn.toString(),
++          isExact,
++        );
++      } catch {
++        reportClaim(account.decodedAddress, String(match.match_id), claimableBn.toString(), isExact);
++      }
++
+       setTimeout(() => {
+         void fetchState();
+         void fetchUserBetForMatch();
+@@ -827,7 +853,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
+     } finally {
+       setTxLoadingClaim(false);
+     }
+-  }, [match, account, api, isApiReady, toast, fetchState, fetchUserBetForMatch, claimableBn]);
++  }, [match, account, api, isApiReady, toast, fetchState, fetchUserBetForMatch, claimableBn, userBetScore, chainResult]);
+ 
+   const sincePredictedTop = useMemo(() => {
+     if (!match) return 'Your prediction: —';
+@@ -1343,4 +1369,4 @@ export const MatchCard: React.FC<MatchCardProps> = ({
+       )}
+     </section>
+   );
+-};
+\ No newline at end of file
++};
+diff --git a/frontend/src/pages/matchs/Matchs.tsx b/frontend/src/pages/matchs/Matchs.tsx
+index 7550104..8193a31 100644
+--- a/frontend/src/pages/matchs/Matchs.tsx
++++ b/frontend/src/pages/matchs/Matchs.tsx
+@@ -31,6 +31,7 @@ type MatchInfo = {
+   pool_draw?: string;
+   pool_away?: string;
+   participants?: string[];
++  has_bets?: boolean;
+ };
+ 
+ type IoBolaoState = {
+@@ -144,6 +145,7 @@ function Match() {
+         pool_draw: m?.pool_draw != null ? String(m.pool_draw) : '0',
+         pool_away: m?.pool_away != null ? String(m.pool_away) : '0',
+         participants: Array.isArray(m?.participants) ? m.participants.map(String) : [],
++        has_bets: Boolean(m?.has_bets),
+         result: m?.result ?? null,
+       }));
+ 
+@@ -298,6 +300,14 @@ function Match() {
+ 
+   const homeName = selectedMatch?.home ?? '—';
+   const awayName = selectedMatch?.away ?? '—';
++  const currentMatchPoolPlanck = selectedMatch
++    ? safeBigInt(selectedMatch.match_prize_pool ?? selectedMatch.total_pool ?? '0')
++    : 0n;
++  const hasCurrentMatchPoolActivity =
++    currentMatchPoolPlanck > 0n ||
++    Boolean(selectedMatch?.has_bets) ||
++    Boolean(selectedMatch?.participants?.length) ||
++    Boolean(userBetForThisMatch);
+ 
+   return (
+     <Layout>
+@@ -306,18 +316,18 @@ function Match() {
+           <header className="arena__topbar">
+             <div className="arena__topbarLeft">
+               <button
+-                className="arena__backBtn"
++                className="arena__logoBtn arena__logoBtn--sm"
+                 type="button"
+-                onClick={() => navigate(-1)}
+-                aria-label="Go back">
+-                ← Back
++                onClick={() => navigate('/')}
++                aria-label="SmartCup League home">
++                <img className="logo-xs" src="/Logos.png" alt="SmartCup League" />
+               </button>
+               <button
+-                className="arena__logoBtn arena__logoBtn--sm"
++                className="arena__backBtn"
+                 type="button"
+-                onClick={() => navigate('/progress')}
+-                aria-label="Home">
+-                <img className="logo-xs" src="/Logos.png" alt="SmartCup League" />
++                onClick={() => navigate('/all-matches')}
++                aria-label="Back to All Matches">
++                ← All Matches
+               </button>
+             </div>
+ 
+@@ -415,7 +425,9 @@ function Match() {
+                   );
+                 })() : (
+                   <div className="sideHint dim" style={{ marginTop: 8 }}>
+-                    No predictions yet — be the first!
++                    {hasCurrentMatchPoolActivity
++                      ? 'Predictions already placed — pool split syncing'
++                      : 'No predictions yet — be the first!'}
+                   </div>
+                 )}
+ 
+diff --git a/frontend/src/pages/matchs/match.css b/frontend/src/pages/matchs/match.css
+index 3a45aaf..a5aca34 100644
+--- a/frontend/src/pages/matchs/match.css
++++ b/frontend/src/pages/matchs/match.css
+@@ -766,7 +766,6 @@
+   padding: 6px 14px;
+   cursor: pointer;
+   transition: background 0.18s, color 0.18s;
+-  margin-right: 6px;
+ }
+ .arena__backBtn:hover { background: rgba(255,46,118,0.18); color: #ff8fb8; }
+ 

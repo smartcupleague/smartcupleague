@@ -10,11 +10,29 @@ import './app-layout.css';
 function Component() {
   const { isApiReady } = useApi();
   const { account } = useAccount();
-  const onboarding = useOnboarding();
+  const onboarding = useOnboarding(account?.decodedAddress);
   const { save: saveWalletProfile } = useWalletProfile();
 
   const isAppReady = isApiReady;
-  const isPublicLanding = window.location.pathname === '/';
+  const previewRoutes = [
+    '/',
+    '/all-matches',
+    '/all-predictions',
+    '/progress',
+    '/home',
+    '/my-predictions',
+    '/leaderboard',
+    '/leaderboards',
+    '/championship-pick',
+    '/simulator',
+    '/terms-of-use',
+    '/dao-constitution',
+    '/rules',
+    '/admin/fixtures',
+  ];
+  const previewRoutePrefixes = ['/2026worldcup/match/', '/leagues/match/', '/match/', '/predictions/'];
+  const pathname = window.location.pathname;
+  const isPreviewRoute = previewRoutes.includes(pathname) || previewRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
   const showOnboarding = !!account && !onboarding.accepted;
 
   const handleOnboardingAccept = async (nickname: string) => {
@@ -25,7 +43,7 @@ function Component() {
     onboarding.accept(trimmed);
   };
 
-  return isAppReady || isPublicLanding ? (
+  return isAppReady || isPreviewRoute ? (
     <>
       {showOnboarding && <OnboardingModal onAccept={handleOnboardingAccept} />}
       <Routing />

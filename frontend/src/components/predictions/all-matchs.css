@@ -453,6 +453,166 @@
   font-size: 13px;
 }
 
+
+/* ─── Championship Prediction Callout ───────────────────────────── */
+.mxChampPick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  margin-bottom: 14px;
+  min-height: 76px;
+  padding: 16px 18px;
+  overflow: hidden;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 209, 126, 0.58);
+  background:
+    radial-gradient(480px 150px at 72% 52%, rgba(255, 205, 91, 0.18), transparent 62%),
+    linear-gradient(95deg, rgba(41, 0, 21, 0.96) 0%, rgba(74, 11, 38, 0.88) 45%, rgba(58, 19, 15, 0.82) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 245, 220, 0.2) inset,
+    0 0 0 1px rgba(255, 46, 118, 0.1),
+    0 12px 36px rgba(0, 0, 0, 0.38),
+    0 0 28px rgba(255, 178, 66, 0.13);
+}
+
+.mxChampPick::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 216, 135, 0.18), transparent 24%, transparent 76%, rgba(255, 216, 135, 0.1)),
+    radial-gradient(circle at 82% 34%, rgba(255, 237, 178, 0.36) 0 1px, transparent 2px),
+    radial-gradient(circle at 67% 58%, rgba(255, 196, 93, 0.30) 0 1px, transparent 2px),
+    radial-gradient(circle at 77% 70%, rgba(255, 255, 255, 0.22) 0 1px, transparent 2px);
+  opacity: 0.92;
+}
+
+.mxChampPick::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #ffe1a0, #f7b845, #ff2e76);
+  box-shadow: 0 0 18px rgba(255, 193, 82, 0.74);
+}
+
+.mxChampPick__glow {
+  position: absolute;
+  left: 20px;
+  right: 120px;
+  bottom: -26px;
+  height: 44px;
+  background: radial-gradient(ellipse, rgba(255, 185, 75, 0.28), transparent 68%);
+  pointer-events: none;
+}
+
+.mxChampPick__copy,
+.mxChampPick__cta {
+  position: relative;
+  z-index: 1;
+}
+
+.mxChampPick__title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: rgba(255, 225, 160, 0.98);
+  font-size: 18px;
+  font-weight: 980;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 14px rgba(255, 185, 75, 0.32);
+}
+
+.mxChampPick__icon {
+  font-size: 22px;
+  filter: drop-shadow(0 0 10px rgba(255, 194, 82, 0.6));
+}
+
+.mxChampPick p {
+  margin: 4px 0 0 32px;
+  color: rgba(255, 238, 208, 0.82);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.mxChampPick__cta {
+  min-width: 132px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid rgba(178, 255, 192, 0.38);
+  border-radius: 9px;
+  background:
+    radial-gradient(140px 54px at 50% 0%, rgba(129, 255, 150, 0.35), transparent 65%),
+    linear-gradient(180deg, rgba(29, 154, 61, 0.96), rgba(8, 99, 42, 0.96));
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 950;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.20) inset,
+    0 10px 26px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(41, 214, 88, 0.22);
+  transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+}
+
+.mxChampPick__cta:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.24) inset,
+    0 12px 30px rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(41, 214, 88, 0.30);
+}
+
+.mxChampPick--submitted .mxChampPick__cta {
+  border-color: rgba(255, 255, 255, 0.20);
+  background:
+    radial-gradient(140px 54px at 50% 0%, rgba(255, 255, 255, 0.16), transparent 65%),
+    linear-gradient(180deg, rgba(255, 46, 118, 0.92), rgba(168, 5, 69, 0.92));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 10px 26px rgba(0, 0, 0, 0.34),
+    0 0 18px rgba(255, 46, 118, 0.24);
+}
+
+.mxChampPick--locked {
+  border-color: rgba(255, 255, 255, 0.18);
+  background:
+    radial-gradient(480px 150px at 72% 52%, rgba(255, 255, 255, 0.08), transparent 62%),
+    linear-gradient(95deg, rgba(35, 0, 18, 0.88), rgba(38, 16, 28, 0.78));
+}
+
+.mxChampPick--locked .mxChampPick__title,
+.mxChampPick--locked p {
+  color: rgba(255, 255, 255, 0.68);
+  text-shadow: none;
+}
+
+.mxChampPick--locked .mxChampPick__cta {
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.62);
+  box-shadow: none;
+}
+
+@media (max-width: 720px) {
+  .mxChampPick {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mxChampPick__cta {
+    width: 100%;
+  }
+}
+
 /* ─── List ───────────────────────────────────────────────────────── */
 
 .mxList {
@@ -1059,4 +1219,47 @@
 }
 .mxCard--predicted {
   border-left: 3px solid rgba(50, 200, 100, 0.50);
+}
+
+/* ─── Your Pick — inline prediction tag ─────────────────────────── */
+
+.mxYourPick {
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 224, 80, 0.72);
+  background:
+    linear-gradient(90deg, rgba(255, 224, 80, 0.12), rgba(255, 46, 118, 0.08)),
+    rgba(0, 0, 0, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(255, 224, 80, 0.12) inset,
+    0 0 18px rgba(255, 224, 80, 0.10);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mxYourPick__label,
+.mxYourPick__score {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.mxYourPick__label {
+  padding: 0 12px;
+  color: rgba(255, 240, 135, 0.98);
+  letter-spacing: 0.04em;
+}
+
+.mxYourPick__score {
+  min-width: 42px;
+  justify-content: center;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 224, 80, 0.32);
+  background: rgba(255, 224, 80, 0.10);
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: 0.02em;
 }

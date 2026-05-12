@@ -265,6 +265,39 @@ export class Service {
     );
   }
 
+  public setVaraUsdPrice(price_usd_micro: number): TransactionBuilder<null> {
+    if (!this._program.programId) throw new Error('Program ID is not set');
+    return new TransactionBuilder<null>(
+      this._program.api,
+      this._program.registry,
+      'send_message',
+      ['Service', 'SetVaraUsdPrice', price_usd_micro],
+      '(String, String, u64)',
+      'Null',
+      this._program.programId,
+    );
+  }
+
+  public async queryVaraUsdPrice(
+    originAddress?: string,
+    value?: number | string | bigint,
+    atBlock?: `0x${string}`,
+  ): Promise<[number, number]> {
+    const payload = this._program.registry.createType('(String, String)', ['Service', 'QueryVaraUsdPrice']).toHex();
+    const reply = await this._program.api.message.calculateReply({
+      destination: this._program.programId,
+      origin: originAddress ? decodeAddress(originAddress) : ZERO_ADDRESS,
+      payload,
+      value: value ?? 0,
+      gasLimit: this._program.api.blockGasLimit.toBigInt(),
+      at: atBlock ?? undefined,
+    });
+    if (!reply.code.isSuccess) throw new Error(this._program.registry.createType('String', reply.payload).toString());
+    const result = this._program.registry.createType('(String, String, (u64, u64))', reply.payload);
+    const tuple = result[2].toJSON() as [number, number];
+    return tuple;
+  }
+
   public submitResult(
     match_id: number | string | bigint,
     home: number,

@@ -1,0 +1,1218 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SmartCup League — My Predictions  |  Wine/Pink Glassmorphism  v2.0
+   Base: #120008  |  Accent: #ff2e76  |  Tier-1 Web3 DeFi Aesthetic
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --wine-950: #120008;
+  --wine-900: #17000c;
+  --wine-850: #1d0010;
+  --wine-800: #240016;
+  --wine-750: #2e001b;
+  --wine-700: #3a0322;
+  --wine-650: #45052a;
+  --wine-600: #4e0a31;
+  --wine-500: #7a1349;
+
+  --accent:  #ff2e76;
+  --accent2: #a80545;
+  --accent3: #ff6ba4;
+
+  --text:   rgba(255, 255, 255, 0.92);
+  --muted:  rgba(255, 235, 246, 0.78);
+  --muted2: rgba(255, 255, 255, 0.66);
+
+  --panel:   rgba(255, 255, 255, 0.05);
+  --panel2:  rgba(255, 255, 255, 0.07);
+  --border:  rgba(255, 255, 255, 0.10);
+  --border2: rgba(255, 255, 255, 0.14);
+
+  --r:  16px;
+  --r2: 12px;
+  --shadow:  0 18px 60px rgba(0, 0, 0, 0.55);
+  --shadow2: 0 10px 32px rgba(0, 0, 0, 0.38);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ─── Keyframes ──────────────────────────────────────────────────── */
+
+@keyframes cardSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+@keyframes liveBlip {
+  0%,100% { transform: scale(1);    opacity: 1;    }
+  50%      { transform: scale(1.55); opacity: 0.55; }
+}
+
+@keyframes mpShimmer {
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+    opacity: 0;
+  }
+  20% { opacity: 0.90; }
+  60% { opacity: 0.60; }
+  100% {
+    transform: translateX(130%) skewX(-20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes floatOrbA {
+  0%,100% { transform: translateY(0px)   scale(1);    }
+  40%      { transform: translateY(-32px) scale(1.05); }
+  70%      { transform: translateY(16px)  scale(0.96); }
+}
+
+@keyframes floatOrbB {
+  0%,100% { transform: translateY(0px)  scale(1);    }
+  35%      { transform: translateY(24px) scale(1.04); }
+  65%      { transform: translateY(-20px) scale(0.97); }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+@keyframes borderGlow {
+  0%,100% { border-color: rgba(255,255,255,0.10); }
+  50%      { border-color: rgba(255,46,118,0.28);  }
+}
+
+@keyframes shimmerText {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes claimPulse {
+  0%,100% { box-shadow: 0 14px 34px rgba(255,200,40,0.22), 0 4px 14px rgba(0,0,0,0.28); }
+  50%      { box-shadow: 0 18px 50px rgba(255,200,40,0.42), 0 6px 20px rgba(0,0,0,0.30); }
+}
+
+@keyframes mpspin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dotPulse {
+  0%,100% { box-shadow: 0 0 0   2px rgba(65,214,114,0.20); transform: scale(1);    }
+  50%      { box-shadow: 0 0 0   5px rgba(65,214,114,0.00); transform: scale(1.30); }
+}
+
+/* ─── Shell ──────────────────────────────────────────────────────── */
+
+.mpShell {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  padding: 18px;
+  color: var(--text);
+}
+
+@media (min-width: 1100px) {
+  .mpShell { padding: 22px 24px; }
+}
+
+/* ─── Animated Background ────────────────────────────────────────── */
+
+.mpBg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1100px 700px at 12% 10%,  rgba(255,46,118,0.14), transparent 60%),
+    radial-gradient(900px  600px at 85% 20%,  rgba(168,5,69,0.12),   transparent 62%),
+    radial-gradient(1000px 800px at 55% 90%,  rgba(255,46,118,0.09), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 10px);
+  overflow: hidden;
+}
+
+.mpBg::before,
+.mpBg::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+}
+
+.mpBg::before {
+  width: 660px; height: 660px;
+  top: -100px;  left: -120px;
+  background: radial-gradient(circle, rgba(255,46,118,0.20) 0%, rgba(168,5,69,0.12) 50%, transparent 70%);
+  animation: floatOrbA 10s ease-in-out infinite;
+}
+
+.mpBg::after {
+  width: 550px; height: 550px;
+  bottom: -80px; right: -100px;
+  background: radial-gradient(circle, rgba(168,5,69,0.18) 0%, rgba(255,46,118,0.09) 50%, transparent 70%);
+  animation: floatOrbB 13s ease-in-out infinite;
+}
+
+/* Lift content above fixed bg */
+.mpShell > * { position: relative; z-index: 1; }
+
+/* ─── Top Header ─────────────────────────────────────────────────── */
+
+.mpTop {
+  position: relative;
+  border-radius: calc(var(--r) + 6px);
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(700px 240px at 8%  0%,  rgba(255,46,118,0.14), transparent 58%),
+    radial-gradient(500px 200px at 95% 100%, rgba(168,5,69,0.12),  transparent 60%),
+    linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(0,0,0,0.20) 100%);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.08) inset,
+    0 -1px 0 rgba(0,0,0,0.28) inset,
+    var(--shadow2),
+    0 0 50px rgba(255,46,118,0.06);
+  padding: 16px 18px 14px;
+  animation: borderGlow 6s ease-in-out infinite;
+  overflow: hidden;
+}
+
+/* Animated shimmer on top border */
+.mpTop::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,46,118,0.60) 30%,
+    rgba(255,160,210,0.95) 50%,
+    rgba(255,46,118,0.60) 70%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: gradientShift 3.2s ease infinite;
+}
+
+.mpTop__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+@media (max-width: 980px) {
+  .mpTop__row { flex-direction: column; }
+}
+
+/* ─── Title ──────────────────────────────────────────────────────── */
+
+.mpTitle h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 980;
+  letter-spacing: -0.02em;
+  background: linear-gradient(130deg, #ffffff 0%, #ffd0e8 40%, var(--accent) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmerText 6s linear infinite;
+}
+
+.mpTitle p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: rgba(255,255,255,0.65);
+}
+
+.mpTitle--shrink {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mpTitle--shrink h1,
+.mpTitle--shrink p { min-width: 0; }
+
+/* ─── Top Right / Wallet ─────────────────────────────────────────── */
+
+.mpTop__right {
+  width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 980px) {
+  .mpTop__right {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+}
+
+.mpTop__row--walletSafe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 980px) {
+  .mpTop__row--walletSafe {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.mpWalletDock {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 360px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mpWalletDock > * {
+  width: auto !important;
+  max-width: 360px;
+}
+
+@media (max-width: 980px) {
+  .mpWalletDock {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* ─── Search ─────────────────────────────────────────────────────── */
+
+.mpSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  min-width: 360px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.22);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.mpSearch:focus-within {
+  border-color: rgba(255,46,118,0.50);
+  box-shadow:
+    0 0 0 3px rgba(255,46,118,0.10),
+    0 8px 28px rgba(0,0,0,0.32),
+    0 0 24px rgba(255,46,118,0.14);
+}
+
+.mpSearch:focus-within .mpSearch__icon {
+  color: var(--accent);
+  filter: drop-shadow(0 0 8px rgba(255,46,118,0.70));
+  opacity: 1;
+}
+
+.mpSearch__icon {
+  opacity: 0.70;
+  transition: color 0.22s ease, filter 0.22s ease, opacity 0.22s ease;
+  flex-shrink: 0;
+}
+
+.mpSearch input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+  caret-color: var(--accent);
+}
+
+.mpSearch input::placeholder {
+  color: rgba(255,255,255,0.42);
+}
+
+@media (max-width: 980px) {
+  .mpSearch {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* ─── Wallet Chip ────────────────────────────────────────────────── */
+
+.mpWalletChip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.11);
+  background: rgba(0,0,0,0.18);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mpWalletChip:hover {
+  border-color: rgba(255,46,118,0.28);
+  box-shadow: 0 0 18px rgba(255,46,118,0.10);
+}
+
+.mpWalletChip__badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,46,118,0.32), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,46,118,0.22);
+  box-shadow: 0 0 12px rgba(255,46,118,0.18);
+}
+
+/* ─── Tabs ───────────────────────────────────────────────────────── */
+
+.mpTabs {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.mpTab {
+  border: 1px solid rgba(255,255,255,0.11);
+  background: rgba(0,0,0,0.16);
+  color: rgba(255,255,255,0.78);
+  padding: 9px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 13px;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.mpTab:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.95);
+}
+
+.mpTabGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.mpTab.is-active {
+  border-color: rgba(255,46,118,0.38);
+  background:
+    radial-gradient(420px 140px at 20% 10%, rgba(255,46,118,0.22), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.09), rgba(0,0,0,0.10));
+  color: rgba(255,255,255,0.98);
+  box-shadow:
+    0 0 0 1px rgba(255,46,118,0.16) inset,
+    0 4px 18px rgba(255,46,118,0.18);
+  text-shadow: 0 0 14px rgba(255,46,118,0.40);
+}
+
+.mpTools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ─── Icon Buttons ───────────────────────────────────────────────── */
+
+.mpIconBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.11);
+  background: rgba(0,0,0,0.18);
+  color: rgba(255,255,255,0.80);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+}
+
+.mpIconBtn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,46,118,0.40);
+  background: rgba(255,46,118,0.12);
+  color: rgba(255,150,190,0.95);
+  box-shadow: 0 6px 20px rgba(255,46,118,0.18);
+}
+
+/* ─── Hintbar ────────────────────────────────────────────────────── */
+
+.mpHintbar {
+  margin-top: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    rgba(0,0,0,0.18),
+    linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 10px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.24);
+}
+
+/* ─── Pills ──────────────────────────────────────────────────────── */
+
+.mpPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.16);
+  color: rgba(255,255,255,0.80);
+  font-size: 12px;
+  font-weight: 800;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mpPill:hover {
+  border-color: rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+}
+
+.mpPill--live {
+  border-color: rgba(65,214,114,0.35);
+  background: rgba(65,214,114,0.12);
+  color: rgba(210,255,225,0.95);
+  box-shadow: 0 0 14px rgba(65,214,114,0.14);
+}
+
+.mpPill--live::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #41d672;
+  box-shadow: 0 0 8px rgba(65,214,114,0.70);
+  animation: liveBlip 1.4s ease-in-out infinite;
+}
+
+/* ─── Section ────────────────────────────────────────────────────── */
+
+.mpSection {
+  position: relative;
+  margin-top: 14px;
+}
+
+.mpSection__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.mpSection__main {
+  font-weight: 980;
+  font-size: 18px;
+  background: linear-gradient(130deg, #ffffff 0%, #ffd0e8 60%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mpSection__sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.60);
+}
+
+.mpState {
+  color: rgba(255,255,255,0.68);
+  padding: 10px 2px;
+}
+
+.mpState--error {
+  color: rgba(255,180,180,0.92);
+}
+
+/* ─── Spinner ────────────────────────────────────────────────────── */
+
+.mpSpinner {
+  width: 1.10rem;
+  height: 1.10rem;
+  border: 2.5px solid rgba(255,46,118,0.90);
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: mpspin 0.80s linear infinite;
+  vertical-align: middle;
+  margin-right: 10px;
+  box-shadow: 0 0 10px rgba(255,46,118,0.28);
+}
+
+/* ─── Card ───────────────────────────────────────────────────────── */
+
+.mpCard {
+  margin-top: 14px;
+  border-radius: calc(var(--r) + 6px);
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(900px 280px at 16% 0%,  rgba(255,46,118,0.11), transparent 58%),
+    radial-gradient(700px 250px at 90% 40%, rgba(168,5,69,0.09),   transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.18));
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.07) inset,
+    var(--shadow2);
+  overflow: hidden;
+  animation: cardSlideUp 0.40s ease both;
+}
+
+/* ─── Card Head ──────────────────────────────────────────────────── */
+
+.mpCard__head {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background:
+    radial-gradient(600px 120px at 10% 0%, rgba(255,46,118,0.09), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+}
+
+.mpCard__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mpCup {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,46,118,0.22);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,46,118,0.28), transparent 60%),
+    rgba(0,0,0,0.16);
+  box-shadow: 0 0 14px rgba(255,46,118,0.18);
+}
+
+.mpCard__ttl .t {
+  font-weight: 980;
+  font-size: 15px;
+}
+
+.mpCard__ttl .s {
+  font-size: 12px;
+  color: rgba(255,255,255,0.60);
+  margin-top: 2px;
+}
+
+.mpMini {
+  font-size: 12px;
+  color: rgba(255,255,255,0.68);
+  border: 1px solid rgba(255,255,255,0.11);
+  background: rgba(0,0,0,0.14);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+/* ─── Table ──────────────────────────────────────────────────────── */
+
+.mpTable {
+  padding: 10px 14px 14px;
+}
+
+.mpTHead {
+  display: grid;
+  grid-template-columns: 1.6fr 120px 170px 180px 120px 140px;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.14));
+  color: rgba(255,255,255,0.50);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mpTHead .num    { text-align: right; }
+.mpTHead .center { text-align: center; }
+
+.mpTBody {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ─── Row ────────────────────────────────────────────────────────── */
+
+.mpRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.6fr 120px 170px 180px 120px 140px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(0,0,0,0.14);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+  animation: rowIn 0.32s ease both;
+  overflow: hidden;
+}
+
+/* Left border reveal */
+.mpRow::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 15%; bottom: 15%;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.20s ease, top 0.20s ease, bottom 0.20s ease;
+}
+
+.mpRow:hover {
+  transform: translateX(4px);
+  border-color: rgba(255,46,118,0.28);
+  background: rgba(255,46,118,0.06);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.28);
+}
+
+.mpRow:hover::before { opacity: 1; top: 8%; bottom: 8%; }
+
+/* nth-child stagger delays */
+.mpRow:nth-child(1)  { animation-delay: 0.04s; }
+.mpRow:nth-child(2)  { animation-delay: 0.08s; }
+.mpRow:nth-child(3)  { animation-delay: 0.12s; }
+.mpRow:nth-child(4)  { animation-delay: 0.16s; }
+.mpRow:nth-child(5)  { animation-delay: 0.20s; }
+.mpRow:nth-child(6)  { animation-delay: 0.24s; }
+.mpRow:nth-child(7)  { animation-delay: 0.28s; }
+.mpRow:nth-child(8)  { animation-delay: 0.32s; }
+
+.mpEmpty {
+  padding: 16px;
+  color: rgba(255,255,255,0.65);
+  text-align: center;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(0,0,0,0.14);
+}
+
+/* ─── Match Cell ─────────────────────────────────────────────────── */
+
+.mpMatch {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mpIdx {
+  width: 28px;
+  height: 28px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,46,118,0.28), transparent 60%),
+    rgba(0,0,0,0.20);
+  border: 1px solid rgba(255,46,118,0.22);
+  font-weight: 980;
+  font-size: 11px;
+  color: rgba(255,255,255,0.90);
+  flex: 0 0 auto;
+  box-shadow: 0 0 10px rgba(255,46,118,0.16);
+}
+
+.mpMatch__main {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+/* ─── Teams ──────────────────────────────────────────────────────── */
+
+.mpTeams {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.mpTeam {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mpTeam--right { justify-content: flex-end; }
+
+.mpFlag {
+  width: 24px;
+  height: 17px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.16);
+  object-fit: cover;
+  background: rgba(0,0,0,0.16);
+  flex: 0 0 auto;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.28);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mpFlag:hover {
+  transform: scale(1.12);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.40);
+}
+
+.mpName {
+  font-weight: 980;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  font-size: 13px;
+}
+
+.mpVs {
+  font-size: 11px;
+  font-weight: 850;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.06em;
+}
+
+/* ─── Tags ───────────────────────────────────────────────────────── */
+
+.mpTag {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.80);
+}
+
+.mpTag--open {
+  border-color: rgba(255,194,75,0.35);
+  background: rgba(255,194,75,0.12);
+  color: rgba(255,240,200,0.95);
+  box-shadow: 0 0 12px rgba(255,194,75,0.12);
+}
+
+.mpTag--live {
+  border-color: rgba(70,170,255,0.42);
+  background: rgba(70,170,255,0.14);
+  color: rgba(220,245,255,0.95);
+  box-shadow: 0 0 14px rgba(70,170,255,0.18);
+}
+
+.mpTag--live::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #46aaff;
+  box-shadow: 0 0 8px rgba(70,170,255,0.80);
+  margin-right: 5px;
+  vertical-align: middle;
+  animation: liveBlip 1.3s ease-in-out infinite;
+}
+
+.mpTag--final {
+  border-color: rgba(65,214,114,0.42);
+  background: rgba(65,214,114,0.14);
+  color: rgba(210,255,225,0.95);
+  box-shadow: 0 0 12px rgba(65,214,114,0.14);
+}
+
+/* ─── Meta Chips ─────────────────────────────────────────────────── */
+
+.mpMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: rgba(255,255,255,0.68);
+  font-size: 12px;
+}
+
+.mpChip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.11);
+  background: rgba(0,0,0,0.14);
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.72);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mpChip b { color: rgba(255,255,255,0.92); }
+
+.mpChip.is-good {
+  border-color: rgba(65,214,114,0.32);
+  background: rgba(65,214,114,0.10);
+  color: rgba(200,255,218,0.92);
+  box-shadow: 0 0 10px rgba(65,214,114,0.12);
+}
+
+.mpChip.is-bad {
+  border-color: rgba(255,100,100,0.32);
+  background: rgba(255,80,80,0.10);
+  color: rgba(255,210,210,0.90);
+}
+
+/* ─── Numbers ────────────────────────────────────────────────────── */
+
+.mpNum { text-align: right; }
+
+.mpNum__main {
+  font-weight: 980;
+  letter-spacing: 0.2px;
+  color: rgba(255,255,255,0.92);
+}
+
+.mpNum__sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.60);
+  font-weight: 800;
+  margin-top: 3px;
+}
+
+/* ─── Pick / Score ───────────────────────────────────────────────── */
+
+.mpPick {
+  border-radius: 14px;
+  border: 1px solid rgba(255,46,118,0.30);
+  background:
+    radial-gradient(520px 180px at 20% 15%, rgba(255,46,118,0.16), transparent 60%),
+    rgba(0,0,0,0.16);
+  padding: 10px 14px;
+  text-align: center;
+  box-shadow:
+    0 0 0 1px rgba(255,46,118,0.12) inset,
+    0 8px 24px rgba(255,46,118,0.10);
+}
+
+.mpPick__label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  font-weight: 950;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+.mpPick__score {
+  font-size: 24px;
+  font-weight: 980;
+  letter-spacing: 0.4px;
+  color: var(--accent);
+  text-shadow:
+    0 0 14px rgba(255,46,118,0.65),
+    0 0 28px rgba(255,46,118,0.30);
+  margin-top: 4px;
+}
+
+.mpPick__hint {
+  font-size: 10px;
+  opacity: 0.65;
+  margin-top: 4px;
+}
+
+/* ─── Winnings ───────────────────────────────────────────────────── */
+
+.mpWin { text-align: right; }
+
+.mpWin__main {
+  font-weight: 980;
+  background: linear-gradient(130deg, #ffd700 0%, #fffacd 50%, rgba(255,255,255,0.90) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.02em;
+}
+
+.mpWin__sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.58);
+  margin-top: 4px;
+  font-weight: 800;
+}
+
+/* ─── Status Pills ───────────────────────────────────────────────── */
+
+.mpCenter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.mpStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.80);
+}
+
+.mpStatus--ok {
+  border-color: rgba(65,214,114,0.45);
+  background: rgba(65,214,114,0.14);
+  color: rgba(200,255,218,0.97);
+  box-shadow:
+    0 0 12px rgba(65,214,114,0.20),
+    0 0 0 1px rgba(65,214,114,0.12) inset;
+  text-shadow: 0 0 10px rgba(65,214,114,0.40);
+}
+
+.mpStatus--final {
+  border-color: rgba(255,46,118,0.38);
+  background: rgba(255,46,118,0.14);
+  color: rgba(255,200,225,0.97);
+  box-shadow: 0 0 10px rgba(255,46,118,0.14);
+}
+
+.mpStatus--muted {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.14);
+  color: rgba(255,255,255,0.55);
+}
+
+/* ─── Claim Button ───────────────────────────────────────────────── */
+
+.mpClaim {
+  position: relative;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,215,0,0.30);
+  cursor: pointer;
+  font-weight: 980;
+  font-size: 13px;
+  color: rgba(30,20,0,0.98);
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  background: linear-gradient(
+    130deg,
+    rgba(255,220,0,0.98)   0%,
+    rgba(255,179,0,0.96)  40%,
+    rgba(255,255,200,1.00) 65%,
+    rgba(255,200,0,0.97)  85%,
+    rgba(255,160,0,0.94) 100%
+  );
+  background-size: 200% 200%;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.25) inset,
+    0 14px 36px rgba(255,200,40,0.28),
+    0 6px 16px rgba(0,0,0,0.28);
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease,
+    opacity 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.mpClaim:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06) saturate(1.1);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.30) inset,
+    0 20px 50px rgba(255,200,40,0.38),
+    0 8px 24px rgba(0,0,0,0.32);
+}
+
+.mpClaim:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+
+.mpClaim:disabled {
+  cursor: not-allowed;
+  opacity: 0.50;
+  transform: none;
+  filter: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.20);
+}
+
+/* Animated shimmer sweep */
+.mpClaim.is-ready {
+  animation: gradientShift 3s ease infinite, claimPulse 2.4s ease-in-out infinite;
+}
+
+.mpClaim.is-ready::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -30%;
+  width: 55%;
+  height: 180%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent);
+  transform: translateX(-120%) skewX(-22deg);
+  opacity: 0;
+  pointer-events: none;
+  animation: mpShimmer 2.0s ease-in-out infinite;
+}
+
+/* ─── Claim Dot ──────────────────────────────────────────────────── */
+
+.mpClaim__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.70);
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow:
+    0 0 8px rgba(65,214,114,0.60),
+    0 0 14px rgba(65,214,114,0.30);
+  animation: dotPulse 1.6s ease-in-out infinite;
+}
+
+/* ─── Card Foot ──────────────────────────────────────────────────── */
+
+.mpCard__foot {
+  padding: 12px 16px 14px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ─── Filter Controls ────────────────────────────────────────────── */
+
+.mpFilterSelect {
+  background: rgba(30,0,18,0.65);
+  border: 1px solid rgba(255,46,118,0.22);
+  border-radius: 12px;
+  color: rgba(255,255,255,0.90);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  backdrop-filter: blur(10px);
+}
+
+.mpFilterSelect:focus {
+  border-color: rgba(255,46,118,0.55);
+  box-shadow: 0 0 0 3px rgba(255,46,118,0.10), 0 0 16px rgba(255,46,118,0.12);
+}
+
+.mpFilterSelect option { background: #240016; }
+
+.mpFilterDate {
+  background: rgba(30,0,18,0.65);
+  border: 1px solid rgba(255,46,118,0.22);
+  border-radius: 12px;
+  color: rgba(255,255,255,0.90);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  backdrop-filter: blur(10px);
+}
+
+.mpFilterDate:focus {
+  border-color: rgba(255,46,118,0.55);
+  box-shadow: 0 0 0 3px rgba(255,46,118,0.10), 0 0 16px rgba(255,46,118,0.12);
+}
+
+.mpFilterDate::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.55);
+  cursor: pointer;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .mpTHead,
+  .mpRow {
+    grid-template-columns: 1fr 110px 150px 120px 140px;
+  }
+  .hideMd { display: none; }
+}
+
+@media (max-width: 720px) {
+  .mpTHead,
+  .mpRow {
+    grid-template-columns: 1fr 110px 150px;
+  }
+  .mpTHead > :nth-child(4),
+  .mpTHead > :nth-child(5),
+  .mpTHead > :nth-child(6),
+  .mpRow   > :nth-child(4),
+  .mpRow   > :nth-child(5),
+  .mpRow   > :nth-child(6) { display: none; }
+  .mpMatch { gap: 10px; }
+  .mpName  { max-width: 150px; }
+}
+
+/* ── Result chip highlight ───────────────────────────── */
+.mpChip--result {
+  background: rgba(255, 180, 50, 0.15);
+  color: #ffd27f;
+  border-color: rgba(255, 180, 50, 0.35);
+  font-weight: 800;
+}

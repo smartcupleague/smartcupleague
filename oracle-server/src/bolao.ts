@@ -268,6 +268,25 @@ export class BolaoService {
     );
   }
 
+  /**
+   * Triggers BolaoCore to refresh its cached VARA/USD price from the Oracle-Program.
+   * Must be signed by an operator or admin. Zero-value call (no VARA forwarded).
+   *
+   * @param oracle_program_id - ActorId of the Oracle-Program on Vara
+   */
+  public refreshVaraPrice(oracle_program_id: string): TransactionBuilder<null> {
+    if (!this._program.programId) throw new Error('Program ID is not set');
+    return new TransactionBuilder<null>(
+      this._program.api,
+      this._program.registry,
+      'send_message',
+      ['Service', 'RefreshVaraPrice', oracle_program_id],
+      '(String, String, [u8;32])',
+      'Null',
+      this._program.programId,
+    );
+  }
+
   public cancelProposedResult(match_id: number | string | bigint): TransactionBuilder<null> {
     if (!this._program.programId) throw new Error('Program ID is not set');
     return new TransactionBuilder<null>(

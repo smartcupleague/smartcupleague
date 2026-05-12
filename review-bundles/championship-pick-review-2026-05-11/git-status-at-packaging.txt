@@ -1,0 +1,15 @@
+ M frontend/HOMEPAGE_PREVIEW_CHANGES.md
+ M frontend/src/App.tsx
+ M frontend/src/components/leaderboard/Leaderboards.tsx
+ M frontend/src/components/leaderboard/leaderboards.css
+ M frontend/src/components/predictions/AllMatchs.tsx
+ M frontend/src/components/predictions/all-matchs.css
+ M frontend/src/pages/home/Home.tsx
+ M frontend/src/pages/home/dashboard.css
+ M frontend/src/pages/index.tsx
+ M smart-programs/BolaoCore-Program/app/src/services/constants.rs
+ M smart-programs/BolaoCore-Program/app/src/services/service.rs
+?? frontend/.yarn/
+?? frontend/src/pages/championship-pick/
+?? review-bundles/
+?? smart-programs/BolaoCore-Program/Cargo.lock

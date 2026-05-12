@@ -1,6 +1,10 @@
 import { useState, useCallback } from 'react';
 
-const STORAGE_KEY = 'scl_onboarding_v1';
+const TERMS_VERSION = 'v1';
+
+function storageKey(walletAddress?: string): string | null {
+  return walletAddress ? `scl_terms_${TERMS_VERSION}:${walletAddress}` : null;
+}
 
 type OnboardingData = {
   accepted: boolean;
@@ -9,9 +13,11 @@ type OnboardingData = {
 
 const defaultData: OnboardingData = { accepted: false, nickname: '' };
 
-function readStorage(): OnboardingData {
+function readStorage(walletAddress?: string): OnboardingData {
+  const key = storageKey(walletAddress);
+  if (!key) return defaultData;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return defaultData;
     const parsed = JSON.parse(raw);
     if (typeof parsed?.accepted === 'boolean') return parsed as OnboardingData;
@@ -21,23 +27,29 @@ function readStorage(): OnboardingData {
   }
 }
 
-export function useOnboarding() {
-  const [data, setData] = useState<OnboardingData>(readStorage);
+export function useOnboarding(walletAddress?: string) {
+  const [data, setData] = useState<OnboardingData>(() => readStorage(walletAddress));
 
   const accept = useCallback((nickname: string) => {
     const next: OnboardingData = { accepted: true, nickname: nickname.trim() };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {}
+    const key = storageKey(walletAddress);
+    if (key) {
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {}
+    }
     setData(next);
-  }, []);
+  }, [walletAddress]);
 
   const reset = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    const key = storageKey(walletAddress);
+    if (key) {
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+    }
     setData(defaultData);
-  }, []);
+  }, [walletAddress]);
 
   return { accepted: data.accepted, nickname: data.nickname, accept, reset };
 }

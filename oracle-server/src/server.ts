@@ -11,6 +11,7 @@ import { u8aToHex } from "@polkadot/util";
 
 import { Program as OracleProgram, PenaltyWinner } from "./oracle";
 import { BolaoProgram } from "./bolao";
+import { runPriceFeed } from "./price-feed";
 
 /* ============================================================
    ENV
@@ -27,7 +28,17 @@ const FRIENDLIES_COMPETITION_CODES = process.env.FRIENDLIES_COMPETITION_CODES ??
 const AUTO_FEED_INTERVAL_MS   = intEnv("AUTO_FEED_INTERVAL_MS",   120_000);
 const CHALLENGE_WINDOW_MS     = intEnv("CHALLENGE_WINDOW_MS",     2 * 60 * 1000); // 2 min default
 const FINALIZE_BUFFER_MS      = intEnv("FINALIZE_BUFFER_MS",      15_000);        // 15 s safety buffer
+const PRICE_FEED_INTERVAL_MS  = intEnv("PRICE_FEED_INTERVAL_MS",  600_000);       // 10 min default
 const NATIVE_DECIMALS = 12;
+
+// R-D3 mitigation: price feed interval must be at least 60 seconds to avoid
+// hammering CoinGecko (free tier rate limit) and spamming the chain.
+if (PRICE_FEED_INTERVAL_MS < 60_000) {
+  throw new Error(
+    `PRICE_FEED_INTERVAL_MS must be >= 60000 (got ${PRICE_FEED_INTERVAL_MS}). ` +
+    `Set it to at least 60000 (60 s) to respect CoinGecko rate limits.`,
+  );
+}
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "*")
   .split(",")
@@ -2129,6 +2140,18 @@ const server = app.listen(PORT, () => {
         );
       }, RECOVER_INTERVAL_MS);
       console.log(`[boot] periodic recover-scan every ${RECOVER_INTERVAL_MS / 60_000} min`);
+
+      // Start VARA/USD price-feed loop
+      const feederSigner = getGatewaySigner();
+      const operatorSigner = (() => {
+        try { return getOperatorSigner(); } catch { return feederSigner; }
+      })();
+      setInterval(() => {
+        runPriceFeed(oracle, bolao, ORACLE_PROGRAM_ID, sendTx, feederSigner, operatorSigner).catch((e) =>
+          console.error("[price-feed] unhandled:", e?.message),
+        );
+      }, PRICE_FEED_INTERVAL_MS);
+      console.log(`[boot] price-feed loop every ${PRICE_FEED_INTERVAL_MS / 1000}s`);
     })
     .catch((e) => console.error("[boot] GearApi init failed:", e?.message));
 

@@ -77,8 +77,10 @@ class LeaderboardService:
                 result.append(
                     LeaderboardEntry(
                         wallet_address=str(row.get("wallet_address", "")),
+                        display_name=row.get("display_name"),
                         matches_count=int(row.get("matches_count") or 0),
                         exact_count=int(row.get("exact_count") or 0),
+                        outcome_count=int(row.get("outcome_count") or 0),
                         total_claimed_planck=_safe_str(row.get("total_claimed_planck")),
                         updated_at=row.get("updated_at"),
                     )
