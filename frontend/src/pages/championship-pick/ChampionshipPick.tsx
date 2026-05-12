@@ -125,7 +125,7 @@ export function ChampionshipPick() {
   const minimumBet = useDynamicMinimumBet(coreState);
   const [loadingState, setLoadingState] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [stakeAmount, setStakeAmount] = useState('3');
+  const [stakeAmount, setStakeAmount] = useState('');
   const [userBets, setUserBets] = useState<any[]>([]);
   const submitted = podiumPick.submitted;
 
@@ -140,6 +140,13 @@ export function ChampionshipPick() {
   }, [stakeAmount]);
   const stakeValuePlanck = useMemo(() => toPlanck(stakeAmountNumber), [stakeAmountNumber]);
   const stakeBelowMinimum = stakeValuePlanck < minimumBet.minPlanck;
+
+  useEffect(() => {
+    if (stakeAmount === '' && !minimumBet.isLoading && minimumBet.minVaraText) {
+      setStakeAmount(minimumBet.minVaraText);
+    }
+  }, [minimumBet.isLoading, minimumBet.minVaraText, stakeAmount]);
+
   const canSubmit =
     !!account &&
     isApiReady &&

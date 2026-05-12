@@ -399,6 +399,19 @@ export const QueryBetsByUserComponent: React.FC = () => {
     return { leagues, wc };
   }, [bets, matchById]);
 
+  const activeTournamentTabs = useMemo(() => ([
+    { key: 'leagues' as const, label: 'Leagues', count: tabCounts.leagues },
+    { key: 'wc' as const, label: 'World Cup 2026', count: tabCounts.wc },
+  ].filter((item) => item.count > 0)), [tabCounts]);
+
+  useEffect(() => {
+    if (!activeTournamentTabs.length) return;
+    if (!activeTournamentTabs.some((item) => item.key === tab)) {
+      setTab(activeTournamentTabs[0].key);
+      setFilterStage('');
+    }
+  }, [activeTournamentTabs, tab]);
+
   // Unique phases for filter dropdown
   const availablePhases = useMemo(() => {
     const set = new Set<string>();
@@ -577,20 +590,19 @@ export const QueryBetsByUserComponent: React.FC = () => {
         </div>
 
         <div className="mpTabs">
-          <div className="mpTabGroup">
-            <button
-              className={'mpTab ' + (tab === 'leagues' ? 'is-active' : '')}
-              onClick={() => { setTab('leagues'); setFilterStage(''); }}
-              type="button">
-              Leagues {tabCounts.leagues > 0 ? `(${tabCounts.leagues})` : ''}
-            </button>
-            <button
-              className={'mpTab ' + (tab === 'wc' ? 'is-active' : '')}
-              onClick={() => { setTab('wc'); setFilterStage(''); }}
-              type="button">
-              World Cup 2026 {tabCounts.wc > 0 ? `(${tabCounts.wc})` : ''}
-            </button>
-          </div>
+          {activeTournamentTabs.length > 0 ? (
+            <div className="mpTabGroup">
+              {activeTournamentTabs.map((item) => (
+                <button
+                  key={item.key}
+                  className={'mpTab ' + (tab === item.key ? 'is-active' : '')}
+                  onClick={() => { setTab(item.key); setFilterStage(''); }}
+                  type="button">
+                  {item.label} ({item.count})
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mpSearch">
             <span className="mpSearch__icon" aria-hidden="true">

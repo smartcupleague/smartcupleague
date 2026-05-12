@@ -357,6 +357,19 @@ export const MatchesTableComponent: React.FC = () => {
     };
   }, [matches]);
 
+  const activeTournamentTabs = useMemo(() => ([
+    { key: 'leagues' as const, label: 'Leagues', count: tabCounts.leagues },
+    { key: 'worldcup' as const, label: 'World Cup 2026', count: tabCounts.worldcup },
+  ].filter((tab) => tab.count > 0)), [tabCounts]);
+
+  useEffect(() => {
+    if (!activeTournamentTabs.length) return;
+    if (!activeTournamentTabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab(activeTournamentTabs[0].key);
+      setFilterStage('');
+    }
+  }, [activeTab, activeTournamentTabs]);
+
   const filteredMatches = useMemo(() => {
     let list = matches ?? [];
 
@@ -505,24 +518,22 @@ export const MatchesTableComponent: React.FC = () => {
           </div>
         </div>
 
-        <div className="mxTabs" role="tablist" aria-label="Tournament tabs">
-          <button
-            className={'mxTab' + (activeTab === 'leagues' ? ' is-active' : '')}
-            type="button"
-            role="tab"
-            onClick={() => { setActiveTab('leagues'); setFilterStage(''); }}
-          >
-            Leagues {tabCounts.leagues > 0 ? `(${tabCounts.leagues})` : ''}
-          </button>
-          <button
-            className={'mxTab' + (activeTab === 'worldcup' ? ' is-active' : '')}
-            type="button"
-            role="tab"
-            onClick={() => { setActiveTab('worldcup'); setFilterStage(''); }}
-          >
-            World Cup 2026 {tabCounts.worldcup > 0 ? `(${tabCounts.worldcup})` : ''}
-          </button>
-        </div>
+        {activeTournamentTabs.length > 0 ? (
+          <div className="mxTabs" role="tablist" aria-label="Tournament tabs">
+            {activeTournamentTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={'mxTab' + (activeTab === tab.key ? ' is-active' : '')}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                onClick={() => { setActiveTab(tab.key); setFilterStage(''); }}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {/* Filters row */}
         <div className="mxFilters">

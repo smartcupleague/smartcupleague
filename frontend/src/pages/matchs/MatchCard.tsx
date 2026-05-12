@@ -344,7 +344,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [txLoadingBet, setTxLoadingBet] = useState(false);
   const [txLoadingClaim, setTxLoadingClaim] = useState(false);
 
-  const [betAmount, setBetAmount] = useState<string>('10');
+  const [betAmount, setBetAmount] = useState<string>('');
   const [betCurrency, setBetCurrency] = useState<BetCurrency>('VARA');
   const [betSucceeded, setBetSucceeded] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -364,6 +364,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const betValuePlanck = useMemo(() => toPlanck(betAmountNumber), [betAmountNumber]);
   const betDisabledByAmount = betValuePlanck < minimumBet.minPlanck;
+
+  useEffect(() => {
+    if (betAmount === '' && !minimumBet.isLoading && minimumBet.minVaraText) {
+      setBetAmount(minimumBet.minVaraText);
+    }
+  }, [betAmount, minimumBet.isLoading, minimumBet.minVaraText]);
 
   const shownScore = useMemo(
     () => normalizeCurrentScore(currentScore, currentScoreText),

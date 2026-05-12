@@ -93,8 +93,10 @@ export const VARA_USD_FALLBACK_RATE = 0.0; // shown as "—" until the API respo
 export function varaToUsdString(varaAmount: number, rate = VARA_USD_FALLBACK_RATE): string {
   if (!rate || rate <= 0) return '';
   const usd = varaAmount * rate;
-  if (usd < 0.001) return '< $0.01';
-  return `≈ $${usd.toFixed(2)}`;
+  if (usd < 0.01) return '< $0.01';
+  if (usd < 1) return `≈ $${usd.toFixed(3)}`;
+  if (usd < 100) return `≈ $${usd.toFixed(2)}`;
+  return `≈ $${Math.round(usd).toLocaleString()}`;
 }
 
 /**
