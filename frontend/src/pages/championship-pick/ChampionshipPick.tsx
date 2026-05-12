@@ -131,6 +131,7 @@ export function ChampionshipPick() {
   const selectedTeams = useMemo(() => Object.values(picks).filter(Boolean), [picks]);
   const complete = pickSlots.every((slot) => picks[slot.key]);
   const lockMs = timestampToMs(coreState?.r32_lock_time ?? null);
+  const hasR32Lock = lockMs !== null;
   const isLocked = !!lockMs && Date.now() >= lockMs;
   const hasDuplicate = new Set(selectedTeams).size !== selectedTeams.length;
   const stakeAmountNumber = useMemo(() => {
@@ -143,6 +144,7 @@ export function ChampionshipPick() {
   const canSubmit =
     !!account &&
     isApiReady &&
+    hasR32Lock &&
     complete &&
     !hasDuplicate &&
     !isLocked &&
@@ -201,12 +203,13 @@ export function ChampionshipPick() {
     if (submitted) return 'Championship Pick Submitted';
     if (!account) return 'Connect wallet to submit';
     if (!isApiReady) return 'Node API not ready';
+    if (!hasR32Lock) return 'Waiting for R32 setup';
     if (isLocked) return 'Championship Pick Locked';
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
     if (stakeBelowMinimum) return minimumBet.shortLabel;
     return `Submit Championship Pick (${stakeAmountNumber || 0} VARA)`;
-  }, [account, complete, hasDuplicate, isApiReady, isLocked, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
+  }, [account, complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
 
   function updatePick(key: PickKey, team: string) {
     setPicks((current) => ({ ...current, [key]: team }));
@@ -296,6 +299,10 @@ export function ChampionshipPick() {
       toast.error('Choose three different teams');
       return;
     }
+    if (!hasR32Lock) {
+      toast.error('Championship Pick will open after the Round of 32 schedule is registered');
+      return;
+    }
     if (isLocked) {
       toast.error('Championship Pick is locked');
       return;
@@ -336,7 +343,7 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, isApiReady, isLocked, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast]);
 
   return (
     <div className="cpArena">
@@ -412,7 +419,7 @@ export function ChampionshipPick() {
                 </div>
                 <div className="sideRow">
                   <span>Pick status</span>
-                  <b>{submitted ? 'Submitted' : isLocked ? 'Locked' : 'Open'}</b>
+                  <b>{submitted ? 'Submitted' : !hasR32Lock ? 'Setup pending' : isLocked ? 'Locked' : 'Open'}</b>
                 </div>
                 <div className="sideRow">
                   <span>Minimum stake</span>
@@ -556,7 +563,9 @@ export function ChampionshipPick() {
                   <button className="cpSubmit" type="button" disabled={!canSubmit} onClick={() => void handleSubmit()}>
                     {submitLabel}
                   </button>
-                  {stakeAmountNumber > 0 && stakeBelowMinimum ? (
+                  {!hasR32Lock ? (
+                    <span className="cpWarn">Championship Pick opens after the Round of 32 schedule is registered.</span>
+                  ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (
                     <span className="cpWarn">{minimumBet.label}</span>
                   ) : (
                     <span>Payment is sent on-chain with the Championship Pick transaction.</span>
