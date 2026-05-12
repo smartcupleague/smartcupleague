@@ -90,9 +90,7 @@ export function useDynamicMinimumBet(state?: MinimumState | null) {
     isLoading,
     refresh,
     targetUsdText: '$3.00 USD',
-    label: minimum.isPriceFresh
-      ? `$3.00 USD converted to VARA: minimum ${minimum.minVaraText} VARA`
-      : `Price cache unavailable: contract fallback minimum ${minimum.minVaraText} VARA`,
+    label: `${minimum.minVaraText} VARA`,
     shortLabel: minimum.isPriceFresh
       ? `Min $3 USD ≈ ${minimum.minVaraText} VARA`
       : `Min fallback ${minimum.minVaraText} VARA`,

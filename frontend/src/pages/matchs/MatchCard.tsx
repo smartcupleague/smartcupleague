@@ -1227,7 +1227,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 {betAmountNumber > 0 && varaToUsd(betAmountNumber) && (
                   <div className="mcx__stakeUsd">{varaToUsd(betAmountNumber)}</div>
                 )}
-                <div className="mcx__stakeUsd">{minimumBet.label}</div>
+                <div className="mcx__stakeUsd mcx__stakeMinimum">{minimumBet.label}</div>
 
                 <div className="mcx__quickRow">
                   <button

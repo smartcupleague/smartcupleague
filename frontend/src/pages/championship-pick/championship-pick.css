@@ -269,6 +269,11 @@
   font-weight: 800;
 }
 
+.cpStakeBox__minimum {
+  color: rgba(255, 235, 246, 0.78);
+  font-size: 14px;
+}
+
 .cpWarn {
   color: rgba(255, 190, 120, 0.95) !important;
 }

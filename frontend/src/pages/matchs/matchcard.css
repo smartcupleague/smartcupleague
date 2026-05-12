@@ -914,6 +914,11 @@
   margin: 4px 0 2px;
   letter-spacing: 0.02em;
 }
+.mcx__stakeMinimum {
+  font-size: 14px;
+  color: rgba(255, 235, 246, 0.74);
+  font-weight: 800;
+}
 
 /* ── Post-prediction success CTA ────────────────────────── */
 .mcx__betSucceeded {
