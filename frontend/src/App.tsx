@@ -33,7 +33,9 @@ function Component() {
   const previewRoutePrefixes = ['/2026worldcup/match/', '/leagues/match/', '/match/', '/predictions/'];
   const pathname = window.location.pathname;
   const isPreviewRoute = previewRoutes.includes(pathname) || previewRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
-  const showOnboarding = !!account && !onboarding.accepted;
+  const onboardingExemptRoutes = ['/terms-of-use', '/dao-constitution', '/rules'];
+  const isOnboardingExemptRoute = onboardingExemptRoutes.includes(pathname);
+  const showOnboarding = !!account && !onboarding.accepted && !isOnboardingExemptRoute;
 
   const handleOnboardingAccept = async (nickname: string) => {
     const trimmed = nickname.trim();
