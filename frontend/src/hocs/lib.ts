@@ -203,8 +203,6 @@ const types = {
   AdminRemoved: '[u8;32]',
   OperatorAdded: '[u8;32]',
   OperatorRemoved: '[u8;32]',
-  OperatorAdded: '[u8;32]',
-  OperatorRemoved: '[u8;32]',
   TreasuryChanged: '([u8;32], [u8;32])',
   FinalPrizePoolFinalized: '(u128, u128)',
   FinalPrizeClaimed: '([u8;32], u128)',
