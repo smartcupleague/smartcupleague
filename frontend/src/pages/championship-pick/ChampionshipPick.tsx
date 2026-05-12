@@ -140,12 +140,6 @@ export function ChampionshipPick() {
   const stakeValuePlanck = useMemo(() => toPlanck(stakeAmountNumber), [stakeAmountNumber]);
   const stakeBelowMinimum = stakeValuePlanck < minimumBet.minPlanck;
 
-  useEffect(() => {
-    if (stakeAmount === '' && !minimumBet.isLoading && minimumBet.minVaraText) {
-      setStakeAmount(minimumBet.minVaraText);
-    }
-  }, [minimumBet.isLoading, minimumBet.minVaraText, stakeAmount]);
-
   const canSubmit =
     !!account &&
     isApiReady &&
@@ -534,7 +528,7 @@ export function ChampionshipPick() {
                           inputMode="decimal"
                           value={stakeAmount}
                           onChange={(event) => setStakeAmount(normalizeAmountInput(event.target.value))}
-                          placeholder="0.00"
+                          placeholder="3"
                           disabled={submitted || submitting || isLocked}
                         />
                       </span>
