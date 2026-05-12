@@ -15,7 +15,6 @@ const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http:/
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 
-
 type ResultStatus = any;
 
 type MatchInfo = {

@@ -70,6 +70,7 @@ const VARA_PLANCK = 10n ** VARA_DECIMALS;
 const PROTOCOL_FEE_BPS = 500n;
 const FINAL_PRIZE_BPS = 1000n;
 const BPS_DEN = 10_000n;
+const BET_CLOSE_WINDOW_MS = 10 * 60 * 1000;
 
 type PenaltyWinnerArg = { Home: null } | { Away: null };
 type MaybePenaltyWinnerArg = PenaltyWinnerArg | null;
@@ -453,7 +454,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const isBeforeKickoff = useMemo(() => {
     if (!match) return false;
-    return kickOffToMs(match.kick_off) > Date.now();
+    return kickOffToMs(match.kick_off) - BET_CLOSE_WINDOW_MS > Date.now();
   }, [match]);
 
   const chainResult = useMemo(() => getResultDetails(match?.result), [match?.result]);
@@ -676,7 +677,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
 
     if (!isBeforeKickoff) {
-      toast.error('Betting is closed (kick-off time has passed)');
+      toast.error('Prediction window is closed for this match');
       return;
     }
 
@@ -1374,7 +1375,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       {!isFinalized && !isBeforeKickoff && (
-        <div className="mcx__closed dim">Prediction is closed (kick-off time has passed).</div>
+        <div className="mcx__closed dim">Prediction is closed for this match.</div>
       )}
     </section>
   );
