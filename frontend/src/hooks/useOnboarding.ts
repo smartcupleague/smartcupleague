@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 const TERMS_VERSION = 'v1';
+export const ONBOARDING_CONNECT_EVENT = 'smartcup:onboarding-connect-intent';
 
 function storageKey(walletAddress?: string): string | null {
   return walletAddress ? `scl_terms_${TERMS_VERSION}:${walletAddress}` : null;
@@ -29,6 +30,10 @@ function readStorage(walletAddress?: string): OnboardingData {
 
 export function useOnboarding(walletAddress?: string) {
   const [data, setData] = useState<OnboardingData>(() => readStorage(walletAddress));
+
+  useEffect(() => {
+    setData(readStorage(walletAddress));
+  }, [walletAddress]);
 
   const accept = useCallback((nickname: string) => {
     const next: OnboardingData = { accepted: true, nickname: nickname.trim() };

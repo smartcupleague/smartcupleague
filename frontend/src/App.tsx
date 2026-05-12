@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useApi, useAccount } from '@gear-js/react-hooks';
 import { ApiLoader } from '@/components';
 import { withProviders } from '@/hocs';
 import { Routing } from '@/pages';
-import { useOnboarding } from '@/hooks/useOnboarding';
+import { ONBOARDING_CONNECT_EVENT, useOnboarding } from '@/hooks/useOnboarding';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import './app-layout.css';
@@ -12,6 +13,7 @@ function Component() {
   const { account } = useAccount();
   const onboarding = useOnboarding(account?.decodedAddress);
   const { save: saveWalletProfile } = useWalletProfile();
+  const [onboardingRequested, setOnboardingRequested] = useState(false);
 
   const isAppReady = isApiReady;
   const previewRoutes = [
@@ -35,7 +37,17 @@ function Component() {
   const isPreviewRoute = previewRoutes.includes(pathname) || previewRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
   const onboardingExemptRoutes = ['/terms-of-use', '/dao-constitution', '/rules'];
   const isOnboardingExemptRoute = onboardingExemptRoutes.includes(pathname);
-  const showOnboarding = !!account && !onboarding.accepted && !isOnboardingExemptRoute;
+  const showOnboarding = !!account && onboardingRequested && !onboarding.accepted && !isOnboardingExemptRoute;
+
+  useEffect(() => {
+    const requestOnboarding = () => setOnboardingRequested(true);
+    window.addEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
+    return () => window.removeEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
+  }, []);
+
+  useEffect(() => {
+    if (!account || onboarding.accepted) setOnboardingRequested(false);
+  }, [account, onboarding.accepted]);
 
   const handleOnboardingAccept = async (nickname: string) => {
     const trimmed = nickname.trim();
@@ -43,6 +55,7 @@ function Component() {
       await saveWalletProfile(trimmed);
     }
     onboarding.accept(trimmed);
+    setOnboardingRequested(false);
   };
 
   return isAppReady || isPreviewRoute ? (

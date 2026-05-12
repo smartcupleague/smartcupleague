@@ -4,6 +4,7 @@ import { useAccount, useBalance } from '@gear-js/react-hooks';
 import { Wallet as GearWallet } from '@gear-js/wallet-connect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
+import { ONBOARDING_CONNECT_EVENT } from '@/hooks/useOnboarding';
 import { EditProfileModal } from './EditProfileModal';
 
 const shimmer = keyframes`
@@ -370,6 +371,10 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
     if (ok) setShowEdit(false);
   };
 
+  const requestOnboarding = () => {
+    window.dispatchEvent(new Event(ONBOARDING_CONNECT_EVENT));
+  };
+
   return (
     <>
       <Row>
@@ -402,7 +407,7 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
         ) : null}
 
         <WalletSlot>
-          <InlineWrap $connected={connected}>
+          <InlineWrap $connected={connected} onClickCapture={requestOnboarding}>
             <GearWallet theme="vara" displayBalance={false} />
           </InlineWrap>
         </WalletSlot>
