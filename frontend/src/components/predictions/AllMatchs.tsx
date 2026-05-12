@@ -10,6 +10,7 @@ import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
+import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { reportClaim } from '@/utils/statsReporter';
 import { matchPath } from '@/utils';
 
@@ -95,10 +96,6 @@ function timestampToMs(value?: string | number | bigint | null) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
   return n < 10_000_000_000 ? n * 1000 : n;
-}
-
-function podiumStorageKey(wallet?: string) {
-  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
 }
 
 function predictionWindow(kickOff: string): { closed: boolean; label: string } {
@@ -265,10 +262,10 @@ export const MatchesTableComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CompTab>(isLocalPredictedPreview() ? 'worldcup' : 'leagues');
   const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
   const { planckToUsd } = useVaraPrice();
+  const podiumPick = usePodiumPick();
   const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
   const [r32LockTime, setR32LockTime] = useState<CoreState['r32_lock_time']>(null);
   const [podiumFinalized, setPodiumFinalized] = useState(false);
-  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
 
   useEffect(() => {
     void web3Enable('Bolao Matches UI');
@@ -345,15 +342,10 @@ export const MatchesTableComponent: React.FC = () => {
 
   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
 
-  useEffect(() => {
-    const key = podiumStorageKey(account?.decodedAddress);
-    setPodiumSubmitted(key ? window.localStorage.getItem(key) === 'true' : false);
-  }, [account?.decodedAddress]);
-
   const podiumLockMs = useMemo(() => timestampToMs(r32LockTime ?? null), [r32LockTime]);
   const podiumLocked = !!podiumLockMs && Date.now() >= podiumLockMs;
   const showChampionshipPickCard = activeTab === 'worldcup' && !podiumFinalized;
-  const championshipPickState = podiumSubmitted ? 'submitted' : podiumLocked ? 'locked' : 'open';
+  const championshipPickState = podiumPick.submitted ? 'submitted' : podiumLocked ? 'locked' : 'open';
 
   const phases = useMemo(() => getPhases(matches ?? []), [matches]);
 

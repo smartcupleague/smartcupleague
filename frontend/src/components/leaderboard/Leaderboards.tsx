@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './leaderboards.css';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { useToast } from '@/hooks/useToast';
+import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -36,12 +37,6 @@ type LbRow = {
   outcomes: number;
 };
 
-type ChampionshipPicks = {
-  champion: string;
-  runnerUp: string;
-  thirdPlace: string;
-};
-
 // Tabs — removed Match Performance, R32 Bonus (Picks), Earnings/ROI per spec
 const tabs = ['Global Leaderboard', 'My Leaderboard'] as const;
 type Tab = (typeof tabs)[number];
@@ -50,14 +45,6 @@ function shortHex(addr: string) {
   if (!addr) return '-';
   if (!addr.startsWith('0x') || addr.length < 16) return addr;
   return addr.slice(0, 6) + '…' + addr.slice(-4);
-}
-
-function podiumStorageKey(wallet?: string) {
-  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
-}
-
-function podiumPicksStorageKey(wallet?: string) {
-  return wallet ? `smartcup:podium-pick-values:${wallet}` : '';
 }
 
 function displayTeamName(team: string) {
@@ -244,14 +231,15 @@ export default function Leaderboards() {
   const { api, isApiReady } = useApi();
   const toast = useToast();
   const { account } = useAccount();
+  const podiumPick = usePodiumPick();
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LbRow[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [profileRow, setProfileRow] = useState<LbRow | null>(null);
   const [podiumFinalized, setPodiumFinalized] = useState(false);
-  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
-  const [championshipPicks, setChampionshipPicks] = useState<ChampionshipPicks | null>(null);
+  const podiumSubmitted = podiumPick.submitted;
+  const championshipPicks = podiumPick.pick;
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -282,28 +270,6 @@ export default function Leaderboards() {
   useEffect(() => {
     void web3Enable('Leaderboards dApp');
   }, []);
-
-  useEffect(() => {
-    const submittedKey = podiumStorageKey(account?.decodedAddress);
-    const picksKey = podiumPicksStorageKey(account?.decodedAddress);
-    const isSubmitted = submittedKey ? window.localStorage.getItem(submittedKey) === 'true' : false;
-    setPodiumSubmitted(isSubmitted);
-
-    if (isSubmitted && picksKey) {
-      try {
-        const saved = JSON.parse(window.localStorage.getItem(picksKey) ?? '{}');
-        setChampionshipPicks({
-          champion: typeof saved.champion === 'string' ? saved.champion : '',
-          runnerUp: typeof saved.runnerUp === 'string' ? saved.runnerUp : '',
-          thirdPlace: typeof saved.thirdPlace === 'string' ? saved.thirdPlace : '',
-        });
-      } catch {
-        setChampionshipPicks(null);
-      }
-    } else {
-      setChampionshipPicks(null);
-    }
-  }, [account?.decodedAddress]);
 
   const fetchLeaderboard = useCallback(async () => {
     if (!api || !isApiReady) return;

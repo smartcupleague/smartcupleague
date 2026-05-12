@@ -9,6 +9,7 @@ import { StyledWallet } from '@/components/wallet/Wallet';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { useToast } from '@/hooks/useToast';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
+import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { Program, Service } from '@/hocs/lib';
 import { TEAM_FLAGS } from '@/utils/teams';
 import '../matchs/match.css';
@@ -74,14 +75,6 @@ function formatLockTime(ms: number | null) {
   });
 }
 
-function storageKey(wallet?: string) {
-  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : "";
-}
-
-function picksStorageKey(wallet?: string) {
-  return wallet ? `smartcup:podium-pick-values:${wallet}` : "";
-}
-
 function formatAddress(addr?: string, start = 4, end = 4) {
   if (!addr) return "—";
   if (addr.length <= start + end) return addr;
@@ -122,14 +115,15 @@ export function ChampionshipPick() {
   const { api, isApiReady } = useApi();
   const toast = useToast();
   const { varaToUsd } = useVaraPrice();
+  const podiumPick = usePodiumPick();
 
   const [picks, setPicks] = useState<Record<PickKey, string>>({ champion: '', runnerUp: '', thirdPlace: '' });
   const [coreState, setCoreState] = useState<CoreState | null>(null);
   const [loadingState, setLoadingState] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [stakeAmount, setStakeAmount] = useState('3');
   const [userBets, setUserBets] = useState<any[]>([]);
+  const submitted = podiumPick.submitted;
 
   const selectedTeams = useMemo(() => Object.values(picks).filter(Boolean), [picks]);
   const complete = pickSlots.every((slot) => picks[slot.key]);
@@ -265,22 +259,17 @@ export function ChampionshipPick() {
   }, [fetchUserBets]);
 
   useEffect(() => {
-    const key = storageKey(account?.decodedAddress);
-    const picksKey = picksStorageKey(account?.decodedAddress);
-    const isSubmitted = key ? window.localStorage.getItem(key) === 'true' : false;
-    setSubmitted(isSubmitted);
-
-    if (isSubmitted && picksKey) {
-      try {
-        const saved = JSON.parse(window.localStorage.getItem(picksKey) ?? '{}');
-        setPicks({
-          champion: typeof saved.champion === 'string' ? saved.champion : '',
-          runnerUp: typeof saved.runnerUp === 'string' ? saved.runnerUp : '',
-          thirdPlace: typeof saved.thirdPlace === 'string' ? saved.thirdPlace : '',
-        });
-      } catch { /* ignore preview-only cache */ }
+    if (!podiumPick.pick) {
+      setPicks({ champion: '', runnerUp: '', thirdPlace: '' });
+      return;
     }
-  }, [account?.decodedAddress]);
+
+    setPicks({
+      champion: podiumPick.pick.champion,
+      runnerUp: podiumPick.pick.runnerUp,
+      thirdPlace: podiumPick.pick.thirdPlace,
+    });
+  }, [podiumPick.pick]);
 
   const handleSubmit = useCallback(async () => {
     if (!account) {
@@ -328,20 +317,16 @@ export function ChampionshipPick() {
       toast.info(`Championship Pick included in block ${blockHash}`);
       await response();
 
-      const key = storageKey(account.decodedAddress);
-      const picksKey = picksStorageKey(account.decodedAddress);
-      if (key) window.localStorage.setItem(key, 'true');
-      if (picksKey) window.localStorage.setItem(picksKey, JSON.stringify(picks));
-      setSubmitted(true);
+      podiumPick.cachePick(picks);
       toast.success('Championship Pick submitted successfully');
-      await fetchCoreState();
+      await Promise.all([fetchCoreState(), podiumPick.refresh()]);
     } catch (error: any) {
       console.error('Championship Pick submission failed', error);
       toast.error(error?.message ?? 'Championship Pick submission failed');
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, isApiReady, isLocked, picks, stakeAmountNumber, toast]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, isApiReady, isLocked, picks, podiumPick, stakeAmountNumber, toast]);
 
   return (
     <div className="cpArena">

@@ -11,6 +11,7 @@ import { Program as CoreProgram, Service as CoreService } from '@/hocs/lib';
 import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { useNavigate } from 'react-router-dom';
 import { matchPath } from '@/utils';
 
@@ -84,10 +85,6 @@ function shortHex(addr: string) {
   if (!addr) return '-';
   if (!addr.startsWith('0x') || addr.length < 16) return addr;
   return addr.slice(0, 6) + '…' + addr.slice(-4);
-}
-
-function podiumStorageKey(wallet?: string) {
-  return wallet ? `smartcup:podium-pick-submitted:${wallet}` : '';
 }
 
 function toHexAddress(input?: string | null): `0x${string}` | null {
@@ -221,6 +218,7 @@ export default function Home() {
   const toast = useToast();
   const { account } = useAccount();
   const navigate = useNavigate();
+  const podiumPick = usePodiumPick();
 
   const myWalletHex = useMemo(() => {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
@@ -233,7 +231,6 @@ export default function Home() {
   const [userBets, setUserBets] = useState<any[]>([]);
   const [claimStatus, setClaimStatus] = useState<FinalPrizeClaimStatus | null>(null);
   const [claimLoading, setClaimLoading] = useState(false);
-  const [podiumSubmitted, setPodiumSubmitted] = useState(false);
   const [apiLeaderboardRow, setApiLeaderboardRow] = useState<ApiLeaderboardRow | null>(null);
 
   useEffect(() => {
@@ -243,11 +240,6 @@ export default function Home() {
       } catch {}
     })();
   }, []);
-
-  useEffect(() => {
-    const key = podiumStorageKey(account?.decodedAddress);
-    setPodiumSubmitted(key ? window.localStorage.getItem(key) === 'true' : false);
-  }, [account?.decodedAddress]);
 
   const coreProgram = useMemo(() => {
     if (!api || !isApiReady) return null;
@@ -578,7 +570,7 @@ export default function Home() {
     return closesLabel(Number(nextMatch.kick_off));
   }, [nextMatch]);
 
-  const championshipPickState = coreState?.podium_finalized ? 'completed' : podiumSubmitted ? 'submitted' : 'open';
+  const championshipPickState = coreState?.podium_finalized ? 'completed' : podiumPick.submitted ? 'submitted' : 'open';
   const championshipPickStatus = championshipPickState === 'completed'
     ? '+30 pts'
     : championshipPickState === 'submitted'
