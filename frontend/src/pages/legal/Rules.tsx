@@ -83,7 +83,7 @@ export default function Rules() {
           <h2>Prediction Rules</h2>
           <p>For each match:</p>
           <ul>
-            <li>Minimum prediction entry: <strong>3 VARA</strong></li>
+            <li>Minimum prediction entry: <strong>$3 USD converted to VARA</strong></li>
             <li>Only one prediction per wallet per match</li>
             <li>Predictions close 10 minutes before kickoff</li>
             <li>Predictions cannot be edited or cancelled after submission</li>

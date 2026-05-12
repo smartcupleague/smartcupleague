@@ -10,6 +10,7 @@ import { TeamFlag } from '@/components/common/TeamFlag';
 import { useToast } from '@/hooks/useToast';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { usePodiumPick } from '@/hooks/usePodiumPick';
+import { useDynamicMinimumBet } from '@/hooks/useDynamicMinimumBet';
 import { Program, Service } from '@/hocs/lib';
 import { TEAM_FLAGS } from '@/utils/teams';
 import '../matchs/match.css';
@@ -18,7 +19,6 @@ import './championship-pick.css';
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
 const VARA_DECIMALS = 12n;
 const VARA_PLANCK = 10n ** VARA_DECIMALS;
-const MIN_PODIUM_PICK_VARA = 3;
 
 type PickKey = 'champion' | 'runnerUp' | 'thirdPlace';
 
@@ -33,6 +33,9 @@ type PickSlot = {
 type CoreState = {
   r32_lock_time?: string | number | bigint | null;
   podium_finalized?: boolean;
+  vara_price_usd_micro?: string | number | bigint | null;
+  price_cached_at?: string | number | bigint | null;
+  price_staleness_limit_ms?: string | number | bigint | null;
   matches?: Array<{
     match_id: string | number;
     phase?: string;
@@ -119,6 +122,7 @@ export function ChampionshipPick() {
 
   const [picks, setPicks] = useState<Record<PickKey, string>>({ champion: '', runnerUp: '', thirdPlace: '' });
   const [coreState, setCoreState] = useState<CoreState | null>(null);
+  const minimumBet = useDynamicMinimumBet(coreState);
   const [loadingState, setLoadingState] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [stakeAmount, setStakeAmount] = useState('3');
@@ -134,7 +138,8 @@ export function ChampionshipPick() {
     const amount = Number(String(stakeAmount).replace(',', '.'));
     return Number.isFinite(amount) ? amount : 0;
   }, [stakeAmount]);
-  const stakeBelowMinimum = stakeAmountNumber < MIN_PODIUM_PICK_VARA;
+  const stakeValuePlanck = useMemo(() => toPlanck(stakeAmountNumber), [stakeAmountNumber]);
+  const stakeBelowMinimum = stakeValuePlanck < minimumBet.minPlanck;
   const canSubmit =
     !!account &&
     isApiReady &&
@@ -199,9 +204,9 @@ export function ChampionshipPick() {
     if (isLocked) return 'Championship Pick Locked';
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
-    if (stakeBelowMinimum) return `Minimum ${MIN_PODIUM_PICK_VARA} VARA`;
+    if (stakeBelowMinimum) return minimumBet.shortLabel;
     return `Submit Championship Pick (${stakeAmountNumber || 0} VARA)`;
-  }, [account, complete, hasDuplicate, isApiReady, isLocked, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
+  }, [account, complete, hasDuplicate, isApiReady, isLocked, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
 
   function updatePick(key: PickKey, team: string) {
     setPicks((current) => ({ ...current, [key]: team }));
@@ -216,6 +221,9 @@ export function ChampionshipPick() {
       setCoreState({
         r32_lock_time: state?.r32_lock_time ?? null,
         podium_finalized: Boolean(state?.podium_finalized),
+        vara_price_usd_micro: state?.vara_price_usd_micro ?? null,
+        price_cached_at: state?.price_cached_at ?? null,
+        price_staleness_limit_ms: state?.price_staleness_limit_ms ?? null,
         matches: Array.isArray(state?.matches)
           ? state.matches.map((match: any) => ({
               match_id: match?.match_id ?? '',
@@ -292,8 +300,8 @@ export function ChampionshipPick() {
       toast.error('Championship Pick is locked');
       return;
     }
-    if (stakeAmountNumber < MIN_PODIUM_PICK_VARA) {
-      toast.error(`Minimum Championship Pick amount is ${MIN_PODIUM_PICK_VARA} VARA`);
+    if (stakeBelowMinimum) {
+      toast.error(`Minimum Championship Pick amount is ${minimumBet.label}`);
       return;
     }
 
@@ -310,7 +318,7 @@ export function ChampionshipPick() {
       if (!source) throw new Error('Wallet source unavailable');
       const { signer } = await web3FromSource(source);
 
-      tx.withAccount(account.decodedAddress, { signer }).withValue(toPlanck(stakeAmountNumber));
+      tx.withAccount(account.decodedAddress, { signer }).withValue(stakeValuePlanck);
       await tx.calculateGas();
 
       const { blockHash, response } = await tx.signAndSend();
@@ -326,7 +334,7 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, isApiReady, isLocked, picks, podiumPick, stakeAmountNumber, toast]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, isApiReady, isLocked, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast]);
 
   return (
     <div className="cpArena">
@@ -406,7 +414,7 @@ export function ChampionshipPick() {
                 </div>
                 <div className="sideRow">
                   <span>Minimum stake</span>
-                  <b>{MIN_PODIUM_PICK_VARA} VARA</b>
+                  <b>{minimumBet.minVaraText} VARA</b>
                 </div>
                 <div className="sideDivider" />
                 <div className="sideHint">All three picks lock permanently at the Round of 32 kickoff.</div>
@@ -523,6 +531,7 @@ export function ChampionshipPick() {
                     </label>
 
                     <div className="cpQuickRow" aria-label="Quick stake amount controls">
+                      <button type="button" onClick={() => setStakeAmount(minimumBet.minVaraText)}>Min</button>
                       <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 1))}>+1</button>
                       <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 10))}>+10</button>
                       <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 50))}>+50</button>
@@ -531,6 +540,7 @@ export function ChampionshipPick() {
 
                   <div className="cpStakeBox__meta">
                     {stakeAmountNumber > 0 && varaToUsd(stakeAmountNumber) ? <span>{varaToUsd(stakeAmountNumber)}</span> : null}
+                    <span>{minimumBet.label}</span>
                     <span>95% Final Prize • 5% Protocol Fee</span>
                   </div>
                 </div>
@@ -540,7 +550,7 @@ export function ChampionshipPick() {
                     {submitLabel}
                   </button>
                   {stakeAmountNumber > 0 && stakeBelowMinimum ? (
-                    <span className="cpWarn">Minimum Championship Pick amount is {MIN_PODIUM_PICK_VARA} VARA</span>
+                    <span className="cpWarn">{minimumBet.label}</span>
                   ) : (
                     <span>Payment is sent on-chain with the Championship Pick transaction.</span>
                   )}
