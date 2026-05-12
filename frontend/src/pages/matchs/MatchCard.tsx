@@ -13,6 +13,7 @@ import { TeamFlag } from '@/components/common/TeamFlag';
 import { reportBet, reportClaim } from '@/utils/statsReporter';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
+const IS_DEV_PREVIEW = import.meta.env.DEV;
 
 type Score = { home: number; away: number };
 type ResultStatus = any;
@@ -66,6 +67,7 @@ type BetCurrency = 'VARA' | 'wUSDC' | 'wUSDT';
 
 const VARA_DECIMALS = 12n;
 const VARA_PLANCK = 10n ** VARA_DECIMALS;
+const PLANCK = 1_000_000_000_000n;
 
 const PROTOCOL_FEE_BPS = 500n;
 const FINAL_PRIZE_BPS = 1000n;
@@ -75,6 +77,32 @@ const BET_CLOSE_WINDOW_MS = 10 * 60 * 1000;
 type PenaltyWinnerArg = { Home: null } | { Away: null };
 type MaybePenaltyWinnerArg = PenaltyWinnerArg | null;
 type ScoreText = { home: string; away: string };
+
+function demoMatch(matchId: string): MatchInfo {
+  return {
+    match_id: matchId || '1',
+    phase: 'GROUP_STAGE',
+    home: 'Brazil',
+    away: 'Spain',
+    kick_off: String(Date.now() + 36 * 60 * 60 * 1000),
+    result: null,
+    match_prize_pool: String(128_450n * PLANCK),
+    total_winner_stake: String(58_200n * PLANCK),
+    settlement_prepared: false,
+    pool_home: String(58_200n * PLANCK),
+    pool_draw: String(18_750n * PLANCK),
+    pool_away: String(51_500n * PLANCK),
+    has_bets: true,
+    participants: ['demo-wallet-1', 'demo-wallet-2', 'demo-wallet-3'],
+  };
+}
+
+function demoState(matchId: string): IoBolaoState {
+  return {
+    matches: [demoMatch(matchId)],
+    phases: [{ name: 'GROUP_STAGE', start_time: '0', end_time: '0', points_weight: 1 }],
+  };
+}
 
 
 function kickOffToMs(kickOff: string): number {
@@ -356,6 +384,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [loadingUserBet, setLoadingUserBet] = useState<boolean>(false);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
+  const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
 
   const betAmountNumber = useMemo(() => {
     const n = Number(String(betAmount).replace(',', '.'));
@@ -364,12 +393,18 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const betValuePlanck = useMemo(() => toPlanck(betAmountNumber), [betAmountNumber]);
   const betDisabledByAmount = betValuePlanck < minimumBet.minPlanck;
+  const convertedStakeLabel = useMemo(() => {
+    if (betAmountNumber <= 0) return '';
+    const liveLabel = varaToUsd(betAmountNumber);
+    if (liveLabel) return liveLabel;
+    return isDemoPreview ? `≈ $${(betAmountNumber * 0.00071).toFixed(2)}` : '';
+  }, [betAmountNumber, isDemoPreview, varaToUsd]);
 
   useEffect(() => {
     if (betAmount === '' && !minimumBet.isLoading && minimumBet.minVaraText) {
-      setBetAmount(minimumBet.minVaraText);
+      setBetAmount(isDemoPreview ? '2123' : minimumBet.minVaraText);
     }
-  }, [betAmount, minimumBet.isLoading, minimumBet.minVaraText]);
+  }, [betAmount, isDemoPreview, minimumBet.isLoading, minimumBet.minVaraText]);
 
   const shownScore = useMemo(
     () => normalizeCurrentScore(currentScore, currentScoreText),
@@ -382,6 +417,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const fetchState = useCallback(async () => {
     if (!api || !isApiReady) {
+      if (IS_DEV_PREVIEW) {
+        setState(demoState(matchId));
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       return;
     }
@@ -426,11 +466,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       setState(normalized);
     } catch (e) {
       console.error('fetchState error', e);
-      setState(null);
+      setState(IS_DEV_PREVIEW ? demoState(matchId) : null);
     } finally {
       setLoading(false);
     }
-  }, [api, isApiReady]);
+  }, [api, isApiReady, matchId]);
 
   useEffect(() => {
     void fetchState();
@@ -1224,10 +1264,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   />
                 </div>
 
-                {betAmountNumber > 0 && varaToUsd(betAmountNumber) && (
-                  <div className="mcx__stakeUsd">{varaToUsd(betAmountNumber)}</div>
+                {convertedStakeLabel && (
+                  <div className="mcx__stakeUsd mcx__stakeUsd--converted">{convertedStakeLabel}</div>
                 )}
-                <div className="mcx__stakeUsd mcx__stakeMinimum">{minimumBet.label}</div>
 
                 <div className="mcx__quickRow">
                   <button

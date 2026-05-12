@@ -14,6 +14,8 @@ import { u8aToHex } from '@polkadot/util';
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
+const IS_DEV_PREVIEW = import.meta.env.DEV;
+const PLANCK = 1_000_000_000_000n;
 
 type ResultStatus = any;
 
@@ -39,6 +41,33 @@ type IoBolaoState = {
   final_prize_accum?: string | number | bigint;
   user_points?: Array<[string, number]>;
 };
+
+function demoMatch(matchId: string): MatchInfo {
+  return {
+    match_id: matchId || '1',
+    phase: 'GROUP_STAGE',
+    home: 'Brazil',
+    away: 'Spain',
+    kick_off: String(Date.now() + 36 * 60 * 60 * 1000),
+    match_prize_pool: String(128_450n * PLANCK),
+    total_pool: String(128_450n * PLANCK),
+    pool_home: String(58_200n * PLANCK),
+    pool_draw: String(18_750n * PLANCK),
+    pool_away: String(51_500n * PLANCK),
+    participants: ['demo-wallet-1', 'demo-wallet-2', 'demo-wallet-3'],
+    has_bets: true,
+    result: null,
+  };
+}
+
+function demoState(matchId: string): IoBolaoState {
+  return {
+    matches: [demoMatch(matchId)],
+    final_prize_accumulated: String(2_350_000n * PLANCK),
+    final_prize_accum: String(2_350_000n * PLANCK),
+    user_points: [],
+  };
+}
 
 const VARA_DECIMALS = 12;
 
@@ -120,6 +149,12 @@ function Match() {
 
   const fetchState = useCallback(async () => {
     if (!program) {
+      if (IS_DEV_PREVIEW) {
+        setState(demoState(matchId));
+        setError(null);
+        setLoadingState(false);
+        return;
+      }
       setLoadingState(true);
       return;
     }
@@ -159,12 +194,12 @@ function Match() {
         user_points,
       });
     } catch (e: any) {
-      setState(null);
+      setState(IS_DEV_PREVIEW ? demoState(matchId) : null);
       setError(e?.message ? String(e.message) : 'Failed to load state');
     } finally {
       setLoadingState(false);
     }
-  }, [program]);
+  }, [matchId, program]);
 
   useEffect(() => {
     void fetchState();

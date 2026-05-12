@@ -546,8 +546,9 @@ export function ChampionshipPick() {
                   </div>
 
                   <div className="cpStakeBox__meta">
-                    {stakeAmountNumber > 0 && varaToUsd(stakeAmountNumber) ? <span>{varaToUsd(stakeAmountNumber)}</span> : null}
-                    <span className="cpStakeBox__minimum">{minimumBet.label}</span>
+                    {stakeAmountNumber > 0 && varaToUsd(stakeAmountNumber) ? (
+                      <span className="cpStakeBox__converted">{varaToUsd(stakeAmountNumber)}</span>
+                    ) : null}
                     <span>95% Final Prize • 5% Protocol Fee</span>
                   </div>
                 </div>

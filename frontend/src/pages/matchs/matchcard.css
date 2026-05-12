@@ -914,7 +914,7 @@
   margin: 4px 0 2px;
   letter-spacing: 0.02em;
 }
-.mcx__stakeMinimum {
+.mcx__stakeUsd--converted {
   font-size: 14px;
   color: rgba(255, 235, 246, 0.74);
   font-weight: 800;
