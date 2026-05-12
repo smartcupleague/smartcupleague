@@ -766,6 +766,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         penaltyWinnerToSend,
       );
 
+      const extensions = await web3Enable('SmartCup League');
+      if (!extensions.length) throw new Error('Wallet extension access was not granted');
       const { signer } = await web3FromSource(account.meta.source);
 
       if (betCurrency === 'VARA') {
@@ -855,6 +857,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
       const tx: TransactionBuilder<unknown> = (svc as any).claimMatchReward(BigInt(match.match_id));
 
+      const extensions = await web3Enable('SmartCup League');
+      if (!extensions.length) throw new Error('Wallet extension access was not granted');
       const { signer } = await web3FromSource(account.meta.source);
       tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
 

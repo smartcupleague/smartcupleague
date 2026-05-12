@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { web3FromSource } from '@polkadot/extension-dapp';
+import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { TransactionBuilder } from 'sails-js';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -316,6 +316,8 @@ export function ChampionshipPick() {
 
       const source = account.meta?.source;
       if (!source) throw new Error('Wallet source unavailable');
+      const extensions = await web3Enable('SmartCup League');
+      if (!extensions.length) throw new Error('Wallet extension access was not granted');
       const { signer } = await web3FromSource(source);
 
       tx.withAccount(account.decodedAddress, { signer }).withValue(stakeValuePlanck);
