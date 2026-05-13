@@ -12,7 +12,6 @@ function matchPath(phase: string, matchId: string | number): string {
 
 export { copyToClipboard, isWCPhase, matchPath };
 export {
-  ACTIVE_TOURNAMENTS,
   LEAGUES_TOURNAMENT,
   TOURNAMENT_TAB_ORDER,
   TOURNAMENTS_BY_KEY,
@@ -21,5 +20,5 @@ export {
   getTournamentByKey,
   getTournamentForPhase,
   isWorldCupPhase,
-};
+} from './tournaments';
 export type { TournamentDefinition, TournamentKey } from './tournaments';
