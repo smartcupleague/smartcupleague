@@ -1,0 +1,154 @@
+.adminGate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(680px 360px at 20% 5%, rgba(255, 46, 118, 0.16), transparent 62%),
+    radial-gradient(580px 320px at 84% 92%, rgba(168, 5, 69, 0.18), transparent 64%),
+    linear-gradient(145deg, #120009 0%, #240013 48%, #070005 100%);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.adminGateCard {
+  width: min(440px, 100%);
+  padding: 28px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.18)),
+    rgba(25, 0, 14, 0.84);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+}
+
+.adminGateCard__mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 46, 118, 0.36);
+  background: rgba(255, 46, 118, 0.14);
+  color: #ff8fbc;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.adminGateCard h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.adminGateCard p {
+  margin: 0 0 22px;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.5;
+}
+
+.adminGateButton {
+  min-height: 44px;
+}
+
+.adminGateNotice,
+.adminGateError,
+.adminGateCard__allowed {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.adminGateNotice {
+  border: 1px solid rgba(255, 194, 75, 0.34);
+  background: rgba(255, 194, 75, 0.10);
+  color: rgba(255, 235, 190, 0.94);
+}
+
+.adminGateError {
+  border: 1px solid rgba(255, 90, 130, 0.36);
+  background: rgba(255, 90, 130, 0.10);
+  color: rgba(255, 210, 222, 0.96);
+}
+
+.adminGateCard__allowed {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.adminGateCard code {
+  color: #ff9bc4;
+}
+
+.adminGateShell {
+  min-height: 100vh;
+  background: #0e0008;
+}
+
+.adminGateBar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(14, 0, 8, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.adminGateBar__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.adminGateBar__user img,
+.adminGateBar__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.adminGateBar__avatar {
+  display: inline-block;
+  background: rgba(255, 46, 118, 0.28);
+}
+
+.adminGateBar__user span {
+  display: block;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.adminGateBar__user strong {
+  display: block;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+}
+
+.adminGateBar button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.adminGateBar button:hover {
+  border-color: rgba(255, 46, 118, 0.34);
+  background: rgba(255, 46, 118, 0.14);
+}

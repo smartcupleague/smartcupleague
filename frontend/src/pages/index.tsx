@@ -11,6 +11,7 @@ import Leaderboards from '@/components/leaderboard/Leaderboards';
 // import GovernancePanel from '@/components/dao/GovernancePanel';
 import { Simulator } from './simulator';
 import { AdminFixtures } from './admin-fixtures';
+import { AdminGoogleGate } from '@/components/auth/AdminGoogleGate';
 import TermsOfUse from './legal/TermsOfUse';
 import DaoConstitution from './legal/DaoConstitution';
 import Rules from './legal/Rules';
@@ -29,7 +30,7 @@ function Routing() {
       <Route path="/terms-of-use" element={<TermsOfUse />} />
       <Route path="/dao-constitution" element={<DaoConstitution />} />
       <Route path="/rules" element={<Rules />} />
-      <Route path="/admin/fixtures" element={<AdminFixtures />} />
+      <Route path="/admin/fixtures" element={<AdminGoogleGate><AdminFixtures /></AdminGoogleGate>} />
       <Route element={<AppLayout />}>
         {/* /progress replaces /home */}
         <Route path="/progress" element={<Home />} />
