@@ -465,11 +465,6 @@ export default function TermsOfUse() {
             ))}
           </section>
         ))}
-
-        <div className="legal-draft-notice">
-          This document is provided as the SmartCup League Terms of Use draft for review and user
-          acknowledgement before participating in the Protocol.
-        </div>
       </main>
 
       <AppFooter />
