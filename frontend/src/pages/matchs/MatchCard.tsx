@@ -400,12 +400,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     return isDemoPreview ? `≈ $${(betAmountNumber * 0.00071).toFixed(2)}` : '';
   }, [betAmountNumber, isDemoPreview, varaToUsd]);
 
-  useEffect(() => {
-    if (betAmount === '' && !minimumBet.isLoading && minimumBet.minVaraText) {
-      setBetAmount(isDemoPreview ? '2123' : minimumBet.minVaraText);
-    }
-  }, [betAmount, isDemoPreview, minimumBet.isLoading, minimumBet.minVaraText]);
-
   const shownScore = useMemo(
     () => normalizeCurrentScore(currentScore, currentScoreText),
     [currentScore, currentScoreText],
@@ -1264,7 +1258,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     inputMode="decimal"
                     value={betAmount}
                     onChange={(e) => setBetAmount(normalizeAmountInput(e.target.value))}
-                    placeholder="0.00"
+                    placeholder="3"
                   />
                 </div>
 
