@@ -11,8 +11,15 @@ import { Program as CoreProgram, Service as CoreService } from '@/hocs/lib';
 import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { useNavigate } from 'react-router-dom';
-import { matchPath } from '@/utils';
+import {
+  TOURNAMENT_TAB_ORDER,
+  WORLD_CUP_2026_TOURNAMENT,
+  getTournamentByKey,
+  isWCPhase,
+  matchPath,
+} from '@/utils';
 
 const CORE_PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const DAO_PROGRAM_ID = import.meta.env.VITE_DAOPROGRAM as string;
@@ -433,7 +440,35 @@ export default function Home() {
     void fetchAll();
   }, [fetchAll]);
 
-  const tournamentName = 'League 2026';
+  const tournamentCounts = useMemo(() => {
+    const matches = coreState?.matches ?? [];
+    return {
+      leagues: matches.filter((m) => !isWCPhase(m.phase)).length,
+      worldcup: matches.filter((m) => isWCPhase(m.phase)).length,
+    };
+  }, [coreState?.matches]);
+
+  const homeTournamentTabs = useMemo(() => TOURNAMENT_TAB_ORDER
+    .map((tournament) => ({ ...tournament, count: tournamentCounts[tournament.key] }))
+    .filter((tournament) => tournament.count > 0), [tournamentCounts]);
+
+  const availableTournamentKeys = useMemo(
+    () => homeTournamentTabs.map((tournament) => tournament.key),
+    [homeTournamentTabs]
+  );
+  const [activeTournamentKey, setActiveTournamentKey] = useTournamentSelection(
+    availableTournamentKeys.length ? availableTournamentKeys : [WORLD_CUP_2026_TOURNAMENT.key]
+  );
+
+  const activeTournament = getTournamentByKey(activeTournamentKey);
+  const tournamentName = activeTournament.label;
+
+  const activeMatches = useMemo(() => {
+    const matches = coreState?.matches ?? [];
+    return activeTournamentKey === 'worldcup'
+      ? matches.filter((m) => isWCPhase(m.phase))
+      : matches.filter((m) => !isWCPhase(m.phase));
+  }, [activeTournamentKey, coreState?.matches]);
 
   const sortedLeaderboard = useMemo(() => {
     const up = coreState?.user_points ?? [];
@@ -463,7 +498,7 @@ export default function Home() {
   }, [sortedLeaderboard, myWalletHex, myRankInfo.rank, myRankInfo.points]);
 
   const poolsInfo = useMemo(() => {
-    const matches = coreState?.matches ?? [];
+    const matches = activeMatches;
     const allPoolsBn = matches.length ? sumAllMatchPools(matches) : 0n;
     const finalPrizeBn = safeBigInt(coreState?.final_prize_accumulated ?? 0);
     const feeBn = safeBigInt(coreState?.protocol_fee_accumulated ?? 0);
@@ -478,14 +513,13 @@ export default function Home() {
       totalMatches: matches.length,
       totalPredictions,
     };
-  }, [coreState]);
+  }, [activeMatches, coreState]);
 
   const finalizedMatches = useMemo(() => {
-    const matches = coreState?.matches ?? [];
-    return matches
+    return activeMatches
       .filter((m) => isFinalized(m))
       .sort((a, b) => kickOffToMs(Number(b.kick_off)) - kickOffToMs(Number(a.kick_off)));
-  }, [coreState]);
+  }, [activeMatches]);
 
   const lastMatch = finalizedMatches[0] ?? null;
 
@@ -497,15 +531,24 @@ export default function Home() {
   }, [lastMatch]);
 
   const upcoming = useMemo(() => {
-    const matches = coreState?.matches ?? [];
-    return matches
+    return activeMatches
       .filter((m) => !isFinalized(m))
       .sort((a, b) => kickOffToMs(Number(a.kick_off)) - kickOffToMs(Number(b.kick_off)));
-  }, [coreState]);
+  }, [activeMatches]);
+
+  const activeMatchIds = useMemo(
+    () => new Set(activeMatches.map((m) => String(m.match_id))),
+    [activeMatches]
+  );
+
+  const activeUserBets = useMemo(
+    () => userBets.filter((b) => activeMatchIds.has(String(b?.match_id ?? ''))),
+    [activeMatchIds, userBets]
+  );
 
   const predictedMatchIds = useMemo(
-    () => new Set(userBets.map((b) => String(b?.match_id ?? ''))),
-    [userBets]
+    () => new Set(activeUserBets.map((b) => String(b?.match_id ?? ''))),
+    [activeUserBets]
   );
 
   const nextMatch = useMemo(() => {
@@ -518,16 +561,16 @@ export default function Home() {
     : false;
 
   const userPredStats = useMemo(() => {
-    if (!account || !userBets.length || !coreState?.matches) {
+    if (!account || !activeUserBets.length || !activeMatches.length) {
       return { made: 0, exactResults: 0, correctOutcomes: 0 };
     }
 
     let exact = 0;
     let outcome = 0;
 
-    for (const b of userBets) {
+    for (const b of activeUserBets) {
       const mid = String(b?.match_id ?? '');
-      const m = coreState.matches.find((x) => String(x.match_id) === mid);
+      const m = activeMatches.find((x) => String(x.match_id) === mid);
       if (!m) continue;
 
       const fin = (m.result as any)?.Finalized ?? (m.result as any)?.finalized;
@@ -548,8 +591,8 @@ export default function Home() {
       if (fOut !== 0 && bOut === fOut) outcome++;
     }
 
-    return { made: userBets.length, exactResults: exact, correctOutcomes: outcome };
-  }, [account, userBets, coreState?.matches]);
+    return { made: activeUserBets.length, exactResults: exact, correctOutcomes: outcome };
+  }, [account, activeUserBets, activeMatches]);
 
   const totalEarnedText = useMemo(() => {
     if (!account) return '—';
@@ -703,11 +746,17 @@ export default function Home() {
 
       <header className="h-topbar">
         <div className="h-tabs">
-          <button className="h-tab h-tab--active" type="button">
-            <span className="h-tab__dot">🏆</span>
-            {tournamentName}
-            <span className="h-tab__sub">{loading ? 'Syncing…' : 'On-chain'}</span>
-          </button>
+          {(homeTournamentTabs.length ? homeTournamentTabs : [WORLD_CUP_2026_TOURNAMENT]).map((tournament) => (
+            <button
+              key={tournament.key}
+              className={'h-tab' + (activeTournamentKey === tournament.key ? ' h-tab--active' : '')}
+              type="button"
+              onClick={() => setActiveTournamentKey(tournament.key)}>
+              <span className="h-tab__dot">{tournament.icon}</span>
+              {tournament.label}
+              <span className="h-tab__sub">{loading ? 'Syncing…' : tournament.statusLabel}</span>
+            </button>
+          ))}
 
           <button className="h-tab h-tab--ghost" aria-label="Refresh" type="button" onClick={fetchAll} title="Refresh">
             ⟳

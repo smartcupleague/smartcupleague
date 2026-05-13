@@ -7,6 +7,8 @@ import { Program, Service } from '@/hocs/lib';
 import { TransactionBuilder } from 'sails-js';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { Header } from '../layout';
+import { useTournamentSelection } from '@/hooks/useTournamentSelection';
+import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase } from '@/utils';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
 
@@ -47,21 +49,6 @@ type MatchInfo = {
 function normalizeTeamKey(team: string) {
   return (team || '').trim().toUpperCase().replace(/\s+/g, ' ');
 }
-
-const WC_PHASES = new Set([
-  'GROUP_STAGE', 'Group Stage', 'ROUND_OF_16', 'Round Of 16', 'Round of 16',
-  'QUARTER_FINALS', 'Quarter Finals', 'Quarter-finals',
-  'SEMI_FINALS', 'Semi Finals', 'Semi-finals',
-  'THIRD_PLACE', 'Third Place', 'FINAL', 'Final',
-]);
-
-function isWCPhase(phase: string): boolean {
-  if (WC_PHASES.has(phase)) return true;
-  const u = phase.toUpperCase();
-  return u.includes('GROUP') || u.includes('ROUND') || u.includes('QUARTER') ||
-    u.includes('SEMI') || u.includes('FINAL') || u.includes('KNOCKOUT');
-}
-
 
 function kickOffToMs(kickOff: string): number {
   const n = Number(kickOff);
@@ -266,7 +253,6 @@ export const QueryBetsByUserComponent: React.FC = () => {
   const [matches, setMatches] = useState<MatchInfo[] | null>(null);
   const [phases, setPhases] = useState<PhaseConfig[]>([]);
 
-  const [tab, setTab] = useState<'leagues' | 'wc'>('leagues');
   const [search, setSearch] = useState('');
   const [filterStage, setFilterStage] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -390,36 +376,51 @@ export const QueryBetsByUserComponent: React.FC = () => {
   }, [matches]);
 
   const tabCounts = useMemo(() => {
+    const all = matches ?? [];
+    return {
+      leagues: all.filter((m) => !isWCPhase(m.phase)).length,
+      worldcup: all.filter((m) => isWCPhase(m.phase)).length,
+    };
+  }, [matches]);
+
+  const predictionCounts = useMemo(() => {
     const all = bets ?? [];
     const leagues = all.filter((b) => {
       const phase = matchById.get(Number(b.match_id))?.phase ?? '';
       return !isWCPhase(phase);
     }).length;
-    const wc = all.length - leagues;
-    return { leagues, wc };
+    const worldcup = all.length - leagues;
+    return { leagues, worldcup };
   }, [bets, matchById]);
 
-  const activeTournamentTabs = useMemo(() => ([
-    { key: 'leagues' as const, label: 'Leagues', count: tabCounts.leagues },
-    { key: 'wc' as const, label: 'World Cup 2026', count: tabCounts.wc },
-  ].filter((item) => item.count > 0)), [tabCounts]);
+  const activeTournamentTabs = useMemo(() => TOURNAMENT_TAB_ORDER
+    .map((tournament) => ({
+      ...tournament,
+      count: predictionCounts[tournament.key],
+      availableCount: tabCounts[tournament.key],
+    }))
+    .filter((item) => item.availableCount > 0), [predictionCounts, tabCounts]);
+
+  const availableTournamentKeys = useMemo(
+    () => activeTournamentTabs.map((item) => item.key),
+    [activeTournamentTabs]
+  );
+  const [tab, setTab] = useTournamentSelection(availableTournamentKeys);
 
   useEffect(() => {
-    if (!activeTournamentTabs.length) return;
-    if (!activeTournamentTabs.some((item) => item.key === tab)) {
-      setTab(activeTournamentTabs[0].key);
-      setFilterStage('');
-    }
-  }, [activeTournamentTabs, tab]);
+    setFilterStage('');
+  }, [tab]);
 
   // Unique phases for filter dropdown
   const availablePhases = useMemo(() => {
     const set = new Set<string>();
     for (const m of matches ?? []) {
+      const isActiveTournament = tab === 'worldcup' ? isWCPhase(m.phase) : !isWCPhase(m.phase);
+      if (!isActiveTournament) continue;
       if (m.phase) set.add(m.phase);
     }
     return Array.from(set).sort();
-  }, [matches]);
+  }, [matches, tab]);
 
   const wcBets = useMemo(() => {
     let list = (bets ?? []) as ContractUserBetView[];
@@ -509,7 +510,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     list = list.filter((b) => {
       const m = matchById.get(Number(b.match_id));
       const phase = m?.phase ?? '';
-      return tab === 'wc' ? isWCPhase(phase) : !isWCPhase(phase);
+      return tab === 'worldcup' ? isWCPhase(phase) : !isWCPhase(phase);
     });
 
     return list;
@@ -726,8 +727,8 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
       <div className="mpSection">
         <div className="mpSection__title">
-          <div className="mpSection__main">{tab === 'wc' ? 'World Cup 2026' : 'Leagues'}</div>
-          <div className="mpSection__sub">{tab === 'wc' ? 'All phases' : 'Current season matches'}</div>
+          <div className="mpSection__main">{getTournamentByKey(tab).sectionLabel}</div>
+          <div className="mpSection__sub">{getTournamentByKey(tab).emptyLabel}</div>
         </div>
 
         {!connected ? (
@@ -744,8 +745,8 @@ export const QueryBetsByUserComponent: React.FC = () => {
               <div className="mpCard__left">
                 <span className="mpCup">🏆</span>
                 <div className="mpCard__ttl">
-                  <div className="t">{tab === 'wc' ? 'World Cup 2026' : 'Leagues'}</div>
-                  <div className="s">{tab === 'wc' ? 'All phases' : 'Current season matches'}</div>
+                  <div className="t">{getTournamentByKey(tab).sectionLabel}</div>
+                  <div className="s">{getTournamentByKey(tab).emptyLabel}</div>
                 </div>
               </div>
 

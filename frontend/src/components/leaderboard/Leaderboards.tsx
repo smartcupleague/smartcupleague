@@ -8,7 +8,14 @@ import { u8aToHex } from '@polkadot/util';
 import { Program, Service } from '@/hocs/lib';
 import { StyledWallet } from '../wallet/Wallet';
 import { useNavigate } from 'react-router-dom';
-import { matchPath } from '@/utils';
+import { useTournamentSelection } from '@/hooks/useTournamentSelection';
+import {
+  TOURNAMENT_TAB_ORDER,
+  WORLD_CUP_2026_TOURNAMENT,
+  getTournamentByKey,
+  isWCPhase,
+  matchPath,
+} from '@/utils';
 import { UserProfileModal } from './UserProfileModal';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
@@ -74,10 +81,32 @@ function formatDateTime(ms: number) {
   );
 }
 
+function normalizeMatch(m: any): LeaderboardMatch {
+  return {
+    match_id: String(m?.match_id ?? m?.matchId ?? ''),
+    phase: String(m?.phase ?? ''),
+    home: String(m?.home ?? ''),
+    away: String(m?.away ?? ''),
+    kick_off: String(m?.kick_off ?? m?.kickOff ?? '0'),
+    result: m?.result ?? null,
+    participants: Array.isArray(m?.participants) ? m.participants.map((p: any) => String(p ?? '').toLowerCase()) : [],
+  };
+}
+
 type QueryStateResponse = {
   user_points?: Array<[string, number]>;
   matches?: any[];
   podium_finalized?: boolean;
+};
+
+type LeaderboardMatch = {
+  match_id: string;
+  phase: string;
+  home: string;
+  away: string;
+  kick_off: string;
+  result?: any;
+  participants?: string[];
 };
 
 type IndexerResult = {
@@ -173,13 +202,7 @@ async function fetchFromIndexer(apiStats: Map<string, ApiStatsRow>): Promise<Ind
     // Upcoming matches: filter by kickoff > now (status filter already excludes finalized/cancelled)
     const now = Date.now();
     const upcomingMatches = matchNodes
-      .map((m) => ({
-        match_id: String(m.matchId ?? ''),
-        phase: m.phase,
-        home: m.home,
-        away: m.away,
-        kick_off: String(m.kickOff ?? '0'),
-      }))
+      .map(normalizeMatch)
       .filter((m) => {
         const n = Number(m.kick_off);
         if (!Number.isFinite(n) || n <= 0) return false;
@@ -224,6 +247,7 @@ export default function Leaderboards() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LbRow[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
+  const [stateMatches, setStateMatches] = useState<LeaderboardMatch[]>([]);
   const [profileRow, setProfileRow] = useState<LbRow | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -269,6 +293,11 @@ export default function Leaderboards() {
         const svc = new Service(new Program(api, PROGRAM_ID));
         chainState = (await (svc as any).queryState()) as QueryStateResponse;
       } catch { /* non-fatal; indexer path can still render leaderboard */ }
+
+      const normalizedStateMatches = Array.isArray(chainState?.matches)
+        ? chainState.matches.map(normalizeMatch)
+        : [];
+      setStateMatches(normalizedStateMatches);
 
       // ── Path 1: indexer-first ─────────────────────────────────────────────
       try {
@@ -340,6 +369,7 @@ export default function Leaderboards() {
       if (Array.isArray(state?.matches)) {
         const now = Date.now();
         const upcoming = state.matches
+          .map(normalizeMatch)
           .filter((m: any) => {
             const ko = Number(m?.kick_off ?? 0);
             const ms = ko < 10_000_000_000 ? ko * 1000 : ko;
@@ -367,21 +397,81 @@ export default function Leaderboards() {
     void fetchLeaderboard();
   }, [fetchLeaderboard]);
 
+  const tournamentCounts = useMemo(() => {
+    const matches = stateMatches.length ? stateMatches : upcomingMatches.map(normalizeMatch);
+    return {
+      leagues: matches.filter((m) => !isWCPhase(m.phase)).length,
+      worldcup: matches.filter((m) => isWCPhase(m.phase)).length,
+    };
+  }, [stateMatches, upcomingMatches]);
+
+  const leaderboardTournamentTabs = useMemo(() => TOURNAMENT_TAB_ORDER
+    .map((tournament) => ({ ...tournament, count: tournamentCounts[tournament.key] }))
+    .filter((tournament) => tournament.count > 0), [tournamentCounts]);
+
+  const availableTournamentKeys = useMemo(
+    () => leaderboardTournamentTabs.map((tournament) => tournament.key),
+    [leaderboardTournamentTabs]
+  );
+  const [selectedTournamentKey, setSelectedTournamentKey] = useTournamentSelection(
+    availableTournamentKeys.length ? availableTournamentKeys : [WORLD_CUP_2026_TOURNAMENT.key]
+  );
+
+  const selectedTournament = getTournamentByKey(selectedTournamentKey);
+
+  const activeTournamentMatches = useMemo(() => {
+    const matches = stateMatches.length ? stateMatches : upcomingMatches.map(normalizeMatch);
+    return selectedTournamentKey === 'worldcup'
+      ? matches.filter((m) => isWCPhase(m.phase))
+      : matches.filter((m) => !isWCPhase(m.phase));
+  }, [selectedTournamentKey, stateMatches, upcomingMatches]);
+
+  const activeTournamentRows = useMemo(() => {
+    if (!stateMatches.length) return rows;
+
+    const matchCountMap = new Map<string, number>();
+    for (const match of activeTournamentMatches) {
+      for (const participant of match.participants ?? []) {
+        const wallet = participant.toLowerCase();
+        if (wallet) matchCountMap.set(wallet, (matchCountMap.get(wallet) ?? 0) + 1);
+      }
+    }
+
+    return rows
+      .filter((row) => matchCountMap.has(row.wallet.toLowerCase()))
+      .map((row) => ({
+        ...row,
+        matches: matchCountMap.get(row.wallet.toLowerCase()) ?? 0,
+      }))
+      .sort((a, b) => {
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        return a.wallet.localeCompare(b.wallet);
+      })
+      .map((row, index) => ({ ...row, rank: index + 1 }));
+  }, [activeTournamentMatches, rows, stateMatches.length]);
+
+  const selectedUpcomingMatches = useMemo(() => {
+    return upcomingMatches
+      .map(normalizeMatch)
+      .filter((match) => selectedTournamentKey === 'worldcup' ? isWCPhase(match.phase) : !isWCPhase(match.phase))
+      .slice(0, 3);
+  }, [selectedTournamentKey, upcomingMatches]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
+    if (!q) return activeTournamentRows;
+    return activeTournamentRows.filter(
       (r) =>
         r.wallet.toLowerCase().includes(q) ||
         (r.displayName ?? '').toLowerCase().includes(q)
     );
-  }, [query, rows]);
+  }, [activeTournamentRows, query]);
 
   const myRow = useMemo(() => {
     if (!myWalletHex) return null;
     const target = myWalletHex.toLowerCase();
-    return rows.find((r) => r.wallet.toLowerCase() === target) ?? null;
-  }, [rows, myWalletHex]);
+    return activeTournamentRows.find((r) => r.wallet.toLowerCase() === target) ?? null;
+  }, [activeTournamentRows, myWalletHex]);
 
   const myRank = myRow?.rank ?? null;
   const myPts = myRow?.totalPoints ?? 0;
@@ -390,8 +480,8 @@ export default function Leaderboards() {
 
   const myLbRows = useMemo(() => {
     if (!followedWallets.length) return [];
-    return rows.filter((r) => followedWallets.includes(r.wallet.toLowerCase()));
-  }, [rows, followedWallets]);
+    return activeTournamentRows.filter((r) => followedWallets.includes(r.wallet.toLowerCase()));
+  }, [activeTournamentRows, followedWallets]);
 
   const handleJumpToMe = () => {
     if (!myWalletHex) return;
@@ -407,11 +497,17 @@ export default function Leaderboards() {
 
       <header className="lbTop">
         <div className="lbTop__left">
-          <button className="lbChip lbChip--active" type="button">
-            <span className="lbChip__dot">🏆</span>
-            World Cup 2026
-            <span className="lbChip__sub">{loading ? 'Syncing…' : 'On-chain'}</span>
-          </button>
+          {(leaderboardTournamentTabs.length ? leaderboardTournamentTabs : [WORLD_CUP_2026_TOURNAMENT]).map((tournament) => (
+            <button
+              key={tournament.key}
+              className={'lbChip' + (selectedTournamentKey === tournament.key ? ' lbChip--active' : '')}
+              type="button"
+              onClick={() => setSelectedTournamentKey(tournament.key)}>
+              <span className="lbChip__dot">{tournament.icon}</span>
+              {tournament.label}
+              <span className="lbChip__sub">{loading ? 'Syncing…' : tournament.statusLabel}</span>
+            </button>
+          ))}
 
           <button
             className="lbChip lbChip--ghost"
@@ -460,11 +556,13 @@ export default function Leaderboards() {
       <section className="lbHeaderRow">
         <div className="lbTitle">
           <div className="lbTitle__main">{activeTab}</div>
-          <div className="lbTitle__sub muted">World Cup 2026 • On-chain</div>
+          <div className="lbTitle__sub muted">
+            {selectedTournament.label} • {selectedTournament.statusLabel}
+          </div>
         </div>
 
         <div className="lbPager">
-          <span className="muted tiny">{loading ? 'Loading…' : `Players: ${rows.length}`}</span>
+          <span className="muted tiny">{loading ? 'Loading…' : `Players: ${activeTournamentRows.length}`}</span>
           <button className="lbPage" type="button" onClick={fetchLeaderboard}>
             Refresh
           </button>
@@ -583,10 +681,10 @@ export default function Leaderboards() {
             </div>
 
             <div className="lbUpcoming">
-              {upcomingMatches.length === 0 ? (
+              {selectedUpcomingMatches.length === 0 ? (
                 <div className="muted tiny" style={{ padding: '8px 0' }}>No upcoming matches loaded.</div>
               ) : (
-                upcomingMatches.map((m: any, i: number) => (
+                selectedUpcomingMatches.map((m: any, i: number) => (
                   <div className="lbUpMatch" key={i}>
                     <div className="lbUpMatch__teams">
                       {m.home} vs {m.away}

@@ -10,8 +10,9 @@ import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
+import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { reportClaim } from '@/utils/statsReporter';
-import { matchPath } from '@/utils';
+import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 
@@ -216,23 +217,6 @@ function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
 
 type SortField = 'match_id_asc' | 'match_id_desc' | 'date_asc' | 'date_desc';
 type StatusFilter = '' | 'predicted' | 'not_predicted';
-type CompTab = 'leagues' | 'worldcup';
-
-// Phases registered for WC matches (everything else = leagues)
-const WC_PHASES = new Set([
-  'GROUP_STAGE', 'Group Stage', 'ROUND_OF_16', 'Round Of 16', 'Round of 16',
-  'QUARTER_FINALS', 'Quarter Finals', 'Quarter-finals',
-  'SEMI_FINALS', 'Semi Finals', 'Semi-finals',
-  'THIRD_PLACE', 'Third Place', 'FINAL', 'Final',
-]);
-
-function isWCPhase(phase: string): boolean {
-  if (WC_PHASES.has(phase)) return true;
-  const u = phase.toUpperCase();
-  return u.includes('GROUP') || u.includes('ROUND') || u.includes('QUARTER') ||
-    u.includes('SEMI') || u.includes('FINAL') || u.includes('KNOCKOUT');
-}
-
 export const MatchesTableComponent: React.FC = () => {
   const { api, isApiReady } = useApi();
   const { account } = useAccount();
@@ -251,7 +235,6 @@ export const MatchesTableComponent: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>('match_id_asc');
 
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('');
-  const [activeTab, setActiveTab] = useState<CompTab>(isLocalPredictedPreview() ? 'worldcup' : 'leagues');
   const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
   const { planckToUsd } = useVaraPrice();
   const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
@@ -329,8 +312,6 @@ export const MatchesTableComponent: React.FC = () => {
 
   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
 
-  const phases = useMemo(() => getPhases(matches ?? []), [matches]);
-
   const tabCounts = useMemo(() => {
     const all = matches ?? [];
     return {
@@ -339,18 +320,30 @@ export const MatchesTableComponent: React.FC = () => {
     };
   }, [matches]);
 
-  const activeTournamentTabs = useMemo(() => ([
-    { key: 'leagues' as const, label: 'Leagues', count: tabCounts.leagues },
-    { key: 'worldcup' as const, label: 'World Cup 2026', count: tabCounts.worldcup },
-  ].filter((tab) => tab.count > 0)), [tabCounts]);
+  const activeTournamentTabs = useMemo(() => TOURNAMENT_TAB_ORDER
+    .map((tournament) => ({ ...tournament, count: tabCounts[tournament.key] }))
+    .filter((tab) => tab.count > 0), [tabCounts]);
+
+  const availableTournamentKeys = useMemo(
+    () => activeTournamentTabs.map((tab) => tab.key),
+    [activeTournamentTabs]
+  );
+  const [activeTab, setActiveTab] = useTournamentSelection(
+    availableTournamentKeys.length
+      ? availableTournamentKeys
+      : [isLocalPredictedPreview() ? 'worldcup' : 'leagues']
+  );
 
   useEffect(() => {
-    if (!activeTournamentTabs.length) return;
-    if (!activeTournamentTabs.some((tab) => tab.key === activeTab)) {
-      setActiveTab(activeTournamentTabs[0].key);
-      setFilterStage('');
-    }
-  }, [activeTab, activeTournamentTabs]);
+    setFilterStage('');
+  }, [activeTab]);
+
+  const phases = useMemo(() => {
+    const activeMatches = (matches ?? []).filter((m) =>
+      activeTab === 'worldcup' ? isWCPhase(m.phase) : !isWCPhase(m.phase),
+    );
+    return getPhases(activeMatches);
+  }, [activeTab, matches]);
 
   const filteredMatches = useMemo(() => {
     let list = matches ?? [];
@@ -597,10 +590,10 @@ export const MatchesTableComponent: React.FC = () => {
       <div className="mxSection">
         <div className="mxSection__title">
           <div className="mxSection__main">
-            {activeTab === 'worldcup' ? 'World Cup 2026' : 'Leagues'}
+            {getTournamentByKey(activeTab).sectionLabel}
           </div>
           <div className="mxSection__sub">
-            {activeTab === 'worldcup' ? 'All phases' : 'Current season matches'}
+            {getTournamentByKey(activeTab).emptyLabel}
           </div>
         </div>
 
