@@ -181,7 +181,7 @@ export default function Rules() {
           <p>
             Championship Picks become available after the final Group A standings are determined,
             when the first Round of 32 matchup can be confirmed. For the 2026 tournament, this is
-            expected on <strong>25 June 2026</strong>, after the Group A matches conclude.
+            expected on <strong>25 June 2026</strong>.
           </p>
           <p>
             The prediction window remains open until the kickoff of the first registered Round of
@@ -194,7 +194,6 @@ export default function Rules() {
             <li>Players must select three different teams.</li>
             <li>Championship Picks require the same dynamic minimum entry value: <strong>$3 USD converted to VARA</strong>.</li>
             <li>Championship Picks cannot be edited or cancelled after submission.</li>
-            <li>Championship Picks open after the first Round of 32 matchup is defined and close at the first registered Round of 32 kickoff, currently scheduled for <strong>28 June 2026 at 21:00 CET</strong>.</li>
           </ul>
           <p><strong>Championship Pick Bonus Points</strong></p>
           <ul>
