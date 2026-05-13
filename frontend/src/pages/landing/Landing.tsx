@@ -1,8 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { FaInstagram, FaTelegram, FaXTwitter } from 'react-icons/fa6';
 import { Link, useNavigate } from 'react-router-dom';
 import './landing.css';
 
 type Slide = { src: string; alt: string; kicker?: string; title: string; titleLines?: string[]; subtitle: string };
+
+const socialLinks = [
+  {
+    label: 'X',
+    href: 'https://x.com/smartcupleague',
+    icon: <FaXTwitter aria-hidden="true" />,
+  },
+  {
+    label: 'Instagram',
+    href: 'https://instagram.com/smartcupleague',
+    icon: <FaInstagram aria-hidden="true" />,
+  },
+  {
+    label: 'Telegram',
+    href: 'https://t.me/smartcupcommunity',
+    icon: <FaTelegram aria-hidden="true" />,
+  },
+];
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -461,13 +480,29 @@ export const Landing: React.FC = () => {
       </main>
 
       <footer className="scb-footer">
-        <span>© 2026 SmartCup League</span>
-        <span className="scb-footer__sep" aria-hidden="true">·</span>
-        <Link to="/terms-of-use" className="scb-footer__link">Terms of Use</Link>
-        <span className="scb-footer__sep" aria-hidden="true">·</span>
-        <Link to="/rules" className="scb-footer__link">Rules</Link>
-        <span className="scb-footer__sep" aria-hidden="true">·</span>
-        <Link to="/dao-constitution" className="scb-footer__link">DAO Constitution</Link>
+        <div className="scb-footer__legal">
+          <span>© 2026 SmartCup League</span>
+          <span className="scb-footer__sep" aria-hidden="true">·</span>
+          <Link to="/terms-of-use" className="scb-footer__link">Terms of Use</Link>
+          <span className="scb-footer__sep" aria-hidden="true">·</span>
+          <Link to="/rules" className="scb-footer__link">Rules</Link>
+          <span className="scb-footer__sep" aria-hidden="true">·</span>
+          <Link to="/dao-constitution" className="scb-footer__link">DAO Constitution</Link>
+        </div>
+
+        <div className="scb-footer__socials" aria-label="SmartCup League social links">
+          {socialLinks.map((item) => (
+            <a
+              key={item.href}
+              className="scb-footer__social"
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={item.label}>
+              {item.icon}
+            </a>
+          ))}
+        </div>
       </footer>
     </div>
   );
