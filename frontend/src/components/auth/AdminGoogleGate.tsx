@@ -126,7 +126,7 @@ export function AdminGoogleGate({ children }: { children: React.ReactNode }) {
             const nextSession = token ? sessionFromCredential(token) : null;
 
             if (!token || !nextSession) {
-              setError(`Only ${ALLOWED_EMAILS.join(', ')} can access this tool.`);
+              setError('This Google account is not authorized to access the fixtures admin.');
               return;
             }
 
