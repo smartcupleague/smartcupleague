@@ -179,7 +179,9 @@ export function AdminGoogleGate({ children }: { children: React.ReactNode }) {
   return (
     <main className="adminGate">
       <section className="adminGateCard">
-        <div className="adminGateCard__mark">SCL</div>
+        <div className="adminGateCard__mark">
+          <img src="/Logos.png" alt="SmartCup League" />
+        </div>
         <h1>Fixtures Admin</h1>
         <p>Sign in with the authorized Google account to manage tournament fixtures.</p>
 
@@ -193,9 +195,6 @@ export function AdminGoogleGate({ children }: { children: React.ReactNode }) {
 
         {error ? <div className="adminGateError">{error}</div> : null}
 
-        <div className="adminGateCard__allowed">
-          Allowed account: <strong>{ALLOWED_EMAILS.join(', ')}</strong>
-        </div>
       </section>
     </main>
   );
