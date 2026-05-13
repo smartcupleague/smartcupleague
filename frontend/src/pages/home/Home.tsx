@@ -366,28 +366,36 @@ export default function Home() {
   }, [myWalletHex]);
 
   const fetchDaoProposals = useCallback(async () => {
-    if (!daoProgram) return;
+    if (!daoProgram) {
+      setDaoProposals([]);
+      return;
+    }
 
-    const svc = new DaoService(daoProgram);
-    const ps = (await (svc as any).queryProposals()) as any[];
+    try {
+      const svc = new DaoService(daoProgram);
+      const ps = (await (svc as any).queryProposals()) as any[];
 
-    const normalized: DaoProposal[] = Array.isArray(ps)
-      ? ps.map((p: any) => ({
-          id: Number(p?.id ?? 0),
-          proposer: String(p?.proposer ?? '0x') as `0x${string}`,
-          kind: (p?.kind ?? {}) as Record<string, any>,
-          description: String(p?.description ?? ''),
-          start_time: Number(p?.start_time ?? 0),
-          end_time: Number(p?.end_time ?? 0),
-          yes: Number(p?.yes ?? 0),
-          no: Number(p?.no ?? 0),
-          abstain: Number(p?.abstain ?? 0),
-          status: String(p?.status ?? ''),
-          executed: Boolean(p?.executed),
-        }))
-      : [];
+      const normalized: DaoProposal[] = Array.isArray(ps)
+        ? ps.map((p: any) => ({
+            id: Number(p?.id ?? 0),
+            proposer: String(p?.proposer ?? '0x') as `0x${string}`,
+            kind: (p?.kind ?? {}) as Record<string, any>,
+            description: String(p?.description ?? ''),
+            start_time: Number(p?.start_time ?? 0),
+            end_time: Number(p?.end_time ?? 0),
+            yes: Number(p?.yes ?? 0),
+            no: Number(p?.no ?? 0),
+            abstain: Number(p?.abstain ?? 0),
+            status: String(p?.status ?? ''),
+            executed: Boolean(p?.executed),
+          }))
+        : [];
 
-    setDaoProposals(normalized);
+      setDaoProposals(normalized);
+    } catch (error) {
+      console.warn('[Home] Failed to load DAO proposals', error);
+      setDaoProposals([]);
+    }
   }, [daoProgram]);
 
   const fetchAll = useCallback(async () => {
@@ -396,7 +404,10 @@ export default function Home() {
     setLoading(true);
     try {
       await Promise.all([
-        fetchCoreState(),
+        fetchCoreState().catch((error) => {
+          console.error('[Home] Failed to load BolaoCore state', error);
+          throw error;
+        }),
         fetchDaoProposals(),
         fetchUserBets(),
         fetchFinalPrizeClaimStatus(),
