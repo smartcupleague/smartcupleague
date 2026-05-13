@@ -825,15 +825,20 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="h-next-match__info">
-                  <span className="h-next-match__teams">
-                    {nextMatch.home} vs {nextMatch.away}
-                  </span>
-                  <span className="h-next-match__meta muted">
-                    {(nextMatch.phase || '').replace(/_/g, ' ')}
-                    {' · '}
-                    {formatDateTime(Number(nextMatch.kick_off))}
-                  </span>
-                  <span className="h-next-match__closes muted">{nextMatchCloses}</span>
+                  <div className="h-next-match__teamsLine">
+                    <span className="h-next-match__teams">
+                      {nextMatch.home} vs {nextMatch.away}
+                    </span>
+                    <span className="h-next-match__phase muted">
+                      {(nextMatch.phase || '').replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <div className="h-next-match__timeLine">
+                    <span className="h-next-match__meta muted">
+                      {formatDateTime(Number(nextMatch.kick_off))}
+                    </span>
+                    <span className="h-next-match__closes muted">{nextMatchCloses}</span>
+                  </div>
                 </div>
                 <div className="h-next-match__actions">
                   <button

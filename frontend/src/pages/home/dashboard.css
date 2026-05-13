@@ -760,8 +760,32 @@ body {
   letter-spacing: 0.1em;
   color: rgba(255, 46, 118, 0.85);
 }
-.h-next-match__teams { font-weight: 900; font-size: 14px; }
-.h-next-match__meta, .h-next-match__closes { font-size: 12px; }
+.h-next-match__info {
+  display: grid;
+  gap: 4px;
+}
+
+.h-next-match__teamsLine,
+.h-next-match__timeLine {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+.h-next-match__teams {
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.h-next-match__phase,
+.h-next-match__meta,
+.h-next-match__closes {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .h-next-match__actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 
 /* ─── Prize card ─────────────────────────────────────────────── */
