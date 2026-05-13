@@ -700,7 +700,7 @@
 /* ─── Card Top — single compact row ─────────────────────────────── */
 
 .mxCard__top {
-  padding: 12px 16px 10px;
+  padding: 11px 16px 8px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -835,7 +835,7 @@
   color: rgba(255,255,255,0.55);
   font-size: 11.5px;
   font-weight: 700;
-  padding: 0 16px 8px;
+  padding: 0 16px 4px;
   margin-top: -6px;
 }
 
@@ -843,7 +843,7 @@
 
 .mxCard__mid {
   border-top: 1px solid rgba(255,255,255,0.06);
-  padding: 10px 16px;
+  padding: 9px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -964,11 +964,14 @@
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  gap: 3px;
+  min-width: 148px;
+  padding: 6px 12px;
+  border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.09);
-  background: rgba(0,0,0,0.14);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.045), rgba(0,0,0,0.16)),
+    rgba(0,0,0,0.14);
   transition: border-color 0.16s ease, background 0.16s ease;
 }
 
@@ -979,19 +982,23 @@
 
 .mxPool__k {
   color: rgba(255,255,255,0.50);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10.5px;
+  font-weight: 850;
+  line-height: 1.05;
 }
 
 .mxPool__v {
   color: rgba(255,255,255,0.88);
-  font-weight: 900;
-  font-size: 12px;
+  font-weight: 950;
+  font-size: 12.5px;
+  line-height: 1.1;
 }
 
 .mxPool__usd {
-  color: rgba(255,255,255,0.38);
-  font-size: 10px;
+  color: rgba(255,255,255,0.54);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.05;
 }
 
 /* ─── Actions ────────────────────────────────────────────────────── */
@@ -1226,7 +1233,7 @@
 .mxYourPick {
   display: inline-flex;
   align-items: stretch;
-  min-height: 30px;
+  min-height: 29px;
   border-radius: 999px;
   border: 1px solid rgba(255, 224, 80, 0.72);
   background:
@@ -1244,12 +1251,12 @@
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 950;
 }
 
 .mxYourPick__label {
-  padding: 0 12px;
+  padding: 0 10px;
   color: rgba(255, 240, 135, 0.98);
   letter-spacing: 0.04em;
 }
@@ -1257,7 +1264,7 @@
 .mxYourPick__score {
   min-width: 42px;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0 9px;
   border-left: 1px solid rgba(255, 224, 80, 0.32);
   background: rgba(255, 224, 80, 0.10);
   color: rgba(255, 255, 255, 0.96);

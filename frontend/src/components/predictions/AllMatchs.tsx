@@ -678,12 +678,6 @@ export const MatchesTableComponent: React.FC = () => {
 
                     <div className="mxStatusLine">{statusText}</div>
 
-                    {userBet ? (
-                      <div className="mxYourPick" aria-label={`Your pick ${pickText}`}>
-                        <span className="mxYourPick__label">Your Pick</span>
-                        <span className="mxYourPick__score">{pickText}</span>
-                      </div>
-                    ) : null}
                   </div>
 
                   <div className="mxCard__mid">
@@ -692,8 +686,14 @@ export const MatchesTableComponent: React.FC = () => {
                       <span className="mxMeta__chip">{m.phase.replace(/_/g, ' ')}</span>
                       <span className="mxMeta__chip">{formatDatetime(m.kick_off)}</span>
                       <span className="mxMeta__chip">{m.has_bets ? 'Has predictions ✓' : 'No predictions'}</span>
-                      <span className="mxMeta__chip">Pool: {totalPoolHuman} VARA</span>
                     </div>
+
+                    {userBet ? (
+                      <div className="mxYourPick" aria-label={`Your pick ${pickText}`}>
+                        <span className="mxYourPick__label">Your Pick</span>
+                        <span className="mxYourPick__score">{pickText}</span>
+                      </div>
+                    ) : null}
 
                     <div className="mxScore">
                       <div className="mxScore__label">
@@ -722,7 +722,7 @@ export const MatchesTableComponent: React.FC = () => {
                           {totalPoolHuman !== '—' ? `${totalPoolHuman} VARA` : (m.has_bets ? 'Pool active' : '—')}
                         </div>
                         {totalPoolHuman !== '—' && (
-                          <div className="mxPool__usd">{planckToUsd(m.match_prize_pool)}</div>
+                          <div className="mxPool__usd">{planckToUsd(m.match_prize_pool) || 'USD conversion unavailable'}</div>
                         )}
                       </div>
                     </div>
