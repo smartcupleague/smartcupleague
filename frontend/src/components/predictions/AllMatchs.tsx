@@ -10,7 +10,6 @@ import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
-import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { reportClaim } from '@/utils/statsReporter';
 import { matchPath } from '@/utils';
 
@@ -89,13 +88,6 @@ function formatDatetime(kickOff: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function timestampToMs(value?: string | number | bigint | null) {
-  if (value === null || value === undefined) return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n < 10_000_000_000 ? n * 1000 : n;
 }
 
 function predictionWindow(kickOff: string): { closed: boolean; label: string } {
@@ -262,10 +254,7 @@ export const MatchesTableComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<CompTab>(isLocalPredictedPreview() ? 'worldcup' : 'leagues');
   const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
   const { planckToUsd } = useVaraPrice();
-  const podiumPick = usePodiumPick();
   const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
-  const [r32LockTime, setR32LockTime] = useState<CoreState['r32_lock_time']>(null);
-  const [podiumFinalized, setPodiumFinalized] = useState(false);
 
   useEffect(() => {
     void web3Enable('Bolao Matches UI');
@@ -283,8 +272,6 @@ export const MatchesTableComponent: React.FC = () => {
       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
       const state = (await (svc as any).queryState()) as CoreState & { matches?: any[] };
       const list = (state as any)?.matches ?? [];
-      setR32LockTime(state?.r32_lock_time ?? null);
-      setPodiumFinalized(Boolean(state?.podium_finalized));
 
       const normalized: MatchInfo[] = (Array.isArray(list) ? list : []).map((m: any) => ({
         match_id: String(m?.match_id ?? ''),
@@ -341,11 +328,6 @@ export const MatchesTableComponent: React.FC = () => {
   }, [api, isApiReady, account, matches]);
 
   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
-
-  const podiumLockMs = useMemo(() => timestampToMs(r32LockTime ?? null), [r32LockTime]);
-  const podiumLocked = !!podiumLockMs && Date.now() >= podiumLockMs;
-  const showChampionshipPickCard = activeTab === 'worldcup' && !podiumFinalized;
-  const championshipPickState = podiumPick.submitted ? 'submitted' : podiumLocked ? 'locked' : 'open';
 
   const phases = useMemo(() => getPhases(matches ?? []), [matches]);
 
@@ -621,30 +603,6 @@ export const MatchesTableComponent: React.FC = () => {
             {activeTab === 'worldcup' ? 'All phases' : 'Current season matches'}
           </div>
         </div>
-
-        {showChampionshipPickCard ? (
-          <section className={`mxChampPick mxChampPick--${championshipPickState}`} aria-label="Championship Prediction">
-            <div className="mxChampPick__glow" aria-hidden="true" />
-            <div className="mxChampPick__copy">
-              <div className="mxChampPick__title">
-                <span className="mxChampPick__icon" aria-hidden="true">🏆</span>
-                <span>Championship Prediction</span>
-              </div>
-              <p>Pick Top 3 Teams before R32 kickoff</p>
-            </div>
-            <button
-              className="mxChampPick__cta"
-              type="button"
-              disabled={championshipPickState === 'locked'}
-              onClick={() => navigate('/championship-pick')}>
-              {championshipPickState === 'submitted'
-                ? 'View Picks ✓'
-                : championshipPickState === 'locked'
-                  ? 'Locked 🔒'
-                  : 'Make Picks →'}
-            </button>
-          </section>
-        ) : null}
 
         {loading ? (
           <div className="mxLoading">

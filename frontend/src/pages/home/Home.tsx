@@ -11,7 +11,6 @@ import { Program as CoreProgram, Service as CoreService } from '@/hocs/lib';
 import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
-import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { useNavigate } from 'react-router-dom';
 import { matchPath } from '@/utils';
 
@@ -218,7 +217,6 @@ export default function Home() {
   const toast = useToast();
   const { account } = useAccount();
   const navigate = useNavigate();
-  const podiumPick = usePodiumPick();
 
   const myWalletHex = useMemo(() => {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
@@ -570,13 +568,8 @@ export default function Home() {
     return closesLabel(Number(nextMatch.kick_off));
   }, [nextMatch]);
 
-  const championshipPickState = coreState?.podium_finalized ? 'completed' : podiumPick.submitted ? 'submitted' : 'open';
-  const championshipPickStatus = championshipPickState === 'completed'
-    ? '+30 pts'
-    : championshipPickState === 'submitted'
-      ? 'Submitted ✓'
-      : 'Not Submitted';
-  const championshipPickSubtext = championshipPickState === 'submitted' ? 'Potential: +35 pts' : 'Earn up to +35 pts';
+  const championshipPickState = 'waiting';
+  const championshipPickSubtext = 'Available after the first Round of 32 match is defined.';
 
   const claimablePrizeBn = useMemo(
     () => safeBigInt(claimStatus?.amount_claimable ?? 0),
@@ -815,21 +808,13 @@ export default function Home() {
               <div className="h-champ-pick__main">
                 <div className="h-champ-pick__row">
                   <span className="h-champ-pick__title">Championship Picks</span>
-                  <span className="h-champ-pick__status">{championshipPickStatus}</span>
                 </div>
-                {championshipPickState !== 'completed' ? (
-                  <div className="h-champ-pick__sub">{championshipPickSubtext}</div>
-                ) : null}
+                <div className="h-champ-pick__sub">{championshipPickSubtext}</div>
               </div>
 
-              {championshipPickState !== 'completed' ? (
-                <button
-                  className="h-champ-pick__cta"
-                  type="button"
-                  onClick={() => navigate('/championship-pick')}>
-                  {championshipPickState === 'submitted' ? 'View Picks →' : 'Make Picks →'}
-                </button>
-              ) : null}
+              <button className="h-champ-pick__cta" type="button" disabled>
+                Waiting for R32
+              </button>
             </div>
 
             {nextMatch && (

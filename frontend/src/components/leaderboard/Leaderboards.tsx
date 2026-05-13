@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './leaderboards.css';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { useToast } from '@/hooks/useToast';
-import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -45,16 +44,6 @@ function shortHex(addr: string) {
   if (!addr) return '-';
   if (!addr.startsWith('0x') || addr.length < 16) return addr;
   return addr.slice(0, 6) + '…' + addr.slice(-4);
-}
-
-function displayTeamName(team: string) {
-  return team
-    ? team
-        .toLowerCase()
-        .split(' ')
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ')
-    : '—';
 }
 
 function toHexAddress(input?: string | null): `0x${string}` | null {
@@ -231,15 +220,11 @@ export default function Leaderboards() {
   const { api, isApiReady } = useApi();
   const toast = useToast();
   const { account } = useAccount();
-  const podiumPick = usePodiumPick();
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LbRow[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [profileRow, setProfileRow] = useState<LbRow | null>(null);
-  const [podiumFinalized, setPodiumFinalized] = useState(false);
-  const podiumSubmitted = podiumPick.submitted;
-  const championshipPicks = podiumPick.pick;
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -283,7 +268,6 @@ export default function Leaderboards() {
       try {
         const svc = new Service(new Program(api, PROGRAM_ID));
         chainState = (await (svc as any).queryState()) as QueryStateResponse;
-        setPodiumFinalized(Boolean(chainState?.podium_finalized));
       } catch { /* non-fatal; indexer path can still render leaderboard */ }
 
       // ── Path 1: indexer-first ─────────────────────────────────────────────
@@ -577,34 +561,18 @@ export default function Leaderboards() {
         </section>
 
         <aside className="lbRight">
-          <section className="lbCard lbChampCard">
+          <section className="lbCard lbChampCard lbChampCard--disabled" aria-disabled="true">
             <div className="lbCard__head">
               <div className="lbCard__title">🏆 Your Championship Picks</div>
             </div>
 
-            {!podiumSubmitted ? (
-              <div className="lbChampState lbChampState--empty">
-                <p>You haven’t submitted your Championship Picks yet</p>
-                <span>Earn up to +35 pts before Round of 32</span>
-                <button className="lbBtn lbBtn--primary wfull" type="button" onClick={() => navigate('/championship-pick')}>
-                  Make Your Picks →
-                </button>
-              </div>
-            ) : podiumFinalized ? (
-              <div className="lbChampState">
-                <div className="lbChampPickRow"><span>🥇 {displayTeamName(championshipPicks?.champion ?? 'Argentina')} ✓</span><b>+20 pts</b></div>
-                <div className="lbChampPickRow"><span>🥈 {displayTeamName(championshipPicks?.runnerUp ?? 'France')} ✓</span><b>+10 pts</b></div>
-                <div className="lbChampPickRow"><span>🥉 {displayTeamName(championshipPicks?.thirdPlace ?? 'Croatia')} ✕</span><b>+0 pts</b></div>
-                <div className="lbChampTotal">Total: <b>+30 pts</b></div>
-              </div>
-            ) : (
-              <div className="lbChampState">
-                <div className="lbChampPickRow"><span>🥇 {displayTeamName(championshipPicks?.champion ?? '')}</span></div>
-                <div className="lbChampPickRow"><span>🥈 {displayTeamName(championshipPicks?.runnerUp ?? '')}</span></div>
-                <div className="lbChampPickRow"><span>🥉 {displayTeamName(championshipPicks?.thirdPlace ?? '')}</span></div>
-                <div className="lbChampPotential">Potential: <b>+35 pts</b></div>
-              </div>
-            )}
+            <div className="lbChampState lbChampState--empty">
+              <p>Championship Picks are not open yet</p>
+              <span>Available after the first Round of 32 match is defined.</span>
+              <button className="lbBtn lbBtn--disabled wfull" type="button" disabled>
+                Waiting for R32 confirmation
+              </button>
+            </div>
           </section>
 
           {/* Upcoming Matches — replaces R32 Bonus widget */}
