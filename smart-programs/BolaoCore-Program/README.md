@@ -61,7 +61,7 @@ Every bet is split into three portions at the moment it is placed:
 | Final prize pool | 10%   | `FINAL_PRIZE_BPS`  |
 | Match prize pool | 85%   | (remainder)        |
 
-**Match prize pool** is distributed proportionally to winners based on their stake. Unclaimed remainder is swept to the final prize pool after all winners claim or after the 72-hour claim deadline expires.
+**Match prize pool** is distributed proportionally to winners based on their stake. Unclaimed remainder is swept to the final prize pool after all winners claim or after the 48-hour claim deadline expires.
 
 **Final prize distribution** — top 5 by points at tournament end (ties share equally):
 
@@ -152,10 +152,10 @@ The 5% protocol fee and 10% final-prize cut already left the match pool at `plac
 
 ### 4. Permissionless Sweep with Claim Deadline
 
-`sweep_match_dust_to_final_prize()` is **permissionless** (no admin required). It enforces a **72-hour claim window** post-finalization:
+`sweep_match_dust_to_final_prize()` is **permissionless** (no admin required). It enforces a **48-hour claim window** post-finalization:
 
-- **Before 72h:** sweep requires all eligible winners to have claimed first (funds are protected).
-- **After 72h:** sweep executes unconditionally. Winners who did not claim within the window forfeit their reward; the amount flows to the final prize pool.
+- **Before 48h:** sweep requires all eligible winners to have claimed first (funds are protected).
+- **After 48h:** sweep executes unconditionally. Winners who did not claim within the window forfeit their reward; the amount flows to the final prize pool.
 
 This guarantees that `finalize_final_prize_pool()` can always be reached — no single inactive wallet can permanently block tournament completion.
 
@@ -175,9 +175,9 @@ This guarantees that `finalize_final_prize_pool()` can always be reached — no 
 6.  cancel_proposed_result()           [admin]      Optional — only within the 24h window
     cancel_match()                     [admin]      Optional — terminal cancellation with refunds
 7.  finalize_result()                  [anyone]     After 24h window — awards points + settles match
-8.  claim_match_reward()               [winner]     Claim proportional share of match pool (within 72h)
+8.  claim_match_reward()               [winner]     Claim proportional share of match pool (within 48h)
     claim_refund()                     [bettor]     Pull all accumulated refunds (cancelled matches)
-9.  sweep_match_dust_to_final_prize()  [anyone]     After all winners claim OR after 72h deadline
+9.  sweep_match_dust_to_final_prize()  [anyone]     After all winners claim OR after 48h deadline
 10. finalize_podium()                  [admin]      Set official podium; award bonus points
 11. finalize_final_prize_pool()        [admin]      Lock pool; allocate shares to top 5
 12. claim_final_prize()                [user]       Claim individual final prize allocation
@@ -202,10 +202,10 @@ Unresolved
     │               ▼
     │           Finalized { score, penalty_winner }
     │               │
-    │               ├── claim_match_reward()              [winner, within 72h]
+    │               ├── claim_match_reward()              [winner, within 48h]
     │               └── sweep_match_dust_to_final_prize() [anyone]
-    │                       ├── before 72h: requires all winners claimed
-    │                       └── after 72h:  unconditional sweep
+    │                       ├── before 48h: requires all winners claimed
+    │                       └── after 48h:  unconditional sweep
     │
     └── cancel_match() [admin]  ──────────────────────────────────────► Cancelled (terminal)
                                                                           │
@@ -232,7 +232,7 @@ Cancellation is allowed only from `Unresolved` or `Proposed`; a `Finalized` matc
 | `MAX_POINTS_WEIGHT`    | 20                              | Maximum `points_weight` per phase                    |
 | `MAX_TEAM_NAME_LEN`    | 50 bytes                        | Maximum team / podium pick name string length        |
 | `CHALLENGE_WINDOW_MS`  | 86,400,000 (24h) — production target            | Optimistic execution challenge window. Currently set to a smaller value for testing in `constants.rs`; restore the 24h value before mainnet deploy. |
-| `CLAIM_DEADLINE_MS`    | 259,200,000 (72h) — production target           | Claim deadline; after this, sweep is unconditional. Same testing-vs-prod note as above. |
+| `DEFAULT_CLAIM_DEADLINE_MS` | 172,800,000 (48h)                         | Default claim deadline; after this, sweep is unconditional. |
 
 ### `types.rs`
 
@@ -358,7 +358,7 @@ Cancellation is allowed only from `Unresolved` or `Proposed`; a `Finalized` matc
 | Function | Description |
 |----------|-------------|
 | `finalize_result(match_id)` | Finalizes result + settles match in one call — callable after 24h challenge window |
-| `sweep_match_dust_to_final_prize(match_id)` | Sweeps remaining pool to final prize — immediately if all claimed, or after 72h deadline |
+| `sweep_match_dust_to_final_prize(match_id)` | Sweeps remaining pool to final prize — immediately if all claimed, or after 48h deadline |
 
 ### Queries (read-only)
 
@@ -414,7 +414,7 @@ All state mutations happen before any `msg::send*` call, preventing reentrancy:
 
 ### Sweep guard
 
-`sweep_match_dust_to_final_prize()` verifies no eligible unclaimed bets remain before sweeping, unless the 72-hour claim deadline has passed. This prevents premature dust collection that would deprive winners, while guaranteeing the tournament can always complete.
+`sweep_match_dust_to_final_prize()` verifies no eligible unclaimed bets remain before sweeping, unless the 48-hour claim deadline has passed. This prevents premature dust collection that would deprive winners, while guaranteeing the tournament can always complete.
 
 ### No-winner path
 

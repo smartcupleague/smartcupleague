@@ -126,6 +126,28 @@ export default function Rules() {
         </section>
 
         <section className="legal-section">
+          <h2>Match Reward Claim Window</h2>
+          <p>
+            After a match result is finalized, eligible winners can claim their proportional share
+            of the Match Winner Pool directly from the smart contract.
+          </p>
+          <p>Important claim rules:</p>
+          <ul>
+            <li>Rewards can only be claimed after the match result is finalized on-chain.</li>
+            <li>Only eligible winning predictions can claim from the match pool.</li>
+            <li>Each winning wallet can claim only once per match.</li>
+            <li>The default claim window is <strong>48 hours after match finalization</strong>.</li>
+            <li>The claim window may be updated by protocol governance/admin parameters, but it cannot be set below the contract minimum.</li>
+          </ul>
+          <p>
+            Before the claim window expires, remaining match funds cannot be swept if eligible
+            winners still have unclaimed rewards. After the claim window expires, any unclaimed
+            match rewards may be swept into the Final Prize Pool. This prevents inactive wallets
+            from permanently blocking tournament completion.
+          </p>
+        </section>
+
+        <section className="legal-section">
           <h2>4. The Season-Long Leaderboard</h2>
           <p>
             Every prediction also contributes to a global tournament leaderboard. Points accumulate throughout
@@ -151,7 +173,43 @@ export default function Rules() {
         </section>
 
         <section className="legal-section">
-          <h2>5. Final Prize Pool</h2>
+          <h2>5. Championship Picks</h2>
+          <p>
+            Championship Picks are a separate tournament-wide prediction in which players choose
+            the teams they believe will finish as Champion, Runner-Up, and Third Place.
+          </p>
+          <p>
+            Championship Picks become available after the final Group A standings are determined,
+            when the first Round of 32 matchup can be confirmed. For the 2026 tournament, this is
+            expected on <strong>25 June 2026</strong>, after the Group A matches conclude.
+          </p>
+          <p>
+            The prediction window remains open until the kickoff of the first registered Round of
+            32 match, currently scheduled for <strong>28 June 2026 at 21:00 CET</strong>. Once that
+            kickoff is reached, Championship Picks are locked permanently by the smart contract.
+          </p>
+          <p>Championship Pick rules:</p>
+          <ul>
+            <li>Each wallet may submit only one Championship Pick.</li>
+            <li>Players must select three different teams.</li>
+            <li>Championship Picks require the same dynamic minimum entry value: <strong>$3 USD converted to VARA</strong>.</li>
+            <li>Championship Picks cannot be edited or cancelled after submission.</li>
+            <li>Championship Picks open after the first Round of 32 matchup is defined and close at the first registered Round of 32 kickoff, currently scheduled for <strong>28 June 2026 at 21:00 CET</strong>.</li>
+          </ul>
+          <p><strong>Championship Pick Bonus Points</strong></p>
+          <ul>
+            <li>Correct Champion → <strong>20 points</strong></li>
+            <li>Correct Runner-Up → <strong>10 points</strong></li>
+            <li>Correct Third Place → <strong>5 points</strong></li>
+          </ul>
+          <p>
+            Bonus points are awarded only for exact position matches. For example, choosing the
+            eventual Champion as Runner-Up does not earn Champion points.
+          </p>
+        </section>
+
+        <section className="legal-section">
+          <h2>6. Final Prize Pool</h2>
           <p>The Final Prize Pool is funded by:</p>
           <ul>
             <li>10% of every match entry</li>
@@ -160,9 +218,9 @@ export default function Rules() {
           <p>After the tournament ends, the leaderboard is finalized, smart contracts calculate the prize allocation, and top players claim rewards on-chain.</p>
           <p><strong>Prize Distribution:</strong></p>
           <ul>
-            <li>1st place → <strong>40%</strong></li>
+            <li>1st place → <strong>45%</strong></li>
             <li>2nd place → <strong>25%</strong></li>
-            <li>3rd place → <strong>20%</strong></li>
+            <li>3rd place → <strong>15%</strong></li>
             <li>4th place → <strong>10%</strong></li>
             <li>5th place → <strong>5%</strong></li>
           </ul>
@@ -173,7 +231,7 @@ export default function Rules() {
         </section>
 
         <section className="legal-section">
-          <h2>6. Key Principles of SmartCup League</h2>
+          <h2>7. Key Principles of SmartCup League</h2>
           <ul>
             <li><strong>Non-custodial</strong> — Players always control their own wallets.</li>
             <li><strong>House-free</strong> — The protocol never sets odds or takes the opposite side of predictions.</li>
