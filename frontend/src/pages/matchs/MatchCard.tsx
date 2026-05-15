@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
-import { useDynamicMinimumBet } from '@/hooks/useDynamicMinimumBet';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
@@ -77,6 +76,7 @@ const PROTOCOL_FEE_BPS = 500n;
 const FINAL_PRIZE_BPS = 1000n;
 const BPS_DEN = 10_000n;
 const BET_CLOSE_WINDOW_MS = 10 * 60 * 1000;
+const USD_MINIMUM_MICRO = 3_000_000n;
 
 type PenaltyWinnerArg = { Home: null } | { Away: null };
 type MaybePenaltyWinnerArg = PenaltyWinnerArg | null;
@@ -277,6 +277,11 @@ function toBnSafe(v: any): bigint {
   }
 }
 
+function ceilDivBn(a: bigint, b: bigint): bigint {
+  if (b <= 0n) return 0n;
+  return (a + b - 1n) / b;
+}
+
 function computeShareBn(stake: bigint, matchPrizePool: bigint, totalWinnerStake: bigint): bigint {
   if (stake <= 0n || matchPrizePool <= 0n || totalWinnerStake <= 0n) return 0n;
   return (stake * matchPrizePool) / totalWinnerStake;
@@ -376,7 +381,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const { account } = useAccount();
   const toast = useToast();
   const { api, isApiReady } = useApi();
-  const { varaToUsd } = useVaraPrice();
+  const { rate: varaUsdRate, varaToUsd } = useVaraPrice();
 
   const [state, setState] = useState<IoBolaoState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -407,7 +412,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [userBetPenaltyWinner, setUserBetPenaltyWinner] = useState<MaybePenaltyWinnerArg>(null);
   const [loadingUserBet, setLoadingUserBet] = useState<boolean>(false);
   const [poolStats, setPoolStats] = useState<MatchPoolStats | null>(null);
-  const minimumBet = useDynamicMinimumBet(state);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
   const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
@@ -418,13 +422,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [betAmount]);
 
   const betValuePlanck = useMemo(() => toPlanck(betAmountNumber), [betAmountNumber]);
-  const betDisabledByAmount = betValuePlanck < minimumBet.minPlanck;
+  const liveUsdMinimumPlanck = useMemo(() => {
+    if (!Number.isFinite(varaUsdRate) || varaUsdRate <= 0) return 0n;
+    const priceMicro = BigInt(Math.max(1, Math.floor(varaUsdRate * 1_000_000)));
+    return ceilDivBn(USD_MINIMUM_MICRO * VARA_PLANCK, priceMicro);
+  }, [varaUsdRate]);
+  const isConversionAvailable = liveUsdMinimumPlanck > 0n;
+  const betDisabledByAmount = isConversionAvailable && betValuePlanck < liveUsdMinimumPlanck;
   const convertedStakeLabel = useMemo(() => {
     if (betAmountNumber <= 0) return '';
     const liveLabel = varaToUsd(betAmountNumber);
     if (liveLabel) return liveLabel;
     return isDemoPreview ? `≈ $${(betAmountNumber * 0.00071).toFixed(2)}` : '';
   }, [betAmountNumber, isDemoPreview, varaToUsd]);
+  const belowUsdMinimumMessage = useMemo(() => {
+    if (betAmountNumber <= 0 || !betDisabledByAmount) return '';
+    return `${betAmountNumber.toLocaleString(undefined, { maximumFractionDigits: 4 })} VARA is below the current minimum.`;
+  }, [betAmountNumber, betDisabledByAmount]);
 
   const shownScore = useMemo(
     () => normalizeCurrentScore(currentScore, currentScoreText),
@@ -653,7 +667,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     if (!match) return false;
     if (isFinalized) return false;
     if (!isBeforeKickoff) return false;
-    if (!minimumBet.isBettingAvailable) return false;
+    if (!isConversionAvailable) return false;
     if (betDisabledByAmount) return false;
     if (hasExistingBet) return false;
     if (isDraw && isKnockout && predictedPenaltyWinnerArg === null) return false;
@@ -662,7 +676,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     match,
     isFinalized,
     isBeforeKickoff,
-    minimumBet.isBettingAvailable,
+    isConversionAvailable,
     betDisabledByAmount,
     hasExistingBet,
     isDraw,
@@ -789,13 +803,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return;
     }
 
-    if (!minimumBet.isBettingAvailable) {
+    if (!isConversionAvailable) {
       toast.error('Predictions are paused while the VARA/USD price feed reconnects.');
       return;
     }
 
     if (betDisabledByAmount) {
-      toast.error(`Minimum prediction amount is ${minimumBet.label}`);
+      toast.error(`${betAmountNumber || 0} VARA is below the current minimum. Minimum required: 3 USD converted in VARA.`);
       return;
     }
 
@@ -882,7 +896,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     api,
     isApiReady,
     isBeforeKickoff,
-    minimumBet.isBettingAvailable,
+    isConversionAvailable,
     betDisabledByAmount,
     betValuePlanck,
     stakeInMatchPoolBn,
@@ -892,7 +906,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     penalties.home,
     penalties.away,
     toast,
-    minimumBet.label,
+    betAmountNumber,
     fetchState,
     fetchPoolStats,
     fetchUserBetForMatch,
@@ -1339,7 +1353,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </div>
             )}
 
-            <div className="mcx__formGrid" style={{ marginTop: 12 }}>
+            <div className="mcx__formGrid mcx__stakeGrid" style={{ marginTop: 12 }}>
               <div className="mcx__formCol">
                 <div className="mcx__label dim">Prediction Stake</div>
                 <div className="mcx__amountWrap">
@@ -1353,41 +1367,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   />
                 </div>
 
-                {convertedStakeLabel && (
-                  <div className="mcx__stakeUsd mcx__stakeUsd--converted">{convertedStakeLabel}</div>
-                )}
-
-                <div className="mcx__quickRow">
-                  <button
-                    className="mcx__qBtn"
-                    type="button"
-                    disabled={!minimumBet.isBettingAvailable}
-                    onClick={() => setBetAmount(minimumBet.minVaraText)}
-                  >
-                    Min
-                  </button>
-                  <button
-                    className="mcx__qBtn"
-                    type="button"
-                    onClick={() => setBetAmount(String((betAmountNumber || 0) + 1))}
-                  >
-                    +1
-                  </button>
-                  <button
-                    className="mcx__qBtn"
-                    type="button"
-                    onClick={() => setBetAmount(String((betAmountNumber || 0) + 10))}
-                  >
-                    +10
-                  </button>
-                  <button
-                    className="mcx__qBtn"
-                    type="button"
-                    onClick={() => setBetAmount(String((betAmountNumber || 0) + 50))}
-                  >
-                    +50
-                  </button>
-                </div>
               </div>
 
               <div className="mcx__formCol">
@@ -1399,6 +1378,49 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 >
                   <option value="VARA">VARA</option>
                 </select>
+              </div>
+
+              <div className="mcx__stakeFeedbackRow">
+                <div className="mcx__stakeLeftStack">
+                  <div className="mcx__stakeUsd mcx__stakeUsd--converted">{convertedStakeLabel}</div>
+                  <div className="mcx__quickRow">
+                    <button
+                      className="mcx__qBtn"
+                      type="button"
+                      disabled={!isConversionAvailable}
+                      onClick={() => setBetAmount(formatVaraFromPlanckFixed(liveUsdMinimumPlanck, 2).replace(/,/g, ''))}
+                    >
+                      Min
+                    </button>
+                    <button
+                      className="mcx__qBtn"
+                      type="button"
+                      onClick={() => setBetAmount(String((betAmountNumber || 0) + 1))}
+                    >
+                      +1
+                    </button>
+                    <button
+                      className="mcx__qBtn"
+                      type="button"
+                      onClick={() => setBetAmount(String((betAmountNumber || 0) + 10))}
+                    >
+                      +10
+                    </button>
+                    <button
+                      className="mcx__qBtn"
+                      type="button"
+                      onClick={() => setBetAmount(String((betAmountNumber || 0) + 50))}
+                    >
+                      +50
+                    </button>
+                  </div>
+                </div>
+                {belowUsdMinimumMessage && (
+                  <div className="mcx__stakeMinimumWarn" role="alert">
+                    <span>{belowUsdMinimumMessage}</span>
+                    <span>Minimum required: 3 USD converted in VARA.</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1430,7 +1452,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 >
                   {txLoadingBet
                     ? 'Sending Prediction…'
-                    : !minimumBet.isBettingAvailable
+                    : !isConversionAvailable
                       ? 'Predictions paused'
                       : `Send Prediction (${betAmountNumber || 0} ${betCurrency})`}
                 </button>
@@ -1462,15 +1484,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                 )}
 
-                {!minimumBet.isBettingAvailable ? (
+                {!isConversionAvailable ? (
                   <div className="mcx__warn" role="alert">
                     Predictions are paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.
                   </div>
-                ) : betAmountNumber > 0 && betDisabledByAmount && (
-                  <div className="mcx__warn" role="alert">
-                    {minimumBet.label}
-                  </div>
-                )}
+                ) : null}
 
               </>
             )}
