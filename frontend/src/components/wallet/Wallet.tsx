@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { useAccount, useBalance } from '@gear-js/react-hooks';
 import { Wallet as GearWallet } from '@gear-js/wallet-connect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { ONBOARDING_CONNECT_EVENT } from '@/hooks/useOnboarding';
-import { EditProfileModal } from './EditProfileModal';
 
 const shimmer = keyframes`
   0%   { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
@@ -241,24 +240,6 @@ const DisplayName = styled.span`
   max-width: 140px;
 `;
 
-const EditBtn = styled.button`
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  padding: 2px 4px;
-  cursor: pointer;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.38);
-  line-height: 1;
-  border-radius: 6px;
-  transition: color 0.14s, background 0.14s;
-
-  &:hover {
-    color: rgba(255, 46, 118, 0.90);
-    background: rgba(255, 46, 118, 0.10);
-  }
-`;
-
 /** Fila inferior: cantidad + símbolo + badge USD, todos centrados verticalmente */
 const BalanceRow = styled.div`
   display: flex;
@@ -353,8 +334,7 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
   const address = connected ? account!.decodedAddress : undefined;
   const { balance, isBalanceReady } = useBalance(address);
   const { planckToUsd } = useVaraPrice();
-  const { displayName, isSaving, save } = useWalletProfile();
-  const [showEdit, setShowEdit] = useState(false);
+  const { displayName } = useWalletProfile();
 
   const amount = useMemo(() => {
     if (!connected || !isBalanceReady) return null;
@@ -366,61 +346,39 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
     return planckToUsd(balance.toString());
   }, [connected, isBalanceReady, balance, planckToUsd]);
 
-  const handleSave = async (name: string) => {
-    const ok = await save(name);
-    if (ok) setShowEdit(false);
-  };
-
   const requestOnboarding = () => {
     window.dispatchEvent(new Event(ONBOARDING_CONNECT_EVENT));
   };
 
   return (
-    <>
-      <Row>
-        {showHeader ? (
-          <Left>
-            {connected ? (
-              <BalancePill>
-                <NameRow>
-                  <DisplayName title={displayName ?? address}>
-                    {displayName ?? <BalanceLabel>BALANCE</BalanceLabel>}
-                  </DisplayName>
-                  <EditBtn
-                    type="button"
-                    title={displayName ? 'Edit display name' : 'Set display name'}
-                    onClick={() => setShowEdit(true)}>
-                    ✏
-                  </EditBtn>
-                </NameRow>
-                <BalanceRow>
-                  <AmountGold title={`${amount ?? '0'} ${tokenSymbol}`}>{amount ?? '0'}</AmountGold>
-                  <TokenSymbol>{tokenSymbol}</TokenSymbol>
-                  {usdLabel ? <UsdValue>{usdLabel}</UsdValue> : null}
-                  {showStatus ? <Status $connected={connected}>●</Status> : null}
-                </BalanceRow>
-              </BalancePill>
-            ) : (
-              <></>
-            )}
-          </Left>
-        ) : null}
+    <Row>
+      {showHeader ? (
+        <Left>
+          {connected ? (
+            <BalancePill>
+              <NameRow>
+                <DisplayName title={displayName ?? address}>
+                  {displayName ?? <BalanceLabel>BALANCE</BalanceLabel>}
+                </DisplayName>
+              </NameRow>
+              <BalanceRow>
+                <AmountGold title={`${amount ?? '0'} ${tokenSymbol}`}>{amount ?? '0'}</AmountGold>
+                <TokenSymbol>{tokenSymbol}</TokenSymbol>
+                {usdLabel ? <UsdValue>{usdLabel}</UsdValue> : null}
+                {showStatus ? <Status $connected={connected}>●</Status> : null}
+              </BalanceRow>
+            </BalancePill>
+          ) : (
+            <></>
+          )}
+        </Left>
+      ) : null}
 
-        <WalletSlot>
-          <InlineWrap $connected={connected} onClickCapture={requestOnboarding}>
-            <GearWallet theme="vara" displayBalance={false} />
-          </InlineWrap>
-        </WalletSlot>
-      </Row>
-
-      {showEdit && (
-        <EditProfileModal
-          current={displayName}
-          isSaving={isSaving}
-          onSave={handleSave}
-          onClose={() => setShowEdit(false)}
-        />
-      )}
-    </>
+      <WalletSlot>
+        <InlineWrap $connected={connected} onClickCapture={requestOnboarding}>
+          <GearWallet theme="vara" displayBalance={false} />
+        </InlineWrap>
+      </WalletSlot>
+    </Row>
   );
 }

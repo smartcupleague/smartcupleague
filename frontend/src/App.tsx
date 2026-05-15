@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApi, useAccount } from '@gear-js/react-hooks';
 import { ApiLoader } from '@/components';
 import { withProviders } from '@/hocs';
@@ -12,8 +12,14 @@ function Component() {
   const { isApiReady } = useApi();
   const { account } = useAccount();
   const onboarding = useOnboarding(account?.decodedAddress);
-  const { save: saveWalletProfile } = useWalletProfile();
+  const {
+    displayName,
+    isLoading: isProfileLoading,
+    isSaving: isProfileSaving,
+    save: saveWalletProfile,
+  } = useWalletProfile();
   const [onboardingRequested, setOnboardingRequested] = useState(false);
+  const syncedProfileNicknameRef = useRef<string | null>(null);
 
   const isAppReady = isApiReady;
   const previewRoutes = [
@@ -49,11 +55,35 @@ function Component() {
     if (!account || onboarding.accepted) setOnboardingRequested(false);
   }, [account, onboarding.accepted]);
 
+  useEffect(() => {
+    if (!account || !onboarding.accepted || !onboarding.nickname || displayName || isProfileLoading || isProfileSaving) {
+      return;
+    }
+
+    const syncKey = `${account.decodedAddress}:${onboarding.nickname}`;
+    if (syncedProfileNicknameRef.current === syncKey) return;
+    syncedProfileNicknameRef.current = syncKey;
+
+    void saveWalletProfile(onboarding.nickname);
+  }, [
+    account,
+    displayName,
+    isProfileLoading,
+    isProfileSaving,
+    onboarding.accepted,
+    onboarding.nickname,
+    saveWalletProfile,
+  ]);
+
   const handleOnboardingAccept = async (nickname: string) => {
     const trimmed = nickname.trim();
     if (trimmed) {
-      await saveWalletProfile(trimmed);
+      const saved = await saveWalletProfile(trimmed);
+      if (!saved) {
+        throw new Error('Could not save your nickname. Please try again.');
+      }
     }
+
     onboarding.accept(trimmed);
     setOnboardingRequested(false);
   };

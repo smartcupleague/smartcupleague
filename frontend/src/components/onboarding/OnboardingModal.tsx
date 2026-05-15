@@ -11,15 +11,19 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
   const [openedTerms, setOpenedTerms] = useState(false);
   const [nickname, setNickname] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canContinue = openedTerms && checkedTerms && checkedAge && !isSubmitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canContinue) return;
+    setError(null);
     setIsSubmitting(true);
     try {
       await onAccept(nickname);
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not save your nickname. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -73,11 +77,17 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
                 className="ob-field__input"
                 type="text"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder="Your display name"
                 maxLength={30}
                 autoComplete="nickname"
               />
+              <p className="ob-field__help">
+                This will be your profile name and leaderboard ID. If you leave it blank, your wallet address will be shown instead.
+              </p>
             </div>
           </div>
 
@@ -131,6 +141,12 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
           {!canContinue && (
             <p className="ob-hint" role="alert">
               Please open the Terms of Use and accept both checkboxes to continue.
+            </p>
+          )}
+
+          {error && (
+            <p className="ob-hint" role="alert">
+              {error}
             </p>
           )}
         </form>

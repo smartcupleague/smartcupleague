@@ -113,6 +113,13 @@
   box-shadow: 0 0 0 3px rgba(255, 0, 110, 0.15);
 }
 
+.ob-field__help {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.52);
+}
+
 .ob-checks {
   display: flex;
   flex-direction: column;

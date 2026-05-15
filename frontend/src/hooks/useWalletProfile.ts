@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -35,7 +35,7 @@ export function useWalletProfile() {
       .finally(() => setIsLoading(false));
   }, [walletHex]);
 
-  const save = async (name: string): Promise<boolean> => {
+  const save = useCallback(async (name: string): Promise<boolean> => {
     if (!walletHex) return false;
     setIsSaving(true);
     try {
@@ -44,7 +44,8 @@ export function useWalletProfile() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: name.trim() }),
       });
-      if (!res.ok) return false;
+      if (!res.ok && res.status !== 409) return false;
+      if (res.status === 409) return true;
       const data = await res.json();
       setDisplayName(data.display_name ?? null);
       return true;
@@ -53,7 +54,7 @@ export function useWalletProfile() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [walletHex]);
 
   return { displayName, isLoading, isSaving, save, walletHex };
 }
