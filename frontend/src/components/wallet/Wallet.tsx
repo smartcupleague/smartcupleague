@@ -72,7 +72,7 @@ const Row = styled.div`
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 
   &,
   & * {
@@ -87,16 +87,16 @@ const Row = styled.div`
 
 const Left = styled.div`
   flex: 1 1 auto;
-  min-width: 0; /* CRÍTICO: permite que el texto haga ellipsis y no empuje al wallet */
+  min-width: 170px;
   display: flex;
   align-items: center;
 `;
 
 
 const WalletSlot = styled.div`
-  flex: 0 0 clamp(220px, 28vw, 340px);
-  min-width: 220px;
-  max-width: 360px;
+  flex: 0 1 clamp(136px, 16vw, 220px);
+  min-width: 136px;
+  max-width: 220px;
 
   @media (max-width: 720px) {
     flex: 1 1 auto;
@@ -124,8 +124,8 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
   button {
     width: 100% !important;
     min-width: 0 !important;
-    height: 46px;
-    border-radius: 16px;
+    height: 54px;
+    border-radius: 13px;
     position: relative;
     overflow: hidden;
     border: 1px solid ${({ $connected }) => ($connected ? 'rgba(255, 46, 118, .42)' : 'rgba(255,255,255,.14)')};
@@ -137,15 +137,15 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
     color: rgba(255, 255, 255, 0.96);
     -webkit-text-fill-color: rgba(255, 255, 255, 0.96);
     font-weight: 950;
-    font-size: 13px;
-    letter-spacing: 0.22px;
+    font-size: clamp(11px, 0.9vw, 12.5px);
+    letter-spacing: 0.08px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 0 14px 0 14px; /* ✅ mínimo: evita “comer” espacio con icon padding */
+    gap: 7px;
+    padding: 0 10px;
     box-shadow:
-      0 14px 40px rgba(0, 0, 0, 0.34),
+      0 12px 34px rgba(0, 0, 0, 0.32),
       0 0 0 1px rgba(255, 255, 255, 0.035) inset;
     cursor: pointer;
     transition:
@@ -153,6 +153,25 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
       filter 0.16s ease,
       border-color 0.16s ease,
       box-shadow 0.16s ease;
+  }
+
+  button > *,
+  button span,
+  button div {
+    min-width: 0 !important;
+  }
+
+  button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button img,
+  button svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px;
   }
 
   button::after {
@@ -177,7 +196,7 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
     filter: brightness(1.03);
     border-color: ${({ $connected }) => ($connected ? 'rgba(255, 46, 118, .62)' : 'rgba(255,255,255,.20)')};
     box-shadow:
-      0 18px 56px rgba(0, 0, 0, 0.38),
+      0 14px 40px rgba(0, 0, 0, 0.34),
       0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   }
 
@@ -190,7 +209,7 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
 /** ===== Balance pill — columna: label arriba, cantidad + usd abajo ===== */
 const BalancePill = styled.div`
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 170px;
   max-width: 100%;
 
   display: inline-flex;
@@ -199,7 +218,7 @@ const BalancePill = styled.div`
   gap: 4px;
 
   padding: 9px 14px;
-  border-radius: 14px;
+  border-radius: 13px;
 
   border: 1px solid rgba(255, 255, 255, 0.14);
   background:
@@ -237,7 +256,7 @@ const DisplayName = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  max-width: clamp(112px, 12vw, 145px);
 `;
 
 /** Fila inferior: cantidad + símbolo + badge USD, todos centrados verticalmente */
@@ -254,7 +273,7 @@ const AmountGold = styled.span`
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  font-size: clamp(15px, 2.2vw, 19px);
+  font-size: clamp(15px, 1.8vw, 18px);
   font-weight: 1000;
   letter-spacing: 0.2px;
   line-height: 1;
@@ -278,7 +297,7 @@ const AmountGold = styled.span`
 
 const TokenSymbol = styled.span`
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 950;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -289,12 +308,12 @@ const TokenSymbol = styled.span`
 
 const UsdValue = styled.span`
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
   line-height: 1;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid rgba(52, 211, 153, 0.30);
   background: rgba(52, 211, 153, 0.10);
