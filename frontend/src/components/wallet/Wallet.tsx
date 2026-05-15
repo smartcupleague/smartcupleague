@@ -86,8 +86,8 @@ const Row = styled.div`
 `;
 
 const Left = styled.div`
-  flex: 1 1 auto;
-  min-width: 170px;
+  flex: 1 1 clamp(290px, 28vw, 380px);
+  min-width: 290px;
   display: flex;
   align-items: center;
 `;
@@ -209,7 +209,8 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
 /** ===== Balance pill — columna: label arriba, cantidad + usd abajo ===== */
 const BalancePill = styled.div`
   flex: 1 1 auto;
-  min-width: 170px;
+  width: 100%;
+  min-width: 290px;
   max-width: 100%;
 
   display: inline-flex;
@@ -256,7 +257,7 @@ const DisplayName = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: clamp(112px, 12vw, 145px);
+  max-width: clamp(145px, 14vw, 190px);
 `;
 
 /** Fila inferior: cantidad + símbolo + badge USD, todos centrados verticalmente */
