@@ -86,10 +86,17 @@ const Row = styled.div`
 `;
 
 const Left = styled.div`
-  flex: 1 1 auto;
-  min-width: 170px;
+  flex: 0 1 clamp(360px, 34vw, 430px);
+  min-width: 340px;
+  max-width: 430px;
   display: flex;
   align-items: center;
+
+  @media (max-width: 720px) {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
 `;
 
 
@@ -209,8 +216,9 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
 /** ===== Balance pill — columna: label arriba, cantidad + usd abajo ===== */
 const BalancePill = styled.div`
   flex: 1 1 auto;
-  min-width: 170px;
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 430px;
 
   display: inline-flex;
   flex-direction: column;
@@ -256,7 +264,7 @@ const DisplayName = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: clamp(112px, 12vw, 145px);
+  max-width: clamp(150px, 15vw, 205px);
 `;
 
 /** Fila inferior: cantidad + símbolo + badge USD, todos centrados verticalmente */
@@ -264,11 +272,13 @@ const BalanceRow = styled.div`
   display: flex;
   align-items: center;
   gap: 7px;
+  width: 100%;
   min-width: 0;
 `;
 
 const AmountGold = styled.span`
   min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
