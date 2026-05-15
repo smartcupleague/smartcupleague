@@ -283,6 +283,13 @@ function formatVaraFromPlanck(planck: bigint) {
   return frac ? `${intPart}.${frac}` : intPart;
 }
 
+function formatVaraFromPlanckFixed(planck: bigint, fractionDigits = 2) {
+  return planckToVaraHuman(planck).toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
 function normalizeAmountInput(v: string) {
   const s = String(v ?? '')
     .replace(',', '.')
@@ -1047,6 +1054,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     return 'Draw';
   }, [match, selectedScore.home, selectedScore.away]);
 
+  const prizeEstimateUsdLabel = useMemo(() => {
+    if (prizeEstimate === null) return '';
+    return varaToUsd(planckToVaraHuman(prizeEstimate));
+  }, [prizeEstimate, varaToUsd]);
+
   if (loading) {
     return (
       <section className="mcx">
@@ -1408,7 +1420,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     <div className="mcx__prizeEst__title">
                       Estimated reward{' '}
                       <span className="mcx__prizeEst__value">
-                        {formatVaraFromPlanck(prizeEstimate)} VARA
+                        {formatVaraFromPlanckFixed(prizeEstimate)} VARA
                       </span>{' '}
                       <button
                         className="mcx__infoBtn"
@@ -1420,6 +1432,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                         ⓘ
                       </button>
                     </div>
+                    {prizeEstimateUsdLabel && (
+                      <div className="mcx__prizeEst__note dim">{prizeEstimateUsdLabel}</div>
+                    )}
                     <div className="mcx__prizeEst__note dim">
                       Your match-pool stake: {formatVaraFromPlanck(stakeInMatchPoolBn)} VARA on {selectedOutcomeLabel}
                     </div>
