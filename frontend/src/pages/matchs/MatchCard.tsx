@@ -46,6 +46,9 @@ type PhaseInfo = {
 type IoBolaoState = {
   matches: MatchInfo[];
   phases: PhaseInfo[];
+  vara_price_usd_micro?: string | number | bigint | null;
+  price_cached_at?: string | number | bigint | null;
+  price_staleness_limit_ms?: string | number | bigint | null;
 };
 
 export type BreakdownData = {
@@ -113,6 +116,9 @@ function demoState(matchId: string): IoBolaoState {
   return {
     matches: [demoMatch(matchId)],
     phases: [{ name: 'GROUP_STAGE', start_time: '0', end_time: '0', points_weight: 1 }],
+    vara_price_usd_micro: 1_000n,
+    price_cached_at: Date.now(),
+    price_staleness_limit_ms: 1_800_000,
   };
 }
 
@@ -371,7 +377,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const toast = useToast();
   const { api, isApiReady } = useApi();
   const { varaToUsd } = useVaraPrice();
-  const minimumBet = useDynamicMinimumBet();
 
   const [state, setState] = useState<IoBolaoState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -402,6 +407,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [userBetPenaltyWinner, setUserBetPenaltyWinner] = useState<MaybePenaltyWinnerArg>(null);
   const [loadingUserBet, setLoadingUserBet] = useState<boolean>(false);
   const [poolStats, setPoolStats] = useState<MatchPoolStats | null>(null);
+  const minimumBet = useDynamicMinimumBet(state);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
   const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
@@ -475,6 +481,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               points_weight: Number(p?.points_weight ?? 1) || 1,
             }))
           : [],
+        vara_price_usd_micro: s?.vara_price_usd_micro ?? null,
+        price_cached_at: s?.price_cached_at ?? null,
+        price_staleness_limit_ms: s?.price_staleness_limit_ms ?? null,
       };
 
       setState(normalized);
@@ -644,6 +653,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     if (!match) return false;
     if (isFinalized) return false;
     if (!isBeforeKickoff) return false;
+    if (!minimumBet.isBettingAvailable) return false;
     if (betDisabledByAmount) return false;
     if (hasExistingBet) return false;
     if (isDraw && isKnockout && predictedPenaltyWinnerArg === null) return false;
@@ -652,6 +662,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     match,
     isFinalized,
     isBeforeKickoff,
+    minimumBet.isBettingAvailable,
     betDisabledByAmount,
     hasExistingBet,
     isDraw,
@@ -778,6 +789,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return;
     }
 
+    if (!minimumBet.isBettingAvailable) {
+      toast.error('Predictions are paused while the VARA/USD price feed reconnects.');
+      return;
+    }
+
     if (betDisabledByAmount) {
       toast.error(`Minimum prediction amount is ${minimumBet.label}`);
       return;
@@ -866,6 +882,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     api,
     isApiReady,
     isBeforeKickoff,
+    minimumBet.isBettingAvailable,
     betDisabledByAmount,
     betValuePlanck,
     stakeInMatchPoolBn,
@@ -1344,6 +1361,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <button
                     className="mcx__qBtn"
                     type="button"
+                    disabled={!minimumBet.isBettingAvailable}
                     onClick={() => setBetAmount(minimumBet.minVaraText)}
                   >
                     Min
@@ -1412,7 +1430,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 >
                   {txLoadingBet
                     ? 'Sending Prediction…'
-                    : `Send Prediction (${betAmountNumber || 0} ${betCurrency})`}
+                    : !minimumBet.isBettingAvailable
+                      ? 'Predictions paused'
+                      : `Send Prediction (${betAmountNumber || 0} ${betCurrency})`}
                 </button>
 
                 {prizeEstimate !== null && (
@@ -1442,7 +1462,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                 )}
 
-                {betAmountNumber > 0 && betDisabledByAmount && (
+                {!minimumBet.isBettingAvailable ? (
+                  <div className="mcx__warn" role="alert">
+                    Predictions are paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.
+                  </div>
+                ) : betAmountNumber > 0 && betDisabledByAmount && (
                   <div className="mcx__warn" role="alert">
                     {minimumBet.label}
                   </div>

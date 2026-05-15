@@ -6,7 +6,6 @@ const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const VARA_DECIMALS = 12n;
 const PLANCK_PER_VARA = 10n ** VARA_DECIMALS;
 const USD_TARGET_MICRO = 3_000_000n;
-const FALLBACK_MIN_PLANCK = 3n * PLANCK_PER_VARA;
 
 type MinimumState = {
   vara_price_usd_micro?: string | number | bigint | null;
@@ -47,14 +46,19 @@ function computeMinimum(state?: MinimumState | null) {
   const cachedAt = toBigIntSafe(state?.price_cached_at);
   const stalenessLimit = toBigIntSafe(state?.price_staleness_limit_ms);
   const now = BigInt(Date.now());
-  const fresh = price > 0n && cachedAt > 0n && stalenessLimit > 0n && now - cachedAt <= stalenessLimit;
-  const minPlanck = fresh ? ceilDiv(USD_TARGET_MICRO * PLANCK_PER_VARA, price) : FALLBACK_MIN_PLANCK;
+  const fresh =
+    price > 0n &&
+    cachedAt > 0n &&
+    stalenessLimit > 0n &&
+    now - cachedAt <= stalenessLimit;
+  const minPlanck = fresh ? ceilDiv(USD_TARGET_MICRO * PLANCK_PER_VARA, price) : 0n;
 
   return {
     minPlanck,
     minVara: planckToVaraNumber(minPlanck),
     minVaraText: formatVara(minPlanck),
     isPriceFresh: fresh,
+    isBettingAvailable: fresh,
     priceUsd: price > 0n ? Number(price) / 1_000_000 : 0,
   };
 }
@@ -90,9 +94,11 @@ export function useDynamicMinimumBet(state?: MinimumState | null) {
     isLoading,
     refresh,
     targetUsdText: '$3.00 USD',
-    label: `${minimum.minVaraText} VARA`,
+    label: minimum.isBettingAvailable
+      ? `${minimum.minVaraText} VARA`
+      : 'Minimum unavailable until the VARA/USD price feed reconnects',
     shortLabel: minimum.isPriceFresh
       ? `Min $3 USD ≈ ${minimum.minVaraText} VARA`
-      : `Min fallback ${minimum.minVaraText} VARA`,
+      : 'Price feed reconnecting — predictions paused',
   };
 }

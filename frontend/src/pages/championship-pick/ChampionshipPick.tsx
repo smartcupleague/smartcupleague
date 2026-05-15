@@ -145,6 +145,7 @@ export function ChampionshipPick() {
     !!account &&
     isApiReady &&
     hasR32Lock &&
+    minimumBet.isBettingAvailable &&
     complete &&
     !hasDuplicate &&
     !isLocked &&
@@ -205,11 +206,12 @@ export function ChampionshipPick() {
     if (!isApiReady) return 'Node API not ready';
     if (!hasR32Lock) return 'Waiting for R32 setup';
     if (isLocked) return 'Championship Pick Locked';
+    if (!minimumBet.isBettingAvailable) return 'Price feed reconnecting';
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
     if (stakeBelowMinimum) return minimumBet.shortLabel;
     return `Submit Championship Pick (${stakeAmountNumber || 0} VARA)`;
-  }, [account, complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
+  }, [account, complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
 
   function updatePick(key: PickKey, team: string) {
     setPicks((current) => ({ ...current, [key]: team }));
@@ -307,6 +309,10 @@ export function ChampionshipPick() {
       toast.error('Championship Pick is locked');
       return;
     }
+    if (!minimumBet.isBettingAvailable) {
+      toast.error('Championship Pick is paused while the VARA/USD price feed reconnects.');
+      return;
+    }
     if (stakeBelowMinimum) {
       toast.error(`Minimum Championship Pick amount is ${minimumBet.label}`);
       return;
@@ -343,7 +349,7 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast]);
 
   return (
     <div className="cpArena">
@@ -423,7 +429,7 @@ export function ChampionshipPick() {
                 </div>
                 <div className="sideRow">
                   <span>Minimum stake</span>
-                  <b>{minimumBet.minVaraText} VARA</b>
+                  <b>{minimumBet.isBettingAvailable ? `${minimumBet.minVaraText} VARA` : 'Price feed reconnecting'}</b>
                 </div>
                 <div className="sideDivider" />
                 <div className="sideHint">All three picks lock permanently at the Round of 32 kickoff.</div>
@@ -544,7 +550,7 @@ export function ChampionshipPick() {
                     </label>
 
                     <div className="cpQuickRow" aria-label="Quick stake amount controls">
-                      <button type="button" onClick={() => setStakeAmount(minimumBet.minVaraText)}>Min</button>
+                      <button type="button" disabled={!minimumBet.isBettingAvailable} onClick={() => setStakeAmount(minimumBet.minVaraText)}>Min</button>
                       <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 1))}>+1</button>
                       <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 10))}>+10</button>
                       <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 50))}>+50</button>
@@ -565,6 +571,8 @@ export function ChampionshipPick() {
                   </button>
                   {!hasR32Lock ? (
                     <span className="cpWarn">Championship Pick opens after the Round of 32 schedule is registered.</span>
+                  ) : !minimumBet.isBettingAvailable ? (
+                    <span className="cpWarn">Championship Pick is paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.</span>
                   ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (
                     <span className="cpWarn">{minimumBet.label}</span>
                   ) : (
