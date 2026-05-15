@@ -247,13 +247,14 @@ Historical price snapshots persisted in Supabase. Default `limit=100`, max `1000
 These endpoints expect to be called by the frontend **after** a successful on-chain transaction. They are idempotent — calling them twice for the same wallet+match is silently dropped.
 
 #### `POST /api/v1/stats/record-bet`
-Records a bet placement.
+Records a bet placement. `amount_planck` is the gross stake paid by the bettor; `match_pool_amount_planck` is the 85% match-pool amount used by payout math.
 ```json
 {
   "wallet_address": "0x...",
   "match_id": "1",
   "amount_planck": "5000000000000",
-  "predicted_outcome": "Home"
+  "match_pool_amount_planck": "4250000000000",
+  "predicted_outcome": "home"
 }
 ```
 
@@ -269,7 +270,7 @@ Records a reward claim. `amount_planck` is the on-chain balance delta observed b
 ```
 
 #### `GET /api/v1/stats/pools`
-Aggregate Home / Draw / Away bet distribution for every match with at least one recorded prediction.
+Aggregate Home / Draw / Away match-pool distribution for every match with at least one recorded prediction. Amount fields are based on `match_pool_amount_planck`, while bet counts still count bettors.
 
 #### `GET /api/v1/stats/pools/{match_id}`
 Same shape as above, scoped to one match. Returns a zeroed record (not 404) when no data exists — UI handles "no data" gracefully.
@@ -289,6 +290,7 @@ Per-wallet aggregates ordered by `total_claimed_planck DESC`. Default `limit=500
       "display_name": "Alice",
       "matches_count": 42,
       "exact_count": 7,
+      "outcome_count": 19,
       "total_claimed_planck": "84000000000000"
     }
   ],

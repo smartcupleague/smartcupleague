@@ -37,6 +37,7 @@ create table if not exists public.prediction_events (
     wallet_address    text            not null,
     match_id          text            not null,
     amount_planck     numeric(38, 0)  not null default 0 check (amount_planck >= 0),
+    match_pool_amount_planck numeric(38, 0) not null default 0 check (match_pool_amount_planck >= 0),
     predicted_outcome varchar(4)      not null check (predicted_outcome in ('home', 'draw', 'away')),
     created_at        timestamptz     not null default now(),
 
@@ -159,16 +160,16 @@ select
     count(*) filter (where predicted_outcome = 'home')                        as home_bets,
     count(*) filter (where predicted_outcome = 'draw')                        as draw_bets,
     count(*) filter (where predicted_outcome = 'away')                        as away_bets,
-    coalesce(sum(amount_planck) filter (where predicted_outcome = 'home'), 0) as home_planck,
-    coalesce(sum(amount_planck) filter (where predicted_outcome = 'draw'), 0) as draw_planck,
-    coalesce(sum(amount_planck) filter (where predicted_outcome = 'away'), 0) as away_planck,
+    coalesce(sum(match_pool_amount_planck) filter (where predicted_outcome = 'home'), 0) as home_planck,
+    coalesce(sum(match_pool_amount_planck) filter (where predicted_outcome = 'draw'), 0) as draw_planck,
+    coalesce(sum(match_pool_amount_planck) filter (where predicted_outcome = 'away'), 0) as away_planck,
     count(*)                                                                   as total_bets,
-    coalesce(sum(amount_planck), 0)                                            as total_planck
+    coalesce(sum(match_pool_amount_planck), 0)                                 as total_planck
 from public.prediction_events
 group by match_id;
 
 comment on view public.match_pool_stats is
-    'Per-match pool distribution by predicted outcome. Computed from prediction_events.';
+    'Per-match 85% match-pool distribution by predicted outcome. Computed from prediction_events.match_pool_amount_planck.';
 
 
 create or replace function public.cleanup_old_prices()

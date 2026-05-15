@@ -781,7 +781,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
       // Report bet to stats backend (fire-and-forget, non-fatal)
       const outcome = h > a ? 'home' : h < a ? 'away' : 'draw';
-      reportBet(account.decodedAddress, String(match.match_id), betValuePlanck.toString(), outcome);
+      reportBet(
+        account.decodedAddress,
+        String(match.match_id),
+        betValuePlanck.toString(),
+        stakeInMatchPoolBn.toString(),
+        outcome,
+      );
 
       setTimeout(() => {
         void fetchState();
@@ -804,6 +810,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     isBeforeKickoff,
     betDisabledByAmount,
     betValuePlanck,
+    stakeInMatchPoolBn,
     betCurrency,
     selectedScore.home,
     selectedScore.away,

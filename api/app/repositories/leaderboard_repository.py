@@ -18,6 +18,7 @@ class LeaderboardRepository:
         wallet_address: str,
         match_id: str,
         amount_planck: str,
+        match_pool_amount_planck: str,
         predicted_outcome: str,
     ) -> bool:
         """
@@ -31,6 +32,7 @@ class LeaderboardRepository:
                     "wallet_address": wallet_address.lower(),
                     "match_id": str(match_id),
                     "amount_planck": int(amount_planck or "0"),
+                    "match_pool_amount_planck": int(match_pool_amount_planck or "0"),
                     "predicted_outcome": predicted_outcome,
                 },
                 on_conflict="wallet_address,match_id",

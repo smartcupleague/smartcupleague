@@ -12,6 +12,7 @@ export function reportBet(
   walletAddress: string,
   matchId: string,
   amountPlanck: string,
+  matchPoolAmountPlanck: string,
   predictedOutcome: PredictedOutcome,
 ): void {
   fetch(`${API_BASE}/api/v1/stats/record-bet`, {
@@ -21,6 +22,7 @@ export function reportBet(
       wallet_address: walletAddress,
       match_id: String(matchId),
       amount_planck: amountPlanck,
+      match_pool_amount_planck: matchPoolAmountPlanck,
       predicted_outcome: predictedOutcome,
     }),
   }).catch(() => { /* non-fatal */ });

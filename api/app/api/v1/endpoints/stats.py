@@ -26,6 +26,8 @@ def _get_leaderboard_service(request: Request) -> LeaderboardService:
     summary="Record a bet placement",
     description=(
         "Called by the frontend immediately after a successful placeBet transaction. "
+        "amount_planck is the gross stake paid by the bettor; match_pool_amount_planck "
+        "is the 85% amount used by match-payout pool math. "
         "Idempotent — duplicate calls for the same wallet+match are silently ignored."
     ),
 )
@@ -37,6 +39,7 @@ async def record_bet(
         wallet_address=body.wallet_address,
         match_id=body.match_id,
         amount_planck=body.amount_planck,
+        match_pool_amount_planck=body.match_pool_amount_planck,
         predicted_outcome=body.predicted_outcome.value,
     )
     return RecordBetResponse(

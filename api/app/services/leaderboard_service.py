@@ -10,6 +10,8 @@ from app.schemas.leaderboard import (
 logger = logging.getLogger(__name__)
 
 _ZERO = "0"
+MATCH_POOL_BPS = 8500
+BPS_DENOMINATOR = 10000
 
 
 def _safe_str(val) -> str:
@@ -17,6 +19,14 @@ def _safe_str(val) -> str:
     if val is None:
         return _ZERO
     return str(int(val))
+
+
+def _derive_match_pool_amount(amount_planck: str) -> str:
+    try:
+        amount = int(amount_planck or "0")
+    except (TypeError, ValueError):
+        amount = 0
+    return str((amount * MATCH_POOL_BPS) // BPS_DENOMINATOR)
 
 
 class LeaderboardService:
@@ -30,6 +40,7 @@ class LeaderboardService:
         wallet_address: str,
         match_id: str,
         amount_planck: str,
+        match_pool_amount_planck: str | None,
         predicted_outcome: str,
     ) -> tuple[bool, str]:
         """
@@ -40,7 +51,15 @@ class LeaderboardService:
         if not wallet:
             return False, "wallet_address is required"
 
-        ok = await self._repo.record_bet(wallet, match_id, amount_planck, predicted_outcome)
+        match_pool_amount = match_pool_amount_planck or _derive_match_pool_amount(amount_planck)
+
+        ok = await self._repo.record_bet(
+            wallet,
+            match_id,
+            amount_planck,
+            match_pool_amount,
+            predicted_outcome,
+        )
         if ok:
             logger.info("Bet recorded wallet=%s match=%s outcome=%s", wallet, match_id, predicted_outcome)
             return True, "Bet recorded"

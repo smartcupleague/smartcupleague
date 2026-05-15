@@ -17,7 +17,11 @@ class PredictedOutcome(str, Enum):
 class RecordBetRequest(BaseModel):
     wallet_address: str = Field(..., description="User's decoded wallet hex address")
     match_id: str = Field(..., description="Match ID from the smart contract")
-    amount_planck: str = Field(default="0", description="Bet amount in planck (12 decimal VARA)")
+    amount_planck: str = Field(default="0", description="Gross bet amount in planck (12 decimal VARA)")
+    match_pool_amount_planck: Optional[str] = Field(
+        default=None,
+        description="85% match-pool amount used by contract payout math, in planck",
+    )
     predicted_outcome: PredictedOutcome = Field(..., description="Predicted match outcome")
 
 
