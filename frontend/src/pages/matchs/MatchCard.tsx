@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
+import { useDynamicMinimumBet } from '@/hooks/useDynamicMinimumBet';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
@@ -412,6 +413,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [userBetPenaltyWinner, setUserBetPenaltyWinner] = useState<MaybePenaltyWinnerArg>(null);
   const [loadingUserBet, setLoadingUserBet] = useState<boolean>(false);
   const [poolStats, setPoolStats] = useState<MatchPoolStats | null>(null);
+  const onChainMinimumBet = useDynamicMinimumBet(state);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
   const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
@@ -428,6 +430,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     return ceilDivBn(USD_MINIMUM_MICRO * VARA_PLANCK, priceMicro);
   }, [varaUsdRate]);
   const isConversionAvailable = liveUsdMinimumPlanck > 0n;
+  const isOnChainPriceFresh = IS_DEV_PREVIEW || onChainMinimumBet.isBettingAvailable;
+  const isPredictionPricingAvailable = isConversionAvailable && isOnChainPriceFresh;
   const betDisabledByAmount = isConversionAvailable && betValuePlanck < liveUsdMinimumPlanck;
   const convertedStakeLabel = useMemo(() => {
     if (betAmountNumber <= 0) return '';
@@ -667,7 +671,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     if (!match) return false;
     if (isFinalized) return false;
     if (!isBeforeKickoff) return false;
-    if (!isConversionAvailable) return false;
+    if (!isPredictionPricingAvailable) return false;
     if (betDisabledByAmount) return false;
     if (hasExistingBet) return false;
     if (isDraw && isKnockout && predictedPenaltyWinnerArg === null) return false;
@@ -676,7 +680,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     match,
     isFinalized,
     isBeforeKickoff,
-    isConversionAvailable,
+    isPredictionPricingAvailable,
     betDisabledByAmount,
     hasExistingBet,
     isDraw,
@@ -803,7 +807,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return;
     }
 
-    if (!isConversionAvailable) {
+    if (!isPredictionPricingAvailable) {
       toast.error('Predictions are paused while the VARA/USD price feed reconnects.');
       return;
     }
@@ -896,7 +900,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     api,
     isApiReady,
     isBeforeKickoff,
-    isConversionAvailable,
+    isPredictionPricingAvailable,
     betDisabledByAmount,
     betValuePlanck,
     stakeInMatchPoolBn,
@@ -1387,7 +1391,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     <button
                       className="mcx__qBtn"
                       type="button"
-                      disabled={!isConversionAvailable}
+                      disabled={!isPredictionPricingAvailable}
                       onClick={() => setBetAmount(formatVaraFromPlanckFixed(liveUsdMinimumPlanck, 2).replace(/,/g, ''))}
                     >
                       Min
@@ -1452,7 +1456,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 >
                   {txLoadingBet
                     ? 'Sending Prediction…'
-                    : !isConversionAvailable
+                    : !isPredictionPricingAvailable
                       ? 'Predictions paused'
                       : `Send Prediction (${betAmountNumber || 0} ${betCurrency})`}
                 </button>
@@ -1484,7 +1488,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                 )}
 
-                {!isConversionAvailable ? (
+                {!isPredictionPricingAvailable ? (
                   <div className="mcx__warn" role="alert">
                     Predictions are paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.
                   </div>
