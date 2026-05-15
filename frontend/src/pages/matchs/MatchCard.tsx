@@ -14,6 +14,7 @@ import { reportBet, reportClaim } from '@/utils/statsReporter';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const IS_DEV_PREVIEW = import.meta.env.DEV;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 type Score = { home: number; away: number };
 type ResultStatus = any;
@@ -77,6 +78,17 @@ const BET_CLOSE_WINDOW_MS = 10 * 60 * 1000;
 type PenaltyWinnerArg = { Home: null } | { Away: null };
 type MaybePenaltyWinnerArg = PenaltyWinnerArg | null;
 type ScoreText = { home: string; away: string };
+type MatchPoolStats = {
+  match_id: string;
+  home_bets: number;
+  draw_bets: number;
+  away_bets: number;
+  home_planck: string;
+  draw_planck: string;
+  away_planck: string;
+  total_bets: number;
+  total_planck: string;
+};
 
 function demoMatch(matchId: string): MatchInfo {
   return {
@@ -382,6 +394,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [userBetScore, setUserBetScore] = useState<Score | null>(null);
   const [userBetPenaltyWinner, setUserBetPenaltyWinner] = useState<MaybePenaltyWinnerArg>(null);
   const [loadingUserBet, setLoadingUserBet] = useState<boolean>(false);
+  const [poolStats, setPoolStats] = useState<MatchPoolStats | null>(null);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
   const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
@@ -469,6 +482,43 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   useEffect(() => {
     void fetchState();
   }, [fetchState]);
+
+  const fetchPoolStats = useCallback(async () => {
+    if (!matchId) {
+      setPoolStats(null);
+      return;
+    }
+
+    if (isDemoPreview) {
+      const m = demoMatch(matchId);
+      setPoolStats({
+        match_id: m.match_id,
+        home_bets: 1,
+        draw_bets: 1,
+        away_bets: 1,
+        home_planck: String(m.pool_home ?? '0'),
+        draw_planck: String(m.pool_draw ?? '0'),
+        away_planck: String(m.pool_away ?? '0'),
+        total_bets: 3,
+        total_planck: String(totalPoolPlanck(m)),
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stats/pools/${matchId}`);
+      if (!res.ok) throw new Error(`Pool stats request failed: ${res.status}`);
+      const data = (await res.json()) as MatchPoolStats;
+      setPoolStats(data);
+    } catch (e) {
+      console.error('fetchPoolStats error', e);
+      setPoolStats(null);
+    }
+  }, [isDemoPreview, matchId]);
+
+  useEffect(() => {
+    void fetchPoolStats();
+  }, [fetchPoolStats]);
 
   const match = useMemo(() => {
     if (!state?.matches || !matchId) return null;
@@ -791,6 +841,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
       setTimeout(() => {
         void fetchState();
+        void fetchPoolStats();
         void fetchUserBetForMatch();
       }, 900);
     } catch (e) {
@@ -819,6 +870,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     toast,
     minimumBet.label,
     fetchState,
+    fetchPoolStats,
     fetchUserBetForMatch,
     isKnockout,
     hasExistingBet,
@@ -967,16 +1019,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
     const outcomePoolRaw =
       predictedOutcome === 'home'
-        ? match.pool_home
+        ? poolStats?.home_planck
         : predictedOutcome === 'draw'
-          ? match.pool_draw
-          : match.pool_away;
+          ? poolStats?.draw_planck
+          : poolStats?.away_planck;
 
-    let outcomePoolBn = toBnSafe(outcomePoolRaw ?? '0');
-
-    if (outcomePoolBn <= 0n) {
-      outcomePoolBn = matchPrizePoolBn / 3n;
-    }
+    const outcomePoolBn = toBnSafe(outcomePoolRaw ?? '0');
 
     const outcomePoolAfter = outcomePoolBn + stakeInMatchPoolBn;
     if (outcomePoolAfter <= 0n) return null;
@@ -988,9 +1036,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     stakeInMatchPoolBn,
     selectedScore.home,
     selectedScore.away,
-    matchPrizePoolBn,
+    poolStats,
     poolAfterBn,
   ]);
+
+  const selectedOutcomeLabel = useMemo(() => {
+    if (!match) return 'this outcome';
+    if (selectedScore.home > selectedScore.away) return match.home;
+    if (selectedScore.home < selectedScore.away) return match.away;
+    return 'Draw';
+  }, [match, selectedScore.home, selectedScore.away]);
 
   if (loading) {
     return (
@@ -1351,11 +1406,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 {prizeEstimate !== null && (
                   <div className="mcx__prizeEst">
                     <div className="mcx__prizeEst__title">
-                      Win{' '}
+                      Estimated reward{' '}
                       <span className="mcx__prizeEst__value">
                         {formatVaraFromPlanck(prizeEstimate)} VARA
                       </span>{' '}
-                      based on current pool distribution
                       <button
                         className="mcx__infoBtn"
                         type="button"
@@ -1366,7 +1420,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                         ⓘ
                       </button>
                     </div>
-                    <div className="mcx__prizeEst__note dim">Estimate — updates as more players join</div>
+                    <div className="mcx__prizeEst__note dim">
+                      Your match-pool stake: {formatVaraFromPlanck(stakeInMatchPoolBn)} VARA on {selectedOutcomeLabel}
+                    </div>
+                    <div className="mcx__prizeEst__note dim">Updates as more predictions join</div>
                   </div>
                 )}
 
