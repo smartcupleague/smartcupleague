@@ -86,9 +86,9 @@ const Row = styled.div`
 `;
 
 const Left = styled.div`
-  flex: 0 1 clamp(360px, 34vw, 430px);
-  min-width: 340px;
-  max-width: 430px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 380px;
   display: flex;
   align-items: center;
 
@@ -215,10 +215,10 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
 
 /** ===== Balance pill — columna: label arriba, cantidad + usd abajo ===== */
 const BalancePill = styled.div`
-  flex: 1 1 auto;
-  width: 100%;
+  flex: 0 1 auto;
+  width: fit-content;
   min-width: 0;
-  max-width: 430px;
+  max-width: min(100%, 380px);
 
   display: inline-flex;
   flex-direction: column;
@@ -272,7 +272,6 @@ const BalanceRow = styled.div`
   display: flex;
   align-items: center;
   gap: 7px;
-  width: 100%;
   min-width: 0;
 `;
 
