@@ -509,6 +509,7 @@ export default function Home() {
         const apiRow = apiStatsMap.get(wallet);
         return {
           wallet,
+          displayName: apiRow?.display_name ?? null,
           points: pointsMap.get(wallet) ?? 0,
           matches: apiRow?.matches_count ?? matchCountMap.get(wallet) ?? 0,
           exact: apiRow?.exact_count ?? 0,
@@ -651,7 +652,7 @@ export default function Home() {
     return sortedLeaderboard.slice(0, 10).map((r, idx) => ({
       rank: idx + 1,
       full: r.wallet,
-      addr: shortHex(r.wallet),
+      label: r.displayName ?? shortHex(r.wallet),
       points: r.points,
       matches: r.matches,
       exact: r.exact,
@@ -1071,7 +1072,7 @@ export default function Home() {
           <div className="h-table">
             <div className="h-thead">
               <div className="h-th h-th--rank">Pos.</div>
-              <div className="h-th">Address</div>
+              <div className="h-th">Player</div>
               <div className="h-th h-th--num">Matches</div>
               <div className="h-th h-th--num">Exact</div>
               <div className="h-th h-th--num">Outcome</div>
@@ -1081,8 +1082,8 @@ export default function Home() {
             {leaderboardTop.map((r) => (
               <div className="h-trow" key={r.rank}>
                 <div className="h-tcell h-tcell--rank">#{r.rank}</div>
-                <div className="h-tcell mono" title={r.full}>
-                  {r.addr}
+                <div className="h-tcell h-tcell--player" title={r.full}>
+                  {r.label}
                 </div>
                 <div className="h-tcell h-tcell--num">{r.matches}</div>
                 <div className="h-tcell h-tcell--num">{r.exact}</div>

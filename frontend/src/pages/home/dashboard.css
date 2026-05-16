@@ -979,6 +979,13 @@ body {
   transform: translateX(4px);
 }
 .h-tcell--rank { font-weight: 950; color: rgba(255, 255, 255, 0.75); font-size: 13px; }
+.h-tcell--player {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 850;
+}
 .h-th--num, .h-tcell--num { text-align: right; color: rgba(255,255,255,0.55); }
 .h-th--points { color: rgba(255, 46, 118, 0.85); }
 .h-tcell--points { text-align: right; }
