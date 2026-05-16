@@ -614,7 +614,7 @@ export default function Leaderboards() {
                         <span className="lbRank__no">#{r.rank}</span>
                       </div>
 
-                      <div className="lbWalletCell mono" title={r.wallet}>
+                      <div className="lbWalletCell" title={r.wallet}>
                         <span className="lbAvatar" aria-hidden="true" />
                         <span className="lbWalletCell__text">
                           {r.displayName ?? shortHex(r.wallet)}

@@ -758,10 +758,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'Courier New', 'SF Mono', Consolas, monospace;
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  color: rgba(255,255,255,0.80);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0;
+  color: rgba(255,255,255,0.86);
   transition: color 0.18s ease;
 }
 
