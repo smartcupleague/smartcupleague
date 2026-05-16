@@ -81,8 +81,10 @@ type FinalPrizeClaimStatus = {
 
 type ApiLeaderboardRow = {
   wallet_address: string;
+  display_name?: string | null;
   matches_count: number;
   exact_count: number;
+  outcome_count?: number;
   total_claimed_planck: string;
 };
 
@@ -237,6 +239,7 @@ export default function Home() {
   const [claimStatus, setClaimStatus] = useState<FinalPrizeClaimStatus | null>(null);
   const [claimLoading, setClaimLoading] = useState(false);
   const [apiLeaderboardRow, setApiLeaderboardRow] = useState<ApiLeaderboardRow | null>(null);
+  const [apiLeaderboardRows, setApiLeaderboardRows] = useState<ApiLeaderboardRow[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -350,24 +353,23 @@ export default function Home() {
   }, [coreProgram, account]);
 
   const fetchApiLeaderboardRow = useCallback(async () => {
-    if (!myWalletHex) {
-      setApiLeaderboardRow(null);
-      return;
-    }
-
     try {
       const res = await fetch(`${API_BASE}/api/v1/leaderboard?limit=2000`);
       if (!res.ok) {
+        setApiLeaderboardRows([]);
         setApiLeaderboardRow(null);
         return;
       }
 
       const data = (await res.json()) as { rows?: ApiLeaderboardRow[] };
-      const row = (data.rows ?? []).find(
-        (item) => item.wallet_address.toLowerCase() === myWalletHex.toLowerCase(),
-      );
+      const rows = data.rows ?? [];
+      const row = myWalletHex
+        ? rows.find((item) => item.wallet_address.toLowerCase() === myWalletHex.toLowerCase())
+        : null;
+      setApiLeaderboardRows(rows);
       setApiLeaderboardRow(row ?? null);
     } catch {
+      setApiLeaderboardRows([]);
       setApiLeaderboardRow(null);
     }
   }, [myWalletHex]);
@@ -471,11 +473,50 @@ export default function Home() {
   }, [activeTournamentKey, coreState?.matches]);
 
   const sortedLeaderboard = useMemo(() => {
-    const up = coreState?.user_points ?? [];
-    return [...up]
-      .map(([wallet, points]) => ({ wallet: String(wallet), points: Number(points ?? 0) }))
+    const pointsMap = new Map<string, number>();
+    for (const [wallet, points] of coreState?.user_points ?? []) {
+      const key = String(wallet ?? '').toLowerCase();
+      if (key) pointsMap.set(key, Number(points ?? 0));
+    }
+
+    const matchCountMap = new Map<string, number>();
+    for (const match of activeMatches) {
+      for (const participant of match.participants ?? []) {
+        const key = String(participant ?? '').toLowerCase();
+        if (!key) continue;
+        matchCountMap.set(key, (matchCountMap.get(key) ?? 0) + 1);
+        if (!pointsMap.has(key)) pointsMap.set(key, 0);
+      }
+    }
+
+    const apiStatsMap = new Map<string, ApiLeaderboardRow>();
+    for (const row of apiLeaderboardRows) {
+      const key = String(row.wallet_address ?? '').toLowerCase();
+      if (key) apiStatsMap.set(key, row);
+    }
+
+    const wallets = new Set<string>();
+    for (const wallet of pointsMap.keys()) {
+      if (!activeMatches.length || matchCountMap.has(wallet)) wallets.add(wallet);
+    }
+    for (const wallet of matchCountMap.keys()) wallets.add(wallet);
+    if (!wallets.size) {
+      for (const wallet of apiStatsMap.keys()) wallets.add(wallet);
+    }
+
+    return Array.from(wallets)
+      .map((wallet) => {
+        const apiRow = apiStatsMap.get(wallet);
+        return {
+          wallet,
+          points: pointsMap.get(wallet) ?? 0,
+          matches: apiRow?.matches_count ?? matchCountMap.get(wallet) ?? 0,
+          exact: apiRow?.exact_count ?? 0,
+          outcomes: apiRow?.outcome_count ?? 0,
+        };
+      })
       .sort((a, b) => (b.points !== a.points ? b.points - a.points : a.wallet.localeCompare(b.wallet)));
-  }, [coreState]);
+  }, [activeMatches, apiLeaderboardRows, coreState?.user_points]);
 
   const myRankInfo = useMemo(() => {
     const totalPlayers = sortedLeaderboard.length;
@@ -612,6 +653,9 @@ export default function Home() {
       full: r.wallet,
       addr: shortHex(r.wallet),
       points: r.points,
+      matches: r.matches,
+      exact: r.exact,
+      outcomes: r.outcomes,
     }));
   }, [sortedLeaderboard]);
 
@@ -1032,9 +1076,9 @@ export default function Home() {
                 <div className="h-tcell mono" title={r.full}>
                   {r.addr}
                 </div>
-                <div className="h-tcell h-tcell--num">—</div>
-                <div className="h-tcell h-tcell--num">—</div>
-                <div className="h-tcell h-tcell--num">—</div>
+                <div className="h-tcell h-tcell--num">{r.matches}</div>
+                <div className="h-tcell h-tcell--num">{r.exact}</div>
+                <div className="h-tcell h-tcell--num">{r.outcomes}</div>
                 <div className="h-tcell h-tcell--points">
                   <span className="h-pts">{r.points}</span>
                 </div>
