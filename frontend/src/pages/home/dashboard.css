@@ -768,15 +768,39 @@ body {
 .h-next-match__teamsLine,
 .h-next-match__timeLine {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   column-gap: 8px;
   row-gap: 2px;
 }
 
 .h-next-match__teams {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   font-weight: 900;
   font-size: 14px;
+}
+
+.h-next-match__team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.h-next-match__team .h-flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 14px rgba(0, 0, 0, 0.22);
+}
+
+.h-next-match__vs {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 12px;
+  font-weight: 820;
 }
 
 .h-next-match__phase,

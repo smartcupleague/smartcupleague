@@ -931,7 +931,15 @@ export default function Home() {
                 <div className="h-next-match__info">
                   <div className="h-next-match__teamsLine">
                     <span className="h-next-match__teams">
-                      {nextMatch.home} vs {nextMatch.away}
+                      <span className="h-next-match__team">
+                        <HomeTeamFlag team={nextMatch.home} />
+                        <span>{nextMatch.home}</span>
+                      </span>
+                      <span className="h-next-match__vs">vs</span>
+                      <span className="h-next-match__team">
+                        <HomeTeamFlag team={nextMatch.away} />
+                        <span>{nextMatch.away}</span>
+                      </span>
                     </span>
                     <span className="h-next-match__phase muted">
                       {(nextMatch.phase || '').replace(/_/g, ' ')}
