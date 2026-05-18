@@ -17,41 +17,62 @@ pub trait BolaoCtors {
     type Env: sails_rs::client::GearEnv;
     #[allow(clippy::new_ret_no_self)]
     #[allow(clippy::wrong_self_convention)]
-    fn new(self, admin: ActorId)
-    -> sails_rs::client::PendingCtor<BolaoProgram, io::New, Self::Env>;
+    fn new(
+        self,
+        admin: ActorId,
+        treasury: ActorId,
+    ) -> sails_rs::client::PendingCtor<BolaoProgram, io::New, Self::Env>;
 }
 impl<E: sails_rs::client::GearEnv> BolaoCtors for sails_rs::client::Deployment<BolaoProgram, E> {
     type Env = E;
     fn new(
         self,
         admin: ActorId,
+        treasury: ActorId,
     ) -> sails_rs::client::PendingCtor<BolaoProgram, io::New, Self::Env> {
-        self.pending_ctor((admin,))
+        self.pending_ctor((admin, treasury))
     }
 }
 
 pub mod io {
     use super::*;
-    sails_rs::io_struct_impl!(New (admin: ActorId) -> ());
+    sails_rs::io_struct_impl!(New (admin: ActorId, treasury: ActorId) -> ());
 }
 
 pub mod service {
     use super::*;
     pub trait Service {
         type Env: sails_rs::client::GearEnv;
-        /// Step 2 of 2-step admin transfer: pending admin confirms ownership.
-        /// Must be called by the address previously set via change_admin().
-        fn accept_admin(&mut self) -> sails_rs::client::PendingCall<io::AcceptAdmin, Self::Env>;
+        /// Adds a new admin to the admins list. Any existing admin can call this.
+        fn add_admin(
+            &mut self,
+            new_admin: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AddAdmin, Self::Env>;
+        /// Adds an operator. Only admins can call this.
+        /// Operators can call register_phase and register_match.
+        fn add_operator(
+            &mut self,
+            new_operator: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AddOperator, Self::Env>;
+        /// Marks a match as Cancelled and accumulates per-bettor refunds in
+        /// pending_refunds. Use when a match cannot or will not produce a real
+        /// result (suspension, abandonment, FIFA voiding, registration error).
+        /// Bettors then call claim_refund() to pull their stake out.
+        ///
+        /// Refund amount per bettor = stake_in_match_pool (the 85% post-fee share).
+        /// The 5% protocol fee and 10% final-prize cut already left this match's
+        /// pool at place_bet time and are not returned.
+        ///
+        /// Cancelling a match is terminal — no transition out of Cancelled.
+        /// Cannot cancel a match already Finalized (claims may have happened).
+        fn cancel_match(
+            &mut self,
+            match_id: u64,
+        ) -> sails_rs::client::PendingCall<io::CancelMatch, Self::Env>;
         fn cancel_proposed_result(
             &mut self,
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::CancelProposedResult, Self::Env>;
-        /// Step 1 of 2-step admin transfer: proposes a new admin address.
-        /// The proposed address must call accept_admin() to complete the transfer.
-        fn change_admin(
-            &mut self,
-            new_admin: ActorId,
-        ) -> sails_rs::client::PendingCall<io::ChangeAdmin, Self::Env>;
         fn claim_final_prize(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::ClaimFinalPrize, Self::Env>;
@@ -59,6 +80,7 @@ pub mod service {
             &mut self,
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::ClaimMatchReward, Self::Env>;
+        fn claim_refund(&mut self) -> sails_rs::client::PendingCall<io::ClaimRefund, Self::Env>;
         fn finalize_final_prize_pool(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::FinalizeFinalPrizePool, Self::Env>;
@@ -89,6 +111,13 @@ pub mod service {
             final_score: Score,
             penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::ProposeResult, Self::Env>;
+        /// Queries the Oracle-Program for the current VARA/USD price and caches it.
+        /// Must be called by an admin or operator. oracle_program_id must match an
+        /// authorized oracle or the stored price_oracle_program_id.
+        fn refresh_vara_price(
+            &mut self,
+            oracle_program_id: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RefreshVaraPrice, Self::Env>;
         fn register_match(
             &mut self,
             phase: String,
@@ -103,11 +132,36 @@ pub mod service {
             end_time: u64,
             points_weight: u32,
         ) -> sails_rs::client::PendingCall<io::RegisterPhase, Self::Env>;
+        /// Removes an admin from the admins list. Any existing admin can call this.
+        /// Panics if trying to remove the last admin.
+        fn remove_admin(
+            &mut self,
+            admin_to_remove: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RemoveAdmin, Self::Env>;
+        /// Removes an operator. Only admins can call this.
+        fn remove_operator(
+            &mut self,
+            operator_to_remove: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RemoveOperator, Self::Env>;
         fn set_oracle_authorized(
             &mut self,
             oracle: ActorId,
             authorized: bool,
         ) -> sails_rs::client::PendingCall<io::SetOracleAuthorized, Self::Env>;
+        fn set_price_oracle(
+            &mut self,
+            oracle_program_id: ActorId,
+        ) -> sails_rs::client::PendingCall<io::SetPriceOracle, Self::Env>;
+        fn set_price_staleness_limit(
+            &mut self,
+            staleness_limit_ms: u64,
+        ) -> sails_rs::client::PendingCall<io::SetPriceStalenessLimit, Self::Env>;
+        /// Updates the treasury address. Only admins can call this.
+        /// The treasury receives protocol fees and rounding dust.
+        fn set_treasury(
+            &mut self,
+            new_treasury: ActorId,
+        ) -> sails_rs::client::PendingCall<io::SetTreasury, Self::Env>;
         fn submit_podium_pick(
             &mut self,
             champion: String,
@@ -124,6 +178,9 @@ pub mod service {
         fn withdraw_protocol_fees(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::WithdrawProtocolFees, Self::Env>;
+        fn contract_version_1(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env>;
         fn query_bets_by_user(
             &self,
             user: ActorId,
@@ -140,6 +197,10 @@ pub mod service {
             &self,
             phase: String,
         ) -> sails_rs::client::PendingCall<io::QueryMatchesByPhase, Self::Env>;
+        fn query_pending_refund(
+            &self,
+            user: ActorId,
+        ) -> sails_rs::client::PendingCall<io::QueryPendingRefund, Self::Env>;
         fn query_state(&self) -> sails_rs::client::PendingCall<io::QueryState, Self::Env>;
         fn query_user_points(
             &self,
@@ -153,20 +214,29 @@ pub mod service {
     pub struct ServiceImpl;
     impl<E: sails_rs::client::GearEnv> Service for sails_rs::client::Service<ServiceImpl, E> {
         type Env = E;
-        fn accept_admin(&mut self) -> sails_rs::client::PendingCall<io::AcceptAdmin, Self::Env> {
-            self.pending_call(())
+        fn add_admin(
+            &mut self,
+            new_admin: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AddAdmin, Self::Env> {
+            self.pending_call((new_admin,))
+        }
+        fn add_operator(
+            &mut self,
+            new_operator: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AddOperator, Self::Env> {
+            self.pending_call((new_operator,))
+        }
+        fn cancel_match(
+            &mut self,
+            match_id: u64,
+        ) -> sails_rs::client::PendingCall<io::CancelMatch, Self::Env> {
+            self.pending_call((match_id,))
         }
         fn cancel_proposed_result(
             &mut self,
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::CancelProposedResult, Self::Env> {
             self.pending_call((match_id,))
-        }
-        fn change_admin(
-            &mut self,
-            new_admin: ActorId,
-        ) -> sails_rs::client::PendingCall<io::ChangeAdmin, Self::Env> {
-            self.pending_call((new_admin,))
         }
         fn claim_final_prize(
             &mut self,
@@ -178,6 +248,9 @@ pub mod service {
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::ClaimMatchReward, Self::Env> {
             self.pending_call((match_id,))
+        }
+        fn claim_refund(&mut self) -> sails_rs::client::PendingCall<io::ClaimRefund, Self::Env> {
+            self.pending_call(())
         }
         fn finalize_final_prize_pool(
             &mut self,
@@ -221,6 +294,12 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::ProposeResult, Self::Env> {
             self.pending_call((match_id, final_score, penalty_winner))
         }
+        fn refresh_vara_price(
+            &mut self,
+            oracle_program_id: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RefreshVaraPrice, Self::Env> {
+            self.pending_call((oracle_program_id,))
+        }
         fn register_match(
             &mut self,
             phase: String,
@@ -239,12 +318,42 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::RegisterPhase, Self::Env> {
             self.pending_call((phase_name, start_time, end_time, points_weight))
         }
+        fn remove_admin(
+            &mut self,
+            admin_to_remove: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RemoveAdmin, Self::Env> {
+            self.pending_call((admin_to_remove,))
+        }
+        fn remove_operator(
+            &mut self,
+            operator_to_remove: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RemoveOperator, Self::Env> {
+            self.pending_call((operator_to_remove,))
+        }
         fn set_oracle_authorized(
             &mut self,
             oracle: ActorId,
             authorized: bool,
         ) -> sails_rs::client::PendingCall<io::SetOracleAuthorized, Self::Env> {
             self.pending_call((oracle, authorized))
+        }
+        fn set_price_oracle(
+            &mut self,
+            oracle_program_id: ActorId,
+        ) -> sails_rs::client::PendingCall<io::SetPriceOracle, Self::Env> {
+            self.pending_call((oracle_program_id,))
+        }
+        fn set_price_staleness_limit(
+            &mut self,
+            staleness_limit_ms: u64,
+        ) -> sails_rs::client::PendingCall<io::SetPriceStalenessLimit, Self::Env> {
+            self.pending_call((staleness_limit_ms,))
+        }
+        fn set_treasury(
+            &mut self,
+            new_treasury: ActorId,
+        ) -> sails_rs::client::PendingCall<io::SetTreasury, Self::Env> {
+            self.pending_call((new_treasury,))
         }
         fn submit_podium_pick(
             &mut self,
@@ -268,6 +377,11 @@ pub mod service {
         fn withdraw_protocol_fees(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::WithdrawProtocolFees, Self::Env> {
+            self.pending_call(())
+        }
+        fn contract_version_1(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env> {
             self.pending_call(())
         }
         fn query_bets_by_user(
@@ -294,6 +408,12 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::QueryMatchesByPhase, Self::Env> {
             self.pending_call((phase,))
         }
+        fn query_pending_refund(
+            &self,
+            user: ActorId,
+        ) -> sails_rs::client::PendingCall<io::QueryPendingRefund, Self::Env> {
+            self.pending_call((user,))
+        }
         fn query_state(&self) -> sails_rs::client::PendingCall<io::QueryState, Self::Env> {
             self.pending_call(())
         }
@@ -313,28 +433,38 @@ pub mod service {
 
     pub mod io {
         use super::*;
-        sails_rs::io_struct_impl!(AcceptAdmin () -> ());
+        sails_rs::io_struct_impl!(AddAdmin (new_admin: ActorId) -> ());
+        sails_rs::io_struct_impl!(AddOperator (new_operator: ActorId) -> ());
+        sails_rs::io_struct_impl!(CancelMatch (match_id: u64) -> ());
         sails_rs::io_struct_impl!(CancelProposedResult (match_id: u64) -> ());
-        sails_rs::io_struct_impl!(ChangeAdmin (new_admin: ActorId) -> ());
         sails_rs::io_struct_impl!(ClaimFinalPrize () -> ());
         sails_rs::io_struct_impl!(ClaimMatchReward (match_id: u64) -> ());
+        sails_rs::io_struct_impl!(ClaimRefund () -> ());
         sails_rs::io_struct_impl!(FinalizeFinalPrizePool () -> ());
         sails_rs::io_struct_impl!(FinalizePodium (champion: String, runner_up: String, third_place: String) -> ());
         sails_rs::io_struct_impl!(FinalizeResult (match_id: u64) -> ());
         sails_rs::io_struct_impl!(PlaceBet (match_id: u64, predicted_score: super::Score, predicted_penalty_winner: Option<super::PenaltyWinner>) -> ());
         sails_rs::io_struct_impl!(ProposeFromOracle (match_id: u64, oracle_program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(ProposeResult (match_id: u64, final_score: super::Score, penalty_winner: Option<super::PenaltyWinner>) -> ());
+        sails_rs::io_struct_impl!(RefreshVaraPrice (oracle_program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(RegisterMatch (phase: String, home: String, away: String, kick_off: u64) -> ());
         sails_rs::io_struct_impl!(RegisterPhase (phase_name: String, start_time: u64, end_time: u64, points_weight: u32) -> ());
+        sails_rs::io_struct_impl!(RemoveAdmin (admin_to_remove: ActorId) -> ());
+        sails_rs::io_struct_impl!(RemoveOperator (operator_to_remove: ActorId) -> ());
         sails_rs::io_struct_impl!(SetOracleAuthorized (oracle: ActorId, authorized: bool) -> ());
+        sails_rs::io_struct_impl!(SetPriceOracle (oracle_program_id: ActorId) -> ());
+        sails_rs::io_struct_impl!(SetPriceStalenessLimit (staleness_limit_ms: u64) -> ());
+        sails_rs::io_struct_impl!(SetTreasury (new_treasury: ActorId) -> ());
         sails_rs::io_struct_impl!(SubmitPodiumPick (champion: String, runner_up: String, third_place: String) -> ());
         sails_rs::io_struct_impl!(SweepMatchDustToFinalPrize (match_id: u64) -> ());
         sails_rs::io_struct_impl!(WithdrawFinalPrizeRoundingDust () -> ());
         sails_rs::io_struct_impl!(WithdrawProtocolFees () -> ());
+        sails_rs::io_struct_impl!(ContractVersion1 () -> u32);
         sails_rs::io_struct_impl!(QueryBetsByUser (user: ActorId) -> Vec<super::UserBetView>);
         sails_rs::io_struct_impl!(QueryFinalPrizeClaimStatus (wallet: ActorId) -> super::FinalPrizeClaimStatus);
         sails_rs::io_struct_impl!(QueryMatch (match_id: u64) -> Option<super::Match>);
         sails_rs::io_struct_impl!(QueryMatchesByPhase (phase: String) -> Vec<super::Match>);
+        sails_rs::io_struct_impl!(QueryPendingRefund (user: ActorId) -> u128);
         sails_rs::io_struct_impl!(QueryState () -> super::IoSmartCupState);
         sails_rs::io_struct_impl!(QueryUserPoints (user: ActorId) -> u32);
         sails_rs::io_struct_impl!(QueryWalletClaimStatus (wallet: ActorId) -> super::WalletClaimStatus);
@@ -361,12 +491,19 @@ pub mod service {
             PodiumBonusAwarded((ActorId, u32)),
             FinalPrizeSent((u128, ActorId)),
             ProtocolFeesWithdrawn((u128, ActorId)),
-            AdminProposed((ActorId, ActorId)),
-            AdminChanged((ActorId, ActorId)),
+            AdminAdded(ActorId),
+            AdminRemoved(ActorId),
+            OperatorAdded(ActorId),
+            OperatorRemoved(ActorId),
+            TreasuryChanged((ActorId, ActorId)),
             FinalPrizePoolFinalized((u128, u128)),
             FinalPrizeClaimed((ActorId, u128)),
             FinalPrizeRoundingDustWithdrawn((u128, ActorId)),
             ResultProposalCancelled((u64, ActorId)),
+            MatchCancelled((u64, u128)),
+            RefundClaimed((ActorId, u128)),
+            /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
+            VaraPriceRefreshed(u64),
         }
         impl sails_rs::client::Event for ServiceEvents {
             const EVENT_NAMES: &'static [Route] = &[
@@ -385,12 +522,18 @@ pub mod service {
                 "PodiumBonusAwarded",
                 "FinalPrizeSent",
                 "ProtocolFeesWithdrawn",
-                "AdminProposed",
-                "AdminChanged",
+                "AdminAdded",
+                "AdminRemoved",
+                "OperatorAdded",
+                "OperatorRemoved",
+                "TreasuryChanged",
                 "FinalPrizePoolFinalized",
                 "FinalPrizeClaimed",
                 "FinalPrizeRoundingDustWithdrawn",
                 "ResultProposalCancelled",
+                "MatchCancelled",
+                "RefundClaimed",
+                "VaraPriceRefreshed",
             ];
         }
         impl sails_rs::client::ServiceWithEvents for ServiceImpl {
@@ -467,12 +610,15 @@ pub enum ResultStatus {
         score: Score,
         penalty_winner: Option<PenaltyWinner>,
     },
+    Cancelled,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
 pub struct IoSmartCupState {
-    pub admin: ActorId,
+    pub admins: Vec<ActorId>,
+    pub operators: Vec<ActorId>,
+    pub treasury: ActorId,
     pub protocol_fee_accumulated: u128,
     pub final_prize_accumulated: u128,
     pub matches: Vec<Match>,
@@ -483,6 +629,9 @@ pub struct IoSmartCupState {
     pub final_prize_finalized: bool,
     pub final_prize_claimable_total: u128,
     pub final_prize_rounding_dust: u128,
+    pub vara_price_usd_micro: u64,
+    pub price_cached_at: u64,
+    pub price_staleness_limit_ms: u64,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]

@@ -438,3 +438,125 @@ async fn constructor_rejects_zero_admin() {
 
     assert!(result.is_err(), "constructor with zero admin should fail");
 }
+
+// ── Test 15 ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn price_feed_initial_state_is_zero() {
+    let f = Fixture::new().await;
+
+    let (price, updated_at) = f
+        .oracle
+        .service("Service")
+        .query_vara_usd_price()
+        .query()
+        .unwrap();
+
+    assert_eq!(price, 0, "price should be 0 before any feed");
+    assert_eq!(updated_at, 0, "timestamp should be 0 before any feed");
+}
+
+// ── Test 16 ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn feeder_can_set_and_query_price() {
+    let f = Fixture::new().await;
+    let feeder = FEEDER_BASE + 1;
+
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(feeder), true)
+        .await
+        .unwrap();
+
+    // Real testnet price: ~$0.000749 per VARA = 749 micro-USD
+    f.as_actor(feeder)
+        .service("Service")
+        .set_vara_usd_price(749)
+        .await
+        .expect("authorized feeder should set price");
+
+    let (price, _updated_at) = f
+        .oracle
+        .service("Service")
+        .query_vara_usd_price()
+        .query()
+        .unwrap();
+
+    assert_eq!(price, 749);
+}
+
+// ── Test 17 ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn price_feed_rejects_out_of_range() {
+    let f = Fixture::new().await;
+    let feeder = FEEDER_BASE + 1;
+
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(feeder), true)
+        .await
+        .unwrap();
+
+    // Zero is below the [1, 100_000_000] range.
+    let err = f.as_actor(feeder).service("Service").set_vara_usd_price(0).await;
+    assert!(err.is_err(), "price=0 should be rejected (below range)");
+
+    // 100_000_001 is above $100 per VARA.
+    let err = f
+        .as_actor(feeder)
+        .service("Service")
+        .set_vara_usd_price(100_000_001)
+        .await;
+    assert!(err.is_err(), "price above max should be rejected");
+}
+
+// ── Test 18 ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn unauthorized_cannot_set_price() {
+    let f = Fixture::new().await;
+
+    // STRANGER is not an authorized feeder.
+    let err = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .set_vara_usd_price(749)
+        .await;
+    assert!(err.is_err(), "non-feeder should not set price");
+}
+
+// ── Test 19 ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn price_feed_boundary_values_accepted() {
+    let f = Fixture::new().await;
+    let feeder = FEEDER_BASE + 1;
+
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(feeder), true)
+        .await
+        .unwrap();
+
+    // Lower bound: $0.000001 per VARA = 1 micro-USD
+    f.as_actor(feeder)
+        .service("Service")
+        .set_vara_usd_price(1)
+        .await
+        .expect("price=1 (lower boundary) should be accepted");
+
+    let (price, _) = f.oracle.service("Service").query_vara_usd_price().query().unwrap();
+    assert_eq!(price, 1);
+
+    // Upper bound: $100 per VARA = 100_000_000 micro-USD
+    f.as_actor(feeder)
+        .service("Service")
+        .set_vara_usd_price(100_000_000)
+        .await
+        .expect("price=100_000_000 (upper boundary) should be accepted");
+
+    let (price, _) = f.oracle.service("Service").query_vara_usd_price().query().unwrap();
+    assert_eq!(price, 100_000_000);
+}

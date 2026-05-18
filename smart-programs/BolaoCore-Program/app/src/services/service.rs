@@ -3,7 +3,7 @@ use sails_rs::{prelude::*, gstd::{exec, msg}};
 use super::constants::{
     PROTOCOL_FEE_BPS, FINAL_PRIZE_BPS, BPS_DENOMINATOR,
     PODIUM_FINAL_PRIZE_BPS, PODIUM_PROTOCOL_FEE_BPS,
-    BET_CLOSE_WINDOW_SECONDS, MIN_BET_PLANCK,
+    BET_CLOSE_WINDOW_SECONDS,
     MAX_PHASE_NAME_LEN, MAX_POINTS_WEIGHT, MAX_TEAM_NAME_LEN,
     CHALLENGE_WINDOW_MS, CLAIM_DEADLINE_MS,
 };
@@ -47,6 +47,63 @@ impl Service {
         state.authorized_oracles.insert(oracle, authorized);
 
         self.emit_event(SmartCupEvent::OracleAuthorized(oracle, authorized))
+            .expect("event");
+    }
+
+    // ── Admin: price oracle configuration ────────────────────────────────────
+
+    #[export]
+    pub fn set_price_oracle(&mut self, oracle_program_id: ActorId) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        state.price_oracle_program_id = Some(oracle_program_id);
+    }
+
+    #[export]
+    pub fn set_price_staleness_limit(&mut self, staleness_limit_ms: u64) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        state.price_staleness_limit_ms = staleness_limit_ms;
+    }
+
+    /// Queries the Oracle-Program for the current VARA/USD price and caches it.
+    /// Must be called by an admin or operator. oracle_program_id must match an
+    /// authorized oracle or the stored price_oracle_program_id.
+    #[export]
+    pub async fn refresh_vara_price(&mut self, oracle_program_id: ActorId) {
+        {
+            let state = SmartCupState::state_mut();
+            state.only_admin_or_operator();
+        }
+
+        let payload = {
+            use sails_rs::scale_codec::Encode;
+            ("Service", "QueryVaraUsdPrice").encode()
+        };
+
+        let reply_bytes = msg::send_bytes_for_reply(oracle_program_id, &payload, 0, 0)
+            .expect("Failed to query Oracle-Program for VARA price")
+            .await
+            .expect("Oracle-Program price query reply failed");
+
+        let (price_usd_micro, _price_updated_at) = {
+            use sails_rs::scale_codec::Decode;
+            let (_svc, _method, result): (String, String, (u64, u64)) =
+                Decode::decode(&mut reply_bytes.as_slice())
+                    .expect("Failed to decode Oracle-Program price reply");
+            result
+        };
+
+        if price_usd_micro == 0 {
+            panic!("Oracle returned zero price — price not yet set on Oracle-Program");
+        }
+
+        let now = exec::block_timestamp();
+        let state = SmartCupState::state_mut();
+        state.vara_price_usd_micro = price_usd_micro;
+        state.price_cached_at      = now;
+
+        self.emit_event(SmartCupEvent::VaraPriceRefreshed(price_usd_micro))
             .expect("event");
     }
 
@@ -173,11 +230,12 @@ impl Service {
         let sent_value = msg::value();
         let now = exec::block_timestamp();
 
-        let m = state.matches.get_mut(&match_id).expect("Match not found");
-
-        if sent_value < MIN_BET_PLANCK {
+        let min_bet = state.compute_min_bet_planck(now);
+        if sent_value < min_bet {
             panic!("Bet below minimum");
         }
+
+        let m = state.matches.get_mut(&match_id).expect("Match not found");
 
         let close_time = m.kick_off.saturating_sub(BET_CLOSE_WINDOW_SECONDS);
         if now >= close_time {
@@ -788,7 +846,8 @@ impl Service {
         let sent_value = msg::value();
         let now = exec::block_timestamp();
 
-        if sent_value < MIN_BET_PLANCK {
+        let min_bet = state.compute_min_bet_planck(now);
+        if sent_value < min_bet {
             panic!("Podium pick below minimum");
         }
 
@@ -1352,5 +1411,10 @@ impl Service {
             .get(&user)
             .cloned()
             .unwrap_or(0)
+    }
+
+    #[export]
+    pub fn contract_version_1(&self) -> u32 {
+        1
     }
 }

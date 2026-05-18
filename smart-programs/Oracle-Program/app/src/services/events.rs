@@ -41,4 +41,7 @@ pub enum OracleEvent {
 
     /// An operator was removed by admin: (operator).
     OperatorRemoved(ActorId),
+
+    /// VARA/USD price updated by an authorized feeder: (price_usd_micro).
+    VaraPriceSet(u64),
 }

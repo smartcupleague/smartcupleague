@@ -1,6 +1,6 @@
 #![allow(static_mut_refs)]
 
-use sails_rs::{collections::HashMap as SailsHashMap, prelude::*};
+use sails_rs::{collections::HashMap as SailsHashMap, prelude::*, gstd::msg};
 use super::constants::{DEFAULT_QUORUM_BPS, DEFAULT_VOTING_PERIOD_MS};
 use super::types::{BolaoInstance, Proposal, VoteChoice};
 

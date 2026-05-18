@@ -10,8 +10,17 @@ pub const FINAL_PRIZE_TOP5_BPS: [u128; 5] = [4_500, 2_500, 1_500, 1_000, 500];
 
 // ── Security constants ────────────────────────────────────────────────────────
 
-/// Minimum bet: 3 VARA expressed in planck (10^12 per VARA).
+/// Fallback minimum bet used only if the price oracle has never been set (3 VARA).
 pub const MIN_BET_PLANCK: u128 = 3_000_000_000_000;
+
+/// $3.00 USD expressed in micro-USD — the target minimum bet value.
+pub const BET_TARGET_USD_MICRO: u128 = 3_000_000;
+
+/// Planck units per VARA (10^12).
+pub const PLANCK_PER_VARA: u128 = 1_000_000_000_000;
+
+/// Default freshness window for the cached VARA/USD price: 1 hour.
+pub const DEFAULT_PRICE_STALENESS_LIMIT_MS: u64 = 3_600_000;
 
 /// Maximum byte length for phase names to prevent memory bloat. 
 pub const MAX_PHASE_NAME_LEN: usize = 64;

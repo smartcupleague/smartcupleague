@@ -1,1 +1,0 @@
-export { ChampionshipPick } from './ChampionshipPick';

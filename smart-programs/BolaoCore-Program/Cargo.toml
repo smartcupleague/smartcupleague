@@ -33,7 +33,8 @@ sails-idl-gen.workspace = true
 sails-client-gen.workspace = true
 
 [dev-dependencies]
-bolao-program = { path = ".", features = ["wasm-binary", "bolao-client"] }
+bolao-program  = { path = ".", features = ["wasm-binary", "bolao-client"] }
+oracle-program = { path = "../Oracle-Program", features = ["wasm-binary", "oracle-client"] }
 sails-rs = { version = "0.10.2", features = ["gtest"] }
 tokio.workspace = true
 

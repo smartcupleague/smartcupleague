@@ -105,6 +105,12 @@ pub mod service {
             feeder: ActorId,
             authorized: bool,
         ) -> sails_rs::client::PendingCall<io::SetFeederAuthorized, Self::Env>;
+        /// Authorized feeder pushes the current VARA/USD price on-chain.
+        /// Range: [1, 100_000_000] micro-USD (= $0.000001 to $100 per VARA).
+        fn set_vara_usd_price(
+            &mut self,
+            price_usd_micro: u64,
+        ) -> sails_rs::client::PendingCall<io::SetVaraUsdPrice, Self::Env>;
         /// Authorized feeder submits a match result.
         ///
         /// - The match must be pre-registered by admin (Fix #8 — no phantom entries).
@@ -120,6 +126,9 @@ pub mod service {
             away: u8,
             penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::SubmitResult, Self::Env>;
+        fn contract_version_1(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env>;
         /// Returns a flat view of all oracle entries.
         fn query_all_results(
             &self,
@@ -140,6 +149,10 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::QueryPendingMatches, Self::Env>;
         /// Full program state — admin, feeders, threshold, all match records.
         fn query_state(&self) -> sails_rs::client::PendingCall<io::QueryState, Self::Env>;
+        /// Returns (price_usd_micro, price_updated_at). Both are 0 if never set.
+        fn query_vara_usd_price(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::QueryVaraUsdPrice, Self::Env>;
     }
     pub struct ServiceImpl;
     impl<E: sails_rs::client::GearEnv> Service for sails_rs::client::Service<ServiceImpl, E> {
@@ -209,6 +222,12 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::SetFeederAuthorized, Self::Env> {
             self.pending_call((feeder, authorized))
         }
+        fn set_vara_usd_price(
+            &mut self,
+            price_usd_micro: u64,
+        ) -> sails_rs::client::PendingCall<io::SetVaraUsdPrice, Self::Env> {
+            self.pending_call((price_usd_micro,))
+        }
         fn submit_result(
             &mut self,
             match_id: u64,
@@ -217,6 +236,11 @@ pub mod service {
             penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::SubmitResult, Self::Env> {
             self.pending_call((match_id, home, away, penalty_winner))
+        }
+        fn contract_version_1(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env> {
+            self.pending_call(())
         }
         fn query_all_results(
             &self,
@@ -243,6 +267,11 @@ pub mod service {
         fn query_state(&self) -> sails_rs::client::PendingCall<io::QueryState, Self::Env> {
             self.pending_call(())
         }
+        fn query_vara_usd_price(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::QueryVaraUsdPrice, Self::Env> {
+            self.pending_call(())
+        }
     }
 
     pub mod io {
@@ -257,12 +286,15 @@ pub mod service {
         sails_rs::io_struct_impl!(SetBolaoProgram (program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(SetConsensusThreshold (threshold: u8) -> ());
         sails_rs::io_struct_impl!(SetFeederAuthorized (feeder: ActorId, authorized: bool) -> ());
+        sails_rs::io_struct_impl!(SetVaraUsdPrice (price_usd_micro: u64) -> ());
         sails_rs::io_struct_impl!(SubmitResult (match_id: u64, home: u8, away: u8, penalty_winner: Option<super::PenaltyWinner>) -> ());
+        sails_rs::io_struct_impl!(ContractVersion1 () -> u32);
         sails_rs::io_struct_impl!(QueryAllResults () -> Vec<super::IoMatchResult>);
         sails_rs::io_struct_impl!(QueryFeederSubmissions (feeder: ActorId) -> Vec<(u64,super::Score,Option<super::PenaltyWinner>,)>);
         sails_rs::io_struct_impl!(QueryMatchResult (match_id: u64) -> Option<super::FinalResult>);
         sails_rs::io_struct_impl!(QueryPendingMatches () -> Vec<u64>);
         sails_rs::io_struct_impl!(QueryState () -> super::IoOracleState);
+        sails_rs::io_struct_impl!(QueryVaraUsdPrice () -> (u64,u64,));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -295,6 +327,8 @@ pub mod service {
             OperatorAdded(ActorId),
             /// An operator was removed by admin: (operator).
             OperatorRemoved(ActorId),
+            /// VARA/USD price updated by an authorized feeder: (price_usd_micro).
+            VaraPriceSet(u64),
         }
         impl sails_rs::client::Event for ServiceEvents {
             const EVENT_NAMES: &'static [Route] = &[
@@ -310,6 +344,7 @@ pub mod service {
                 "AdminChanged",
                 "OperatorAdded",
                 "OperatorRemoved",
+                "VaraPriceSet",
             ];
         }
         impl sails_rs::client::ServiceWithEvents for ServiceImpl {
@@ -378,4 +413,6 @@ pub struct IoOracleState {
     pub authorized_feeders: Vec<ActorId>,
     pub match_results: Vec<IoMatchResult>,
     pub pending_admin: Option<ActorId>,
+    pub vara_price_usd_micro: u64,
+    pub price_updated_at: u64,
 }

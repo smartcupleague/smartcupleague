@@ -10,7 +10,7 @@ mod utils;
 use fixture::{actor, Fixture, ADMIN, NEW_ADMIN, OPERATOR, TREASURY, ORACLE, STRANGER, USER1, USER2};
 use utils::{
     AWAY_TEAM, BET_5_VARA, BET_10_VARA, CHALLENGE_WINDOW_BLOCKS, CLAIM_DEADLINE_BLOCKS,
-    GROUP_PHASE, HOME_TEAM, KICK_OFF, MIN_BET, ONE_VARA,
+    GROUP_PHASE, HOME_TEAM, KICK_OFF, ONE_VARA,
 };
 
 // ── Shared setup helpers ──────────────────────────────────────────────────────
@@ -1270,4 +1270,233 @@ async fn cancelled_match_passes_finalize_prize_pool_checks() {
     assert!(matches!(m.result, ResultStatus::Cancelled));
     assert!(m.settlement_prepared);
     assert!(m.dust_swept);
+}
+
+// ── Price oracle tests (cross-contract, gtest) ────────────────────────────────
+//
+// These tests deploy both Oracle-Program and BolaoCore-Program in the same
+// gtest System so that cross-program messages (refresh_vara_price, propose_from_oracle)
+// are handled by the simulated runtime.
+
+mod price_oracle {
+    use super::*;
+    use sails_rs::{client::{GearEnv, GtestEnv}, gtest::System};
+    use bolao_program::{
+        client::{BolaoCtors, BolaoProgram},
+        client::service::ServiceImpl as BolaoImpl,
+        WASM_BINARY as BOLAO_WASM,
+    };
+    use oracle_program::{
+        client::{OracleCtors, OracleProgram},
+        client::service::Service as OracleSvc,
+        WASM_BINARY as ORACLE_WASM,
+    };
+
+    const ADMIN_ID:    u64 = 100;
+    const TREASURY_ID: u64 = 103;
+    const FEEDER_ID:   u64 = 200;
+    const USER_ID:     u64 = 201;
+
+    fn actor(id: u64) -> ActorId { id.into() }
+
+    /// Deploys Oracle + BolaoCore in the same System, wires set_price_oracle and
+    /// set_oracle_authorized, authorizes FEEDER_ID as an Oracle feeder, and returns
+    /// (oracle actor, bolao actor, env).
+    async fn setup() -> (
+        sails_rs::client::Actor<OracleProgram, GtestEnv>,
+        sails_rs::client::Actor<BolaoProgram, GtestEnv>,
+        GtestEnv,
+    ) {
+        let system = System::new();
+        system.init_logger();
+        for id in [ADMIN_ID, TREASURY_ID, FEEDER_ID, USER_ID] {
+            system.mint_to(id, 10_000_000_000_000_000);
+        }
+
+        let oracle_code = system.submit_code(ORACLE_WASM);
+        let bolao_code  = system.submit_code(BOLAO_WASM);
+        let env = GtestEnv::new(system, actor(ADMIN_ID));
+
+        let oracle = env
+            .deploy::<OracleProgram>(oracle_code, b"oracle-price-test".to_vec())
+            .new(actor(ADMIN_ID))
+            .await
+            .unwrap();
+
+        let bolao = env
+            .deploy::<BolaoProgram>(bolao_code, b"bolao-price-test".to_vec())
+            .new(actor(ADMIN_ID), actor(TREASURY_ID))
+            .await
+            .unwrap();
+
+        // Wire price oracle address
+        bolao.service("Service").set_price_oracle(oracle.id()).await.unwrap();
+        // Authorize the Oracle program to be used in propose_from_oracle
+        bolao.service("Service").set_oracle_authorized(oracle.id(), true).await.unwrap();
+
+        // Authorize FEEDER_ID in Oracle
+        OracleSvc::set_feeder_authorized(
+            &mut oracle.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            actor(FEEDER_ID),
+            true,
+        )
+        .await
+        .unwrap();
+
+        (oracle, bolao, env)
+    }
+
+    // ── Test 33 ──────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn refresh_vara_price_caches_oracle_price() {
+        let (oracle, bolao, env) = setup().await;
+
+        // Feeder pushes price to Oracle
+        let feeder_env = env.clone().with_actor_id(actor(FEEDER_ID));
+        let oracle_as_feeder = sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(
+            feeder_env, oracle.id(),
+        );
+        OracleSvc::set_vara_usd_price(
+            &mut oracle_as_feeder.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            749,
+        )
+        .await
+        .unwrap();
+
+        // BolaoCore admin refreshes the cached price from Oracle
+        bolao
+            .service("Service")
+            .refresh_vara_price(oracle.id())
+            .await
+            .expect("refresh_vara_price should succeed");
+
+        let state = BolaoSvc::query_state(&bolao.service("Service"))
+            .query()
+            .unwrap();
+        assert_eq!(state.vara_price_usd_micro, 749, "BolaoCore should cache the Oracle price");
+        assert_ne!(state.price_cached_at, 0, "price_cached_at should be set");
+    }
+
+    // ── Test 34 ──────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn place_bet_respects_dynamic_minimum() {
+        let (oracle, bolao, env) = setup().await;
+
+        // Push and cache price: 749 micro-USD per VARA
+        let feeder_env = env.clone().with_actor_id(actor(FEEDER_ID));
+        let oracle_as_feeder = sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(
+            feeder_env, oracle.id(),
+        );
+        OracleSvc::set_vara_usd_price(
+            &mut oracle_as_feeder.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            749,
+        )
+        .await
+        .unwrap();
+        bolao.service("Service").refresh_vara_price(oracle.id()).await.unwrap();
+
+        // Register a match
+        let kick_off = utils::KICK_OFF;
+        bolao.service("Service")
+            .register_phase(utils::GROUP_PHASE.to_string(), 0, u64::MAX, 1)
+            .await
+            .unwrap();
+        bolao.service::<BolaoImpl>("Service")
+            .register_match(
+                utils::GROUP_PHASE.to_string(),
+                utils::HOME_TEAM.to_string(),
+                utils::AWAY_TEAM.to_string(),
+                kick_off,
+            )
+            .await
+            .unwrap();
+
+        // Compute expected minimum: ceil(3_000_000 × 10^12 / 749)
+        const BET_TARGET: u128 = 3_000_000;
+        const PLANCK: u128 = 1_000_000_000_000;
+        let min_bet: u128 = (BET_TARGET * PLANCK + 749 - 1) / 749;
+
+        let user_env = env.clone().with_actor_id(actor(USER_ID));
+        let bolao_as_user = sails_rs::client::Actor::<BolaoProgram, GtestEnv>::new(
+            user_env, bolao.id(),
+        );
+
+        // One planck below minimum → rejected
+        let err = bolao_as_user
+            .service("Service")
+            .place_bet(1, Score { home: 1, away: 0 }, None)
+            .with_value(min_bet - 1)
+            .await;
+        assert!(err.is_err(), "bet below dynamic minimum should be rejected");
+
+        // Exactly at minimum → accepted
+        bolao_as_user
+            .service("Service")
+            .place_bet(1, Score { home: 1, away: 0 }, None)
+            .with_value(min_bet)
+            .await
+            .expect("bet at dynamic minimum should be accepted");
+    }
+
+    // ── Test 35 ──────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn place_bet_falls_back_when_price_stale() {
+        let (oracle, bolao, env) = setup().await;
+
+        // Push and cache the price, then advance past the staleness limit.
+        let feeder_env = env.clone().with_actor_id(actor(FEEDER_ID));
+        let oracle_as_feeder = sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(
+            feeder_env, oracle.id(),
+        );
+        OracleSvc::set_vara_usd_price(
+            &mut oracle_as_feeder.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            749,
+        )
+        .await
+        .unwrap();
+        bolao.service("Service").refresh_vara_price(oracle.id()).await.unwrap();
+
+        // DEFAULT_PRICE_STALENESS_LIMIT_MS = 3_600_000 ms = 3 600 blocks in gtest (1 block = 1 000 ms)
+        // Advance 3 601 blocks so the cached price expires.
+        env.system().run_scheduled_tasks(3_601);
+
+        bolao.service("Service")
+            .register_phase(utils::GROUP_PHASE.to_string(), 0, u64::MAX, 1)
+            .await
+            .unwrap();
+        bolao.service::<BolaoImpl>("Service")
+            .register_match(
+                utils::GROUP_PHASE.to_string(),
+                utils::HOME_TEAM.to_string(),
+                utils::AWAY_TEAM.to_string(),
+                utils::KICK_OFF,
+            )
+            .await
+            .unwrap();
+
+        let user_env = env.clone().with_actor_id(actor(USER_ID));
+        let bolao_as_user = sails_rs::client::Actor::<BolaoProgram, GtestEnv>::new(
+            user_env, bolao.id(),
+        );
+
+        // With stale price the fallback is MIN_BET_PLANCK = 3 VARA.
+        // 2 VARA → rejected.
+        let err = bolao_as_user
+            .service("Service")
+            .place_bet(1, Score { home: 1, away: 0 }, None)
+            .with_value(2 * utils::ONE_VARA)
+            .await;
+        assert!(err.is_err(), "bet below fallback (stale price) should be rejected");
+
+        // 3 VARA → accepted (fallback minimum).
+        bolao_as_user
+            .service("Service")
+            .place_bet(1, Score { home: 1, away: 0 }, None)
+            .with_value(3 * utils::ONE_VARA)
+            .await
+            .expect("bet at fallback minimum should be accepted when price is stale");
+    }
 }

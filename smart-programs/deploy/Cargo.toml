@@ -1,0 +1,23 @@
+[package]
+name = "deploy"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to deploy Oracle-Program and BolaoCore-Program to Vara testnet"
+
+# Standalone workspace — NOT part of Oracle-Program or BolaoCore workspaces.
+[workspace]
+
+[dependencies]
+# Vara / sails client
+sails-rs  = { version = "0.10", features = ["gclient"] }
+gclient   = "=1.10.0"
+
+# Generated on-chain clients (their build.rs regenerates from IDL at compile time)
+oracle-client = { path = "../Oracle-Program/client" }
+bolao-client  = { path = "../BolaoCore-Program/client" }
+
+# Runtime & utilities
+tokio   = { version = "1.41", features = ["full"] }
+dotenvy = "0.15"
+anyhow  = "1"
+hex     = "0.4"

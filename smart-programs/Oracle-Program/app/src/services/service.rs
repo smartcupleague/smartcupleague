@@ -344,6 +344,28 @@ impl<'a> Service<'a> {
         Ok(())
     }
 
+    // ── FEEDER — price feed ───────────────────────────────────────────────────
+
+    /// Authorized feeder pushes the current VARA/USD price on-chain.
+    /// Range: [1, 100_000_000] micro-USD (= $0.000001 to $100 per VARA).
+    #[export(unwrap_result)]
+    pub fn set_vara_usd_price(
+        &mut self,
+        price_usd_micro: u64,
+    ) -> Result<(), OracleError> {
+        self.ensure_feeder()?;
+        if !(1..=100_000_000).contains(&price_usd_micro) {
+            return Err(OracleError::PriceOutOfRange);
+        }
+        {
+            let mut state = self.state.borrow_mut();
+            state.vara_price_usd_micro = price_usd_micro;
+            state.price_updated_at     = exec::block_timestamp();
+        }
+        self.emit_event(OracleEvent::VaraPriceSet(price_usd_micro)).expect("event");
+        Ok(())
+    }
+
     // ── ADMIN — operator management ───────────────────────────────────────────
 
     /// Adds an operator. Only admin can call this.
@@ -383,6 +405,13 @@ impl<'a> Service<'a> {
     }
 
     // ── QUERIES ───────────────────────────────────────────────────────────────
+
+    /// Returns (price_usd_micro, price_updated_at). Both are 0 if never set.
+    #[export]
+    pub fn query_vara_usd_price(&self) -> (u64, u64) {
+        let state = self.state.borrow();
+        (state.vara_price_usd_micro, state.price_updated_at)
+    }
 
     /// Full program state — admin, feeders, threshold, all match records.
     #[export]
@@ -449,5 +478,10 @@ impl<'a> Service<'a> {
                     .map(move |s| (e.match_id, s.score, s.penalty_winner))
             })
             .collect()
+    }
+
+    #[export]
+    pub fn contract_version_1(&self) -> u32 {
+        1
     }
 }

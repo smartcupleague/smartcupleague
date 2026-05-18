@@ -35,9 +35,14 @@ describe('fetchVaraUsdMicro', () => {
     expect(await fetchVaraUsdMicro()).toBe(50_002);
   });
 
-  it('accepts lower boundary ($0.01 = 10_000 micro)', async () => {
-    vi.stubGlobal('fetch', stubFetch({ 'vara-network': { usd: 0.01 } }));
-    expect(await fetchVaraUsdMicro()).toBe(10_000);
+  it('accepts lower boundary ($0.000001 = 1 micro)', async () => {
+    vi.stubGlobal('fetch', stubFetch({ 'vara-network': { usd: 0.000001 } }));
+    expect(await fetchVaraUsdMicro()).toBe(1);
+  });
+
+  it('accepts real low VARA price below one cent', async () => {
+    vi.stubGlobal('fetch', stubFetch({ 'vara-network': { usd: 0.0007492 } }));
+    expect(await fetchVaraUsdMicro()).toBe(749);
   });
 
   it('accepts upper boundary ($100 = 100_000_000 micro)', async () => {
@@ -65,8 +70,8 @@ describe('fetchVaraUsdMicro', () => {
     expect(await fetchVaraUsdMicro()).toBeNull();
   });
 
-  it('returns null when price is below range ($0.005 → 5_000 micro)', async () => {
-    vi.stubGlobal('fetch', stubFetch({ 'vara-network': { usd: 0.005 } }));
+  it('returns null when price rounds to zero (too small)', async () => {
+    vi.stubGlobal('fetch', stubFetch({ 'vara-network': { usd: 0.0000001 } }));
     expect(await fetchVaraUsdMicro()).toBeNull();
   });
 

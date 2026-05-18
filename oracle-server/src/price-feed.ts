@@ -5,8 +5,8 @@ import { BolaoProgram } from './bolao';
 const COINGECKO_URL =
   'https://api.coingecko.com/api/v3/simple/price?ids=vara-network&vs_currencies=usd';
 
-/** Accepted range: $0.01 – $100 per VARA, expressed in micro-USD. */
-const PRICE_MIN_MICRO = 10_000;
+/** Accepted range: $0.000001 – $100 per VARA, expressed in micro-USD. */
+const PRICE_MIN_MICRO = 1;
 const PRICE_MAX_MICRO = 100_000_000;
 
 /**
@@ -15,7 +15,7 @@ const PRICE_MAX_MICRO = 100_000_000;
  *
  * Returns null when:
  *  - the fetch or JSON parse fails
- *  - the converted value falls outside [10_000, 100_000_000]
+ *  - the converted value falls outside [1, 100_000_000]
  *
  * Supports an optional COINGECKO_API_KEY env var — when set, it is sent as
  * the `x-cg-demo-api-key` header (CoinGecko demo plan requirement).

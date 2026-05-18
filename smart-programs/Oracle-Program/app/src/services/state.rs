@@ -21,18 +21,24 @@ pub struct OracleState {
     pub bolao_program_id:    Option<ActorId>,
     /// Oracle records keyed by match_id.
     pub match_results:       SailsHashMap<u64, OracleMatchEntry>,
+    /// Latest VARA/USD price in micro-USD (USD × 1_000_000). 0 = never set.
+    pub vara_price_usd_micro: u64,
+    /// Block timestamp (ms) when vara_price_usd_micro was last updated. 0 = never.
+    pub price_updated_at:    u64,
 }
 
 impl OracleState {
     pub fn new(admin: ActorId) -> Self {
         Self {
             admin,
-            pending_admin:       None,
-            operators:           Vec::new(),
-            authorized_feeders:  SailsHashMap::new(),
-            consensus_threshold: DEFAULT_CONSENSUS_THRESHOLD,
-            bolao_program_id:    None,
-            match_results:       SailsHashMap::new(),
+            pending_admin:        None,
+            operators:            Vec::new(),
+            authorized_feeders:   SailsHashMap::new(),
+            consensus_threshold:  DEFAULT_CONSENSUS_THRESHOLD,
+            bolao_program_id:     None,
+            match_results:        SailsHashMap::new(),
+            vara_price_usd_micro: 0,
+            price_updated_at:     0,
         }
     }
 }
@@ -66,6 +72,8 @@ pub struct IoOracleState {
     pub authorized_feeders:  Vec<ActorId>,
     pub match_results:       Vec<IoMatchResult>,
     pub pending_admin:       Option<ActorId>,
+    pub vara_price_usd_micro: u64,
+    pub price_updated_at:    u64,
 }
 
 impl From<&OracleState> for IoOracleState {
@@ -100,6 +108,8 @@ impl From<&OracleState> for IoOracleState {
             authorized_feeders,
             match_results,
             pending_admin:       s.pending_admin,
+            vara_price_usd_micro: s.vara_price_usd_micro,
+            price_updated_at:    s.price_updated_at,
         }
     }
 }

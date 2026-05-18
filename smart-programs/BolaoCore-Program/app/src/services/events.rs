@@ -32,4 +32,6 @@ pub enum SmartCupEvent {
     ResultProposalCancelled(u64, ActorId),
     MatchCancelled(u64, u128),
     RefundClaimed(ActorId, u128),
+    /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
+    VaraPriceRefreshed(u64),
 }

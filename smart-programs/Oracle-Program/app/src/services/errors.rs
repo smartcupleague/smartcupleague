@@ -38,4 +38,6 @@ pub enum OracleError {
     NotAnOperator,
     /// Operator address cannot be the zero address.
     InvalidOperator,
+    /// price_usd_micro is outside the valid range [1, 100_000_000].
+    PriceOutOfRange,
 }

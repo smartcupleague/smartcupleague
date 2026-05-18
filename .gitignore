@@ -33,3 +33,5 @@ venv/
 # Local runtime data
 oracle-server/data/*.json
 !oracle-server/data/.gitkeep
+
+notes

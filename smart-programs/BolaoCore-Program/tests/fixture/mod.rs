@@ -24,9 +24,6 @@ pub fn actor(id: u64) -> ActorId {
 pub struct Fixture {
     pub env: GtestEnv,
     pub program: Actor<BolaoProgram, GtestEnv>,
-    /// Shared handle to the gtest simulation — used to advance block time.
-    /// System is Rc-based internally, so this clone shares state with the env.
-    pub system: System,
 }
 
 impl Fixture {
@@ -35,11 +32,9 @@ impl Fixture {
         system.init_logger();
 
         for id in [ADMIN, NEW_ADMIN, OPERATOR, TREASURY, STRANGER, ORACLE, USER1, USER2] {
-            system.mint_to(id, 100_000_000_000_000);
+            system.mint_to(id, 10_000_000_000_000_000);
         }
 
-        // Clone before moving into GtestEnv — both handles share the same Rc<RefCell<...>>.
-        let system_ref = system.clone();
         let code_id = system.submit_code(WASM_BINARY);
         let env = GtestEnv::new(system, actor(ADMIN));
 
@@ -49,7 +44,7 @@ impl Fixture {
             .await
             .unwrap();
 
-        Fixture { env, program, system: system_ref }
+        Fixture { env, program }
     }
 
     /// Returns an Actor with the signer set to `id`.
@@ -62,6 +57,6 @@ impl Fixture {
     /// Use `CHALLENGE_WINDOW_BLOCKS` (86 400) or `CLAIM_DEADLINE_BLOCKS` (259 200)
     /// from `utils` to hit the exact thresholds defined in constants.rs.
     pub fn spend_blocks(&self, blocks: u32) {
-        self.system.spend_blocks(blocks);
+        self.env.system().run_scheduled_tasks(blocks);
     }
 }
