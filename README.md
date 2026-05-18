@@ -30,7 +30,7 @@ SmartCup League is a decentralized application (dApp) where users:
 2. **Place score predictions** on football matches before kick-off.
 3. **Earn match rewards** via a pari-mutuel pool — winners split 75% of each match pool.
 4. **Accumulate leaderboard points** across the entire tournament (weighted by phase).
-5. **Compete for the Final Prize Pool** — funded by 20% of every entry + unclaimed balances.
+5. **Compete for the Final Prize Pool** — funded by 10% of every entry + unclaimed balances.
 
 Every rule — prediction timing, payout calculation, challenge windows, prize distribution — is enforced automatically by smart contracts. There is no operator, no oracle admin, and no house edge beyond the 5% DAO treasury fee.
 
