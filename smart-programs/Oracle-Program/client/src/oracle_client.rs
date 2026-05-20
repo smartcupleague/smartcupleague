@@ -126,9 +126,9 @@ pub mod service {
             away: u8,
             penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::SubmitResult, Self::Env>;
-        fn contract_version_1(
+        fn contract_version_4(
             &self,
-        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env>;
+        ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env>;
         /// Returns a flat view of all oracle entries.
         fn query_all_results(
             &self,
@@ -237,9 +237,9 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::SubmitResult, Self::Env> {
             self.pending_call((match_id, home, away, penalty_winner))
         }
-        fn contract_version_1(
+        fn contract_version_4(
             &self,
-        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env> {
+        ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env> {
             self.pending_call(())
         }
         fn query_all_results(
@@ -288,7 +288,7 @@ pub mod service {
         sails_rs::io_struct_impl!(SetFeederAuthorized (feeder: ActorId, authorized: bool) -> ());
         sails_rs::io_struct_impl!(SetVaraUsdPrice (price_usd_micro: u64) -> ());
         sails_rs::io_struct_impl!(SubmitResult (match_id: u64, home: u8, away: u8, penalty_winner: Option<super::PenaltyWinner>) -> ());
-        sails_rs::io_struct_impl!(ContractVersion1 () -> u32);
+        sails_rs::io_struct_impl!(ContractVersion4 () -> u32);
         sails_rs::io_struct_impl!(QueryAllResults () -> Vec<super::IoMatchResult>);
         sails_rs::io_struct_impl!(QueryFeederSubmissions (feeder: ActorId) -> Vec<(u64,super::Score,Option<super::PenaltyWinner>,)>);
         sails_rs::io_struct_impl!(QueryMatchResult (match_id: u64) -> Option<super::FinalResult>);

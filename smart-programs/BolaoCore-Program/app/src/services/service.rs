@@ -14,6 +14,7 @@ use super::types::{
 };
 use super::events::SmartCupEvent;
 use super::state::{SmartCupState, IoSmartCupState};
+use super::migration::{MigrationPage, MigrationMetadata};
 use super::utils::{
     outcome, advance_outcome, is_knockout, eligible_for_payout,
     top5_share_sum_bps, collect_leaderboard,
@@ -32,6 +33,13 @@ impl Service {
     pub fn seed(admin: ActorId, treasury: ActorId) {
         SmartCupState::init(admin, treasury)
     }
+
+    /// Deploys the contract in importer mode (migration_sealed=false).
+    /// All user-facing writes are blocked until seal_migration() is called.
+    /// Use this when deploying the migration SINK contract.
+    pub fn seed_as_importer(admin: ActorId, treasury: ActorId) {
+        SmartCupState::init_as_importer(admin, treasury)
+    }
 }
 
 #[sails_rs::service(events = SmartCupEvent)]
@@ -42,6 +50,7 @@ impl Service {
     #[export]
     pub fn set_oracle_authorized(&mut self, oracle: ActorId, authorized: bool) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         state.authorized_oracles.insert(oracle, authorized);
@@ -55,6 +64,7 @@ impl Service {
     #[export]
     pub fn set_price_oracle(&mut self, oracle_program_id: ActorId) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
         state.price_oracle_program_id = Some(oracle_program_id);
     }
@@ -62,6 +72,7 @@ impl Service {
     #[export]
     pub fn set_price_staleness_limit(&mut self, staleness_limit_ms: u64) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
         state.price_staleness_limit_ms = staleness_limit_ms;
     }
@@ -73,6 +84,7 @@ impl Service {
     pub async fn refresh_vara_price(&mut self, oracle_program_id: ActorId) {
         {
             let state = SmartCupState::state_mut();
+            state.check_writes_allowed();
             state.only_admin_or_operator();
         }
 
@@ -118,6 +130,7 @@ impl Service {
         points_weight: u32,
     ) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin_or_operator();
 
         if phase_name.len() > MAX_PHASE_NAME_LEN {
@@ -155,6 +168,7 @@ impl Service {
         kick_off: u64,
     ) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin_or_operator();
 
         if !state.phases.contains_key(&phase) {
@@ -225,6 +239,7 @@ impl Service {
         predicted_penalty_winner: Option<PenaltyWinner>,
     ) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
 
         let bettor = msg::source();
         let sent_value = msg::value();
@@ -328,6 +343,7 @@ impl Service {
         penalty_winner: Option<PenaltyWinner>,
     ) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         state.only_oracle();
 
         let oracle = msg::source();
@@ -365,6 +381,7 @@ impl Service {
     #[export]
     pub fn cancel_proposed_result(&mut self, match_id: u64) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         let m = state.matches.get_mut(&match_id).expect("No such match");
@@ -403,6 +420,7 @@ impl Service {
     #[export]
     pub fn cancel_match(&mut self, match_id: u64) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         // Validate state transition
@@ -460,6 +478,7 @@ impl Service {
     #[export]
     pub fn claim_refund(&mut self) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         let caller = msg::source();
 
         let amount = state.pending_refunds.get(&caller).cloned().unwrap_or(0);
@@ -487,6 +506,7 @@ impl Service {
         // 1. Verify oracle is authorized and match is still Unresolved
         {
             let state = SmartCupState::state_mut();
+            state.check_writes_allowed();
             if !state.authorized_oracles.get(&oracle_program_id).cloned().unwrap_or(false) {
                 panic!("Oracle not authorized");
             }
@@ -556,6 +576,7 @@ impl Service {
     #[export]
     pub fn finalize_result(&mut self, match_id: u64) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         // Permissionless after challenge window — no only_admin() guard
 
         let m = state.matches.get_mut(&match_id).expect("No such match");
@@ -696,6 +717,7 @@ impl Service {
     #[export]
     pub fn claim_match_reward(&mut self, match_id: u64) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         let caller = msg::source();
 
         let m = state.matches.get_mut(&match_id).expect("No such match");
@@ -763,6 +785,7 @@ impl Service {
     #[export]
     pub fn sweep_match_dust_to_final_prize(&mut self, match_id: u64) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         // Permissionless — no only_admin() guard
 
         {
@@ -842,6 +865,7 @@ impl Service {
         third_place: String,
     ) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         let user = msg::source();
         let sent_value = msg::value();
         let now = exec::block_timestamp();
@@ -905,6 +929,7 @@ impl Service {
         third_place: String,
     ) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if state.podium_finalized {
@@ -957,6 +982,7 @@ impl Service {
     #[export]
     pub fn finalize_final_prize_pool(&mut self) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if state.final_prize_finalized {
@@ -1058,6 +1084,7 @@ impl Service {
     #[export]
     pub fn claim_final_prize(&mut self) {
         let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
         let caller = msg::source();
 
         if !state.final_prize_finalized {
@@ -1101,6 +1128,7 @@ impl Service {
     #[export]
     pub fn withdraw_protocol_fees(&mut self) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         let to = state.treasury;
@@ -1120,6 +1148,7 @@ impl Service {
     #[export]
     pub fn withdraw_final_prize_rounding_dust(&mut self) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if !state.final_prize_finalized {
@@ -1143,6 +1172,7 @@ impl Service {
     #[export]
     pub fn add_admin(&mut self, new_admin: ActorId) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if new_admin == ActorId::zero() {
@@ -1163,6 +1193,7 @@ impl Service {
     #[export]
     pub fn remove_admin(&mut self, admin_to_remove: ActorId) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if state.admins.len() <= 1 {
@@ -1188,6 +1219,7 @@ impl Service {
     #[export]
     pub fn add_operator(&mut self, new_operator: ActorId) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if new_operator == ActorId::zero() {
@@ -1207,6 +1239,7 @@ impl Service {
     #[export]
     pub fn remove_operator(&mut self, operator_to_remove: ActorId) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         let pos = state
@@ -1226,6 +1259,7 @@ impl Service {
     #[export]
     pub fn set_treasury(&mut self, new_treasury: ActorId) {
         let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
         state.only_admin();
 
         if new_treasury == ActorId::zero() {
@@ -1236,6 +1270,209 @@ impl Service {
         state.treasury = new_treasury;
 
         self.emit_event(SmartCupEvent::TreasuryChanged(old, new_treasury))
+            .expect("event");
+    }
+
+    // ── Migration: export side (SOURCE role) ─────────────────────────────────
+
+    /// T13 — Locks the contract for migration (SOURCE role).
+    /// Snapshots all collection keys into sorted Vecs; blocks all user writes.
+    /// Idempotent: calling again when already locked is a no-op.
+    #[export]
+    pub fn lock_for_migration(&mut self) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        if state.migration_locked {
+            return; // idempotent per REQ-4.2
+        }
+        state.migration_locked = true;
+        state.build_migration_indices();
+        state.migration_page_cursor = 0;
+        self.emit_event(SmartCupEvent::MigrationLocked)
+            .expect("event");
+    }
+
+    /// T15 — Returns a deterministic page of state.
+    /// Requires migration_locked == true. page_size is silently capped to MAX_MIGRATION_PAGE_SIZE.
+    #[export]
+    pub fn export_state_page(&self, page: u32, page_size: u32) -> MigrationPage {
+        let state = SmartCupState::state_ref();
+        let result = state.build_export_page(page, page_size);
+        let entries = (result.bets.len() + result.user_payloads.len()) as u32;
+        self.emit_event(SmartCupEvent::MigrationPageExported(page, entries))
+            .expect("event");
+        result
+    }
+
+    /// T16 — Returns all scalar metadata from state.
+    /// Requires migration_locked == true. Does NOT emit an event (query-style).
+    #[export]
+    pub fn export_metadata(&self) -> MigrationMetadata {
+        let state = SmartCupState::state_ref();
+        state.build_export_metadata()
+    }
+
+    /// T17 — Drains the entire program balance to `dest`.
+    /// Requires migration_locked == true and admin caller.
+    #[export]
+    pub fn drain_vara_to(&mut self, dest: ActorId) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        if !state.migration_locked {
+            panic!("Migration not locked — call lock_for_migration first");
+        }
+        if dest == ActorId::zero() {
+            panic!("Invalid drain destination");
+        }
+        if dest == exec::program_id() {
+            panic!("Drain destination must not be self");
+        }
+        let amount = exec::value_available();
+        if amount == 0 {
+            panic!("Nothing to drain");
+        }
+        msg::send_with_gas(dest, (), 0, amount)
+            .unwrap_or_else(|_| panic!("Drain send failed"));
+        self.emit_event(SmartCupEvent::MigrationVaraDrained(dest, amount))
+            .expect("event");
+    }
+
+    // ── Migration: import side (SINK role) ────────────────────────────────────
+
+    /// T18 — Imports one page of state into this contract.
+    /// Requires migration_sealed == false (importer mode) and admin caller.
+    /// All inserts are idempotent (existing entries at the same key are overwritten).
+    #[export]
+    pub fn import_state_page(&mut self, page: MigrationPage) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        if state.migration_sealed {
+            panic!("Contract already sealed");
+        }
+
+        // Matches and phases are shipped on page 0 of the source export.
+        if page.page == 0 {
+            for m in &page.matches {
+                state.matches.insert(m.match_id, m.clone());
+            }
+            for p in &page.phases {
+                state.phases.insert(p.name.clone(), p.clone());
+            }
+        }
+
+        // Bets — keyed by (user, match_id)
+        for b in &page.bets {
+            state.bets.insert((b.user, b.match_id), b.clone());
+        }
+
+        // Per-user payloads
+        for up in &page.user_payloads {
+            if !up.user_bets.is_empty() {
+                state.user_bets.insert(up.user, up.user_bets.clone());
+            }
+            if up.user_points > 0 {
+                state.user_points.insert(up.user, up.user_points);
+            }
+            if up.pending_refund > 0 {
+                state.pending_refunds.insert(up.user, up.pending_refund);
+            }
+            if let Some(pp) = &up.podium_pick {
+                state.podium_picks.insert(up.user, pp.clone());
+            }
+            if up.final_prize_allocation > 0 {
+                state.final_prize_allocations.insert(up.user, up.final_prize_allocation);
+            }
+            if up.final_prize_claimed {
+                state.final_prize_claimed.insert(up.user, true);
+            }
+        }
+
+        let entry_count = (page.bets.len() + page.user_payloads.len()) as u32;
+        state.imported_page_count = state.imported_page_count.saturating_add(1);
+
+        self.emit_event(SmartCupEvent::MigrationPageImported(page.page, entry_count))
+            .expect("event");
+    }
+
+    /// T19 — Imports scalar metadata.
+    /// Requires migration_sealed == false and admin caller.
+    /// Does NOT emit an event (REQ-8.5).
+    #[export]
+    pub fn import_metadata(&mut self, meta: MigrationMetadata) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        if state.migration_sealed {
+            panic!("Contract already sealed");
+        }
+
+        state.admins                      = meta.admins;
+        state.operators                   = meta.operators;
+        state.treasury                    = meta.treasury;
+        state.authorized_oracles          = meta.authorized_oracles.into_iter().collect();
+        state.next_match_id               = meta.next_match_id;
+        state.protocol_fee_accumulated    = meta.protocol_fee_accumulated;
+        state.final_prize_accumulated     = meta.final_prize_accumulated;
+        state.r32_lock_time               = meta.r32_lock_time;
+        state.podium_result               = meta.podium_result;
+        state.podium_finalized            = meta.podium_finalized;
+        state.final_prize_finalized       = meta.final_prize_finalized;
+        state.final_prize_claimable_total = meta.final_prize_claimable_total;
+        state.final_prize_rounding_dust   = meta.final_prize_rounding_dust;
+        state.vara_price_usd_micro        = meta.vara_price_usd_micro;
+        state.price_cached_at             = meta.price_cached_at;
+        state.price_staleness_limit_ms    = meta.price_staleness_limit_ms;
+        state.price_oracle_program_id     = meta.price_oracle_program_id;
+        // pending_refunds_scalar is informational only — NOT persisted (REQ-8.4)
+    }
+
+    /// T20 — Seals the contract after import is complete.
+    /// Flips migration_sealed to true, re-enables all writes, clears index Vecs.
+    #[export]
+    pub fn seal_migration(&mut self) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+        if state.migration_sealed {
+            panic!("Already sealed");
+        }
+        state.migration_sealed = true;
+        state.migration_locked = false;
+        // Defensively clear any half-populated export indices (REQ-9.3)
+        state.migration_match_keys.clear();
+        state.migration_bet_keys.clear();
+        state.migration_user_keys.clear();
+        state.migration_phase_keys.clear();
+
+        self.emit_event(SmartCupEvent::MigrationSealed)
+            .expect("event");
+    }
+
+    // ── Migration: ops helper ─────────────────────────────────────────────────
+
+    /// T21 — Admin push refund: sends a user's pending refund on their behalf.
+    /// Does NOT call check_writes_allowed() — valid even during migration lock
+    /// so admins can drain refunds before drain_vara_to (REQ-11.5).
+    /// Follows CEI: clears bookkeeping before send; restores on failure.
+    #[export]
+    pub fn admin_push_refund(&mut self, user: ActorId) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+
+        let amount = state.pending_refunds.get(&user).cloned().unwrap_or(0);
+        if amount == 0 {
+            panic!("No refund for this user");
+        }
+
+        // CEI: clear BEFORE send
+        state.pending_refunds.insert(user, 0);
+
+        msg::send_with_gas(user, (), 0, amount)
+            .unwrap_or_else(|_| {
+                // Restore bookkeeping — value never left
+                SmartCupState::state_mut().pending_refunds.insert(user, amount);
+                panic!("Push refund send failed");
+            });
+
+        self.emit_event(SmartCupEvent::RefundPushed(user, amount))
             .expect("event");
     }
 
@@ -1266,7 +1503,15 @@ impl Service {
             .collect()
     }
 
+    /// Returns the total VARA (planck) the contract holds on behalf of users.
+    /// Useful for off-chain tooling to compute the correct amount before drain_vara_to.
     #[export]
+    pub fn query_locked_vara(&self) -> u128 {
+        SmartCupState::state_ref().total_locked_vara()
+    }
+
+
+        #[export]
     pub fn query_state(&self) -> IoSmartCupState {
         SmartCupState::state_ref().clone().into()
     }
@@ -1414,7 +1659,7 @@ impl Service {
     }
 
     #[export]
-    pub fn contract_version_1(&self) -> u32 {
-        1
+    pub fn contract_version_4(&self) -> u32 {
+        4
     }
 }

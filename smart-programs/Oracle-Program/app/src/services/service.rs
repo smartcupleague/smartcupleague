@@ -481,7 +481,7 @@ impl<'a> Service<'a> {
     }
 
     #[export]
-    pub fn contract_version_1(&self) -> u32 {
-        1
+    pub fn contract_version_4(&self) -> u32 {
+        4
     }
 }

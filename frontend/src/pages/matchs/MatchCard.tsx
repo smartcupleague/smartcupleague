@@ -1392,7 +1392,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       className="mcx__qBtn"
                       type="button"
                       disabled={!isPredictionPricingAvailable}
-                      onClick={() => setBetAmount(formatVaraFromPlanckFixed(liveUsdMinimumPlanck, 2).replace(/,/g, ''))}
+                      onClick={() => setBetAmount(formatVaraFromPlanckFixed(liveUsdMinimumPlanck + VARA_PLANCK, 2).replace(/,/g, ''))}
                     >
                       Min
                     </button>

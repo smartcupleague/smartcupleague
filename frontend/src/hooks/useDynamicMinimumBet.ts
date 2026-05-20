@@ -56,7 +56,7 @@ function computeMinimum(state?: MinimumState | null) {
   return {
     minPlanck,
     minVara: planckToVaraNumber(minPlanck),
-    minVaraText: formatVara(minPlanck),
+    minVaraText: formatVara(minPlanck + PLANCK_PER_VARA),
     isPriceFresh: fresh,
     isBettingAvailable: fresh,
     priceUsd: price > 0n ? Number(price) / 1_000_000 : 0,

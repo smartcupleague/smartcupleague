@@ -22,6 +22,13 @@ pub trait BolaoCtors {
         admin: ActorId,
         treasury: ActorId,
     ) -> sails_rs::client::PendingCtor<BolaoProgram, io::New, Self::Env>;
+    /// Deploy in importer mode: migration_sealed=false.
+    /// All user-facing writes are blocked until seal_migration() is called.
+    fn new_as_importer(
+        self,
+        admin: ActorId,
+        treasury: ActorId,
+    ) -> sails_rs::client::PendingCtor<BolaoProgram, io::NewAsImporter, Self::Env>;
 }
 impl<E: sails_rs::client::GearEnv> BolaoCtors for sails_rs::client::Deployment<BolaoProgram, E> {
     type Env = E;
@@ -32,11 +39,19 @@ impl<E: sails_rs::client::GearEnv> BolaoCtors for sails_rs::client::Deployment<B
     ) -> sails_rs::client::PendingCtor<BolaoProgram, io::New, Self::Env> {
         self.pending_ctor((admin, treasury))
     }
+    fn new_as_importer(
+        self,
+        admin: ActorId,
+        treasury: ActorId,
+    ) -> sails_rs::client::PendingCtor<BolaoProgram, io::NewAsImporter, Self::Env> {
+        self.pending_ctor((admin, treasury))
+    }
 }
 
 pub mod io {
     use super::*;
     sails_rs::io_struct_impl!(New (admin: ActorId, treasury: ActorId) -> ());
+    sails_rs::io_struct_impl!(NewAsImporter (admin: ActorId, treasury: ActorId) -> ());
 }
 
 pub mod service {
@@ -54,6 +69,14 @@ pub mod service {
             &mut self,
             new_operator: ActorId,
         ) -> sails_rs::client::PendingCall<io::AddOperator, Self::Env>;
+        /// T21 — Admin push refund: sends a user's pending refund on their behalf.
+        /// Does NOT call check_writes_allowed() — valid even during migration lock
+        /// so admins can drain refunds before drain_vara_to (REQ-11.5).
+        /// Follows CEI: clears bookkeeping before send; restores on failure.
+        fn admin_push_refund(
+            &mut self,
+            user: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AdminPushRefund, Self::Env>;
         /// Marks a match as Cancelled and accumulates per-bettor refunds in
         /// pending_refunds. Use when a match cannot or will not produce a real
         /// result (suspension, abandonment, FIFA voiding, registration error).
@@ -81,6 +104,12 @@ pub mod service {
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::ClaimMatchReward, Self::Env>;
         fn claim_refund(&mut self) -> sails_rs::client::PendingCall<io::ClaimRefund, Self::Env>;
+        /// T17 — Drains the entire program balance to `dest`.
+        /// Requires migration_locked == true and admin caller.
+        fn drain_vara_to(
+            &mut self,
+            dest: ActorId,
+        ) -> sails_rs::client::PendingCall<io::DrainVaraTo, Self::Env>;
         fn finalize_final_prize_pool(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::FinalizeFinalPrizePool, Self::Env>;
@@ -94,6 +123,26 @@ pub mod service {
             &mut self,
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::FinalizeResult, Self::Env>;
+        /// T19 — Imports scalar metadata.
+        /// Requires migration_sealed == false and admin caller.
+        /// Does NOT emit an event (REQ-8.5).
+        fn import_metadata(
+            &mut self,
+            meta: MigrationMetadata,
+        ) -> sails_rs::client::PendingCall<io::ImportMetadata, Self::Env>;
+        /// T18 — Imports one page of state into this contract.
+        /// Requires migration_sealed == false (importer mode) and admin caller.
+        /// All inserts are idempotent (existing entries at the same key are overwritten).
+        fn import_state_page(
+            &mut self,
+            page: MigrationPage,
+        ) -> sails_rs::client::PendingCall<io::ImportStatePage, Self::Env>;
+        /// T13 — Locks the contract for migration (SOURCE role).
+        /// Snapshots all collection keys into sorted Vecs; blocks all user writes.
+        /// Idempotent: calling again when already locked is a no-op.
+        fn lock_for_migration(
+            &mut self,
+        ) -> sails_rs::client::PendingCall<io::LockForMigration, Self::Env>;
         fn place_bet(
             &mut self,
             match_id: u64,
@@ -143,6 +192,10 @@ pub mod service {
             &mut self,
             operator_to_remove: ActorId,
         ) -> sails_rs::client::PendingCall<io::RemoveOperator, Self::Env>;
+        /// T20 — Seals the contract after import is complete.
+        /// Flips migration_sealed to true, re-enables all writes, clears index Vecs.
+        fn seal_migration(&mut self)
+        -> sails_rs::client::PendingCall<io::SealMigration, Self::Env>;
         fn set_oracle_authorized(
             &mut self,
             oracle: ActorId,
@@ -178,9 +231,19 @@ pub mod service {
         fn withdraw_protocol_fees(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::WithdrawProtocolFees, Self::Env>;
-        fn contract_version_1(
+        fn contract_version_4(
             &self,
-        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env>;
+        ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env>;
+        /// T16 — Returns all scalar metadata from state.
+        /// Requires migration_locked == true. Does NOT emit an event (query-style).
+        fn export_metadata(&self) -> sails_rs::client::PendingCall<io::ExportMetadata, Self::Env>;
+        /// T15 — Returns a deterministic page of state.
+        /// Requires migration_locked == true. page_size is silently capped to MAX_MIGRATION_PAGE_SIZE.
+        fn export_state_page(
+            &self,
+            page: u32,
+            page_size: u32,
+        ) -> sails_rs::client::PendingCall<io::ExportStatePage, Self::Env>;
         fn query_bets_by_user(
             &self,
             user: ActorId,
@@ -189,6 +252,11 @@ pub mod service {
             &self,
             wallet: ActorId,
         ) -> sails_rs::client::PendingCall<io::QueryFinalPrizeClaimStatus, Self::Env>;
+        /// Returns the total VARA (planck) the contract holds on behalf of users.
+        /// Useful for off-chain tooling to compute the correct amount before drain_vara_to.
+        fn query_locked_vara(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::QueryLockedVara, Self::Env>;
         fn query_match(
             &self,
             match_id: u64,
@@ -226,6 +294,12 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::AddOperator, Self::Env> {
             self.pending_call((new_operator,))
         }
+        fn admin_push_refund(
+            &mut self,
+            user: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AdminPushRefund, Self::Env> {
+            self.pending_call((user,))
+        }
         fn cancel_match(
             &mut self,
             match_id: u64,
@@ -252,6 +326,12 @@ pub mod service {
         fn claim_refund(&mut self) -> sails_rs::client::PendingCall<io::ClaimRefund, Self::Env> {
             self.pending_call(())
         }
+        fn drain_vara_to(
+            &mut self,
+            dest: ActorId,
+        ) -> sails_rs::client::PendingCall<io::DrainVaraTo, Self::Env> {
+            self.pending_call((dest,))
+        }
         fn finalize_final_prize_pool(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::FinalizeFinalPrizePool, Self::Env> {
@@ -270,6 +350,23 @@ pub mod service {
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::FinalizeResult, Self::Env> {
             self.pending_call((match_id,))
+        }
+        fn import_metadata(
+            &mut self,
+            meta: MigrationMetadata,
+        ) -> sails_rs::client::PendingCall<io::ImportMetadata, Self::Env> {
+            self.pending_call((meta,))
+        }
+        fn import_state_page(
+            &mut self,
+            page: MigrationPage,
+        ) -> sails_rs::client::PendingCall<io::ImportStatePage, Self::Env> {
+            self.pending_call((page,))
+        }
+        fn lock_for_migration(
+            &mut self,
+        ) -> sails_rs::client::PendingCall<io::LockForMigration, Self::Env> {
+            self.pending_call(())
         }
         fn place_bet(
             &mut self,
@@ -330,6 +427,11 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::RemoveOperator, Self::Env> {
             self.pending_call((operator_to_remove,))
         }
+        fn seal_migration(
+            &mut self,
+        ) -> sails_rs::client::PendingCall<io::SealMigration, Self::Env> {
+            self.pending_call(())
+        }
         fn set_oracle_authorized(
             &mut self,
             oracle: ActorId,
@@ -379,10 +481,20 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::WithdrawProtocolFees, Self::Env> {
             self.pending_call(())
         }
-        fn contract_version_1(
+        fn contract_version_4(
             &self,
-        ) -> sails_rs::client::PendingCall<io::ContractVersion1, Self::Env> {
+        ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env> {
             self.pending_call(())
+        }
+        fn export_metadata(&self) -> sails_rs::client::PendingCall<io::ExportMetadata, Self::Env> {
+            self.pending_call(())
+        }
+        fn export_state_page(
+            &self,
+            page: u32,
+            page_size: u32,
+        ) -> sails_rs::client::PendingCall<io::ExportStatePage, Self::Env> {
+            self.pending_call((page, page_size))
         }
         fn query_bets_by_user(
             &self,
@@ -395,6 +507,11 @@ pub mod service {
             wallet: ActorId,
         ) -> sails_rs::client::PendingCall<io::QueryFinalPrizeClaimStatus, Self::Env> {
             self.pending_call((wallet,))
+        }
+        fn query_locked_vara(
+            &self,
+        ) -> sails_rs::client::PendingCall<io::QueryLockedVara, Self::Env> {
+            self.pending_call(())
         }
         fn query_match(
             &self,
@@ -435,14 +552,19 @@ pub mod service {
         use super::*;
         sails_rs::io_struct_impl!(AddAdmin (new_admin: ActorId) -> ());
         sails_rs::io_struct_impl!(AddOperator (new_operator: ActorId) -> ());
+        sails_rs::io_struct_impl!(AdminPushRefund (user: ActorId) -> ());
         sails_rs::io_struct_impl!(CancelMatch (match_id: u64) -> ());
         sails_rs::io_struct_impl!(CancelProposedResult (match_id: u64) -> ());
         sails_rs::io_struct_impl!(ClaimFinalPrize () -> ());
         sails_rs::io_struct_impl!(ClaimMatchReward (match_id: u64) -> ());
         sails_rs::io_struct_impl!(ClaimRefund () -> ());
+        sails_rs::io_struct_impl!(DrainVaraTo (dest: ActorId) -> ());
         sails_rs::io_struct_impl!(FinalizeFinalPrizePool () -> ());
         sails_rs::io_struct_impl!(FinalizePodium (champion: String, runner_up: String, third_place: String) -> ());
         sails_rs::io_struct_impl!(FinalizeResult (match_id: u64) -> ());
+        sails_rs::io_struct_impl!(ImportMetadata (meta: super::MigrationMetadata) -> ());
+        sails_rs::io_struct_impl!(ImportStatePage (page: super::MigrationPage) -> ());
+        sails_rs::io_struct_impl!(LockForMigration () -> ());
         sails_rs::io_struct_impl!(PlaceBet (match_id: u64, predicted_score: super::Score, predicted_penalty_winner: Option<super::PenaltyWinner>) -> ());
         sails_rs::io_struct_impl!(ProposeFromOracle (match_id: u64, oracle_program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(ProposeResult (match_id: u64, final_score: super::Score, penalty_winner: Option<super::PenaltyWinner>) -> ());
@@ -451,6 +573,7 @@ pub mod service {
         sails_rs::io_struct_impl!(RegisterPhase (phase_name: String, start_time: u64, end_time: u64, points_weight: u32) -> ());
         sails_rs::io_struct_impl!(RemoveAdmin (admin_to_remove: ActorId) -> ());
         sails_rs::io_struct_impl!(RemoveOperator (operator_to_remove: ActorId) -> ());
+        sails_rs::io_struct_impl!(SealMigration () -> ());
         sails_rs::io_struct_impl!(SetOracleAuthorized (oracle: ActorId, authorized: bool) -> ());
         sails_rs::io_struct_impl!(SetPriceOracle (oracle_program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(SetPriceStalenessLimit (staleness_limit_ms: u64) -> ());
@@ -459,9 +582,12 @@ pub mod service {
         sails_rs::io_struct_impl!(SweepMatchDustToFinalPrize (match_id: u64) -> ());
         sails_rs::io_struct_impl!(WithdrawFinalPrizeRoundingDust () -> ());
         sails_rs::io_struct_impl!(WithdrawProtocolFees () -> ());
-        sails_rs::io_struct_impl!(ContractVersion1 () -> u32);
+        sails_rs::io_struct_impl!(ContractVersion4 () -> u32);
+        sails_rs::io_struct_impl!(ExportMetadata () -> super::MigrationMetadata);
+        sails_rs::io_struct_impl!(ExportStatePage (page: u32, page_size: u32) -> super::MigrationPage);
         sails_rs::io_struct_impl!(QueryBetsByUser (user: ActorId) -> Vec<super::UserBetView>);
         sails_rs::io_struct_impl!(QueryFinalPrizeClaimStatus (wallet: ActorId) -> super::FinalPrizeClaimStatus);
+        sails_rs::io_struct_impl!(QueryLockedVara () -> u128);
         sails_rs::io_struct_impl!(QueryMatch (match_id: u64) -> Option<super::Match>);
         sails_rs::io_struct_impl!(QueryMatchesByPhase (phase: String) -> Vec<super::Match>);
         sails_rs::io_struct_impl!(QueryPendingRefund (user: ActorId) -> u128);
@@ -504,6 +630,18 @@ pub mod service {
             RefundClaimed((ActorId, u128)),
             /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
             VaraPriceRefreshed(u64),
+            MigrationLocked,
+            /// Emitted by export_state_page(): (page, entries_in_page).
+            MigrationPageExported((u32, u32)),
+            MigrationMetadataExported,
+            /// Emitted by drain_vara_to(): (dest, amount).
+            MigrationVaraDrained((ActorId, u128)),
+            /// Emitted by import_state_page(): (page, entries_imported).
+            MigrationPageImported((u32, u32)),
+            MigrationMetadataImported,
+            MigrationSealed,
+            /// Emitted by admin_push_refund(): (user, amount).
+            RefundPushed((ActorId, u128)),
         }
         impl sails_rs::client::Event for ServiceEvents {
             const EVENT_NAMES: &'static [Route] = &[
@@ -534,6 +672,14 @@ pub mod service {
                 "MatchCancelled",
                 "RefundClaimed",
                 "VaraPriceRefreshed",
+                "MigrationLocked",
+                "MigrationPageExported",
+                "MigrationMetadataExported",
+                "MigrationVaraDrained",
+                "MigrationPageImported",
+                "MigrationMetadataImported",
+                "MigrationSealed",
+                "RefundPushed",
             ];
         }
         impl sails_rs::client::ServiceWithEvents for ServiceImpl {
@@ -541,40 +687,54 @@ pub mod service {
         }
     }
 }
+/// Scalar metadata exported from the source contract.
+/// Used by `import_metadata` to restore non-collection state.
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
-pub struct Score {
-    pub home: u8,
-    pub away: u8,
-}
-#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
-#[codec(crate = sails_rs::scale_codec)]
-#[scale_info(crate = sails_rs::scale_info)]
-pub enum PenaltyWinner {
-    Home,
-    Away,
-}
-#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
-#[codec(crate = sails_rs::scale_codec)]
-#[scale_info(crate = sails_rs::scale_info)]
-pub struct UserBetView {
-    pub match_id: u64,
-    pub score: Score,
-    pub penalty_winner: Option<PenaltyWinner>,
-    pub stake_in_match_pool: u128,
-    pub claimed: bool,
-}
-#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
-#[codec(crate = sails_rs::scale_codec)]
-#[scale_info(crate = sails_rs::scale_info)]
-pub struct FinalPrizeClaimStatus {
-    pub wallet: ActorId,
+pub struct MigrationMetadata {
+    pub admins: Vec<ActorId>,
+    pub operators: Vec<ActorId>,
+    pub treasury: ActorId,
+    pub authorized_oracles: Vec<(ActorId, bool)>,
+    pub next_match_id: u64,
+    pub protocol_fee_accumulated: u128,
+    pub final_prize_accumulated: u128,
+    pub r32_lock_time: Option<u64>,
+    pub podium_result: Option<PodiumResult>,
+    pub podium_finalized: bool,
     pub final_prize_finalized: bool,
-    pub eligible: bool,
-    pub amount_claimable: u128,
-    pub already_claimed: bool,
-    pub points: u32,
+    pub final_prize_claimable_total: u128,
+    pub final_prize_rounding_dust: u128,
+    pub vara_price_usd_micro: u64,
+    pub price_cached_at: u64,
+    pub price_staleness_limit_ms: u64,
+    pub price_oracle_program_id: Option<ActorId>,
+    /// Informational total of all pending_refunds; NOT persisted on import.
+    pub pending_refunds_scalar: u128,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct PodiumResult {
+    pub champion: String,
+    pub runner_up: String,
+    pub third_place: String,
+}
+/// One page of state data returned by `export_state_page`.
+/// `matches` and `phases` are only populated on page 0 (they are small bounded sets).
+/// `bets` and `user_payloads` are paginated by `page_size` per collection.
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct MigrationPage {
+    pub page: u32,
+    pub total_pages: u32,
+    pub is_last_page: bool,
+    pub matches: Vec<Match>,
+    pub phases: Vec<PhaseConfig>,
+    pub bets: Vec<Bet>,
+    pub user_payloads: Vec<MigrationUserPayload>,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]
@@ -615,6 +775,91 @@ pub enum ResultStatus {
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
+pub struct Score {
+    pub home: u8,
+    pub away: u8,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub enum PenaltyWinner {
+    Home,
+    Away,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct PhaseConfig {
+    pub name: String,
+    pub start_time: u64,
+    pub end_time: u64,
+    pub points_weight: u32,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct Bet {
+    pub user: ActorId,
+    pub match_id: u64,
+    pub score: Score,
+    pub penalty_winner: Option<PenaltyWinner>,
+    pub stake_in_match_pool: u128,
+    pub claimed: bool,
+}
+/// Per-user payload bundling all user-keyed map entries for migration.
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct MigrationUserPayload {
+    pub user: ActorId,
+    pub user_bets: Vec<UserBetRecord>,
+    pub user_points: u32,
+    pub pending_refund: u128,
+    pub podium_pick: Option<PodiumPick>,
+    pub final_prize_allocation: u128,
+    pub final_prize_claimed: bool,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct UserBetRecord {
+    pub match_id: u64,
+    pub score: Score,
+    pub penalty_winner: Option<PenaltyWinner>,
+    pub stake_in_match_pool: u128,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct PodiumPick {
+    pub champion: String,
+    pub runner_up: String,
+    pub third_place: String,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct UserBetView {
+    pub match_id: u64,
+    pub score: Score,
+    pub penalty_winner: Option<PenaltyWinner>,
+    pub stake_in_match_pool: u128,
+    pub claimed: bool,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
+pub struct FinalPrizeClaimStatus {
+    pub wallet: ActorId,
+    pub final_prize_finalized: bool,
+    pub eligible: bool,
+    pub amount_claimable: u128,
+    pub already_claimed: bool,
+    pub points: u32,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
 pub struct IoSmartCupState {
     pub admins: Vec<ActorId>,
     pub operators: Vec<ActorId>,
@@ -632,15 +877,6 @@ pub struct IoSmartCupState {
     pub vara_price_usd_micro: u64,
     pub price_cached_at: u64,
     pub price_staleness_limit_ms: u64,
-}
-#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
-#[codec(crate = sails_rs::scale_codec)]
-#[scale_info(crate = sails_rs::scale_info)]
-pub struct PhaseConfig {
-    pub name: String,
-    pub start_time: u64,
-    pub end_time: u64,
-    pub points_weight: u32,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]

@@ -7,6 +7,14 @@ description = "CLI tool to deploy Oracle-Program and BolaoCore-Program to Vara t
 # Standalone workspace — NOT part of Oracle-Program or BolaoCore workspaces.
 [workspace]
 
+
+[[bin]]
+name = "deploy"
+path = "src/main.rs"
+
+[[bin]]
+name = "migrate"
+path = "src/migrate.rs"
 [dependencies]
 # Vara / sails client
 sails-rs  = { version = "0.10", features = ["gclient"] }

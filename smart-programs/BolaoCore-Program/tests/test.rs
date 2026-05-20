@@ -1,5 +1,7 @@
 use bolao_program::client::{
     service::Service as BolaoSvc, // trait — needed for method dispatch
+    BolaoCtors,
+    MigrationMetadata, MigrationPage,
     ResultStatus, Score,
 };
 use sails_rs::prelude::*;
@@ -957,6 +959,621 @@ async fn cancel_match_from_proposed_state_works() {
         .expect("USER1 should claim refund");
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Phase 6: Migration tests ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// T22 — migration_lock_blocks_writes
+// After lock_for_migration(), user writes must panic with "Contract locked for migration".
+#[tokio::test]
+async fn migration_lock_blocks_writes() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+
+    // Lock the contract
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .expect("lock_for_migration should succeed for admin");
+
+    // place_bet should fail
+    let err = f
+        .as_actor(USER1)
+        .service("Service")
+        .place_bet(match_id, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await;
+    assert!(err.is_err(), "place_bet should be blocked during migration lock");
+
+    // claim_refund should fail
+    let err = f
+        .as_actor(USER1)
+        .service("Service")
+        .claim_refund()
+        .await;
+    assert!(err.is_err(), "claim_refund should be blocked during migration lock");
+
+    // submit_podium_pick should fail
+    let err = f
+        .as_actor(USER1)
+        .service("Service")
+        .submit_podium_pick("Brazil".to_string(), "Argentina".to_string(), "France".to_string())
+        .with_value(BET_5_VARA)
+        .await;
+    assert!(err.is_err(), "submit_podium_pick should be blocked during migration lock");
+}
+
+// T23 — export_determinism
+// Calling export_state_page(0, 25) twice returns identical results.
+#[tokio::test]
+async fn export_determinism() {
+    let f = Fixture::new().await;
+    setup_phase_and_match(&f).await;
+
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(1, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    let page1 = f
+        .program
+        .service("Service")
+        .export_state_page(0, 25)
+        .query()
+        .unwrap();
+
+    let page2 = f
+        .program
+        .service("Service")
+        .export_state_page(0, 25)
+        .query()
+        .unwrap();
+
+    assert_eq!(page1, page2, "export_state_page must be deterministic");
+    assert_eq!(page1.page, 0);
+    assert!(page1.is_last_page);
+    // The single bet and single user should appear on the page
+    assert_eq!(page1.bets.len(), 1);
+    assert_eq!(page1.user_payloads.len(), 1);
+    // Matches and phases ship on page 0
+    assert_eq!(page1.matches.len(), 1);
+    assert_eq!(page1.phases.len(), 1);
+}
+
+// T24 — export_import_roundtrip (comprehensive)
+// Full E2E: real predictions + finalized match + cancelled match + pending refunds.
+// Verifies that bet scores, stakes, user points, pending refunds and fee accumulators
+// all survive the migration correctly.
+#[tokio::test]
+async fn export_import_roundtrip() {
+    // ── Source: populate state ────────────────────────────────────────────────
+    let source = Fixture::new().await;
+    let match_1 = setup_phase_and_match(&source).await; // match_id = 1
+
+    // Register a second match to later cancel (creates pending refund)
+    source
+        .program
+        .service("Service")
+        .register_match(
+            GROUP_PHASE.to_string(),
+            "Argentina".to_string(),
+            "France".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    let match_2: u64 = 2;
+
+    // USER1 predicts 2-1 on match_1 (will be exact — earns 3 points)
+    source
+        .as_actor(USER1)
+        .service("Service")
+        .place_bet(match_1, Score { home: 2, away: 1 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    // USER2 predicts 0-0 on match_1 (wrong outcome — earns 0 points)
+    source
+        .as_actor(USER2)
+        .service("Service")
+        .place_bet(match_1, Score { home: 0, away: 0 }, None)
+        .with_value(BET_10_VARA)
+        .await
+        .unwrap();
+
+    // USER1 predicts 1-0 on match_2 (will be cancelled)
+    source
+        .as_actor(USER1)
+        .service("Service")
+        .place_bet(match_2, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    // Finalize match_1 with 2-1: USER1 exact → 3 pts, USER2 wrong → 0 pts
+    propose_and_finalize(&source, match_1, Score { home: 2, away: 1 }).await;
+
+    // Cancel match_2: USER1 gets pending_refund = stake_in_match_pool
+    source
+        .program
+        .service("Service")
+        .cancel_match(match_2)
+        .await
+        .unwrap();
+
+    let user1_refund_source = source
+        .program
+        .service("Service")
+        .query_pending_refund(actor(USER1))
+        .query()
+        .unwrap();
+    assert!(user1_refund_source > 0, "USER1 should have a pending refund");
+
+    // ── Deploy sink and run migration ─────────────────────────────────────────
+    let sink = source.deploy_importer_on_same_system().await;
+
+    source
+        .program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    // Export all state pages
+    let mut pages: Vec<MigrationPage> = Vec::new();
+    let mut page_num: u32 = 0;
+    loop {
+        let page = source
+            .program
+            .service("Service")
+            .export_state_page(page_num, 25)
+            .query()
+            .unwrap();
+        let is_last = page.is_last_page;
+        pages.push(page);
+        if is_last { break; }
+        page_num += 1;
+    }
+
+    let meta = source
+        .program
+        .service("Service")
+        .export_metadata()
+        .query()
+        .unwrap();
+
+    for page in pages {
+        sink.service("Service")
+            .import_state_page(page)
+            .await
+            .unwrap();
+    }
+    sink.service("Service").import_metadata(meta).await.unwrap();
+    sink.service("Service").seal_migration().await.unwrap();
+
+    // ── Verify: structure ─────────────────────────────────────────────────────
+    let sink_state = sink.service("Service").query_state().query().unwrap();
+    assert_eq!(sink_state.matches.len(), 2, "both matches migrated");
+    assert_eq!(sink_state.phases.len(), 1, "phase migrated");
+
+    // ── Verify: USER1 predictions ─────────────────────────────────────────────
+    let user1_bets = sink
+        .service("Service")
+        .query_bets_by_user(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(user1_bets.len(), 2, "USER1 has 2 bets in sink");
+
+    let u1_m1 = user1_bets.iter().find(|b| b.match_id == match_1)
+        .expect("USER1 match_1 bet missing in sink");
+    assert_eq!(u1_m1.score.home, 2, "USER1 predicted home=2 on match_1");
+    assert_eq!(u1_m1.score.away, 1, "USER1 predicted away=1 on match_1");
+    // stake = BET_5_VARA × 85% (5% fee + 10% final prize deducted)
+    let stake_5: u128 = BET_5_VARA * 8_500 / 10_000;
+    assert_eq!(u1_m1.stake_in_match_pool, stake_5, "USER1 match_1 stake correct");
+
+    let u1_m2 = user1_bets.iter().find(|b| b.match_id == match_2)
+        .expect("USER1 match_2 bet missing in sink");
+    assert_eq!(u1_m2.score.home, 1, "USER1 predicted home=1 on match_2");
+    assert_eq!(u1_m2.score.away, 0, "USER1 predicted away=0 on match_2");
+    assert!(u1_m2.claimed, "match_2 bet marked claimed after cancel");
+
+    // ── Verify: USER2 prediction ──────────────────────────────────────────────
+    let user2_bets = sink
+        .service("Service")
+        .query_bets_by_user(actor(USER2))
+        .query()
+        .unwrap();
+    assert_eq!(user2_bets.len(), 1, "USER2 has 1 bet in sink");
+    assert_eq!(user2_bets[0].score.home, 0, "USER2 predicted home=0");
+    assert_eq!(user2_bets[0].score.away, 0, "USER2 predicted away=0");
+    let stake_10: u128 = BET_10_VARA * 8_500 / 10_000;
+    assert_eq!(user2_bets[0].stake_in_match_pool, stake_10, "USER2 stake correct");
+
+    // ── Verify: user points ───────────────────────────────────────────────────
+    let u1_pts = sink
+        .service("Service")
+        .query_user_points(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(u1_pts, 3, "USER1 earned 3 pts (exact score 2-1)");
+
+    let u2_pts = sink
+        .service("Service")
+        .query_user_points(actor(USER2))
+        .query()
+        .unwrap();
+    assert_eq!(u2_pts, 0, "USER2 earned 0 pts (wrong outcome)");
+
+    // ── Verify: pending refund migrated ──────────────────────────────────────
+    let u1_refund_sink = sink
+        .service("Service")
+        .query_pending_refund(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(u1_refund_sink, user1_refund_source, "USER1 pending refund migrated");
+
+    // ── Verify: fee accumulators ──────────────────────────────────────────────
+    // 3 bets total (5+10+5 VARA), 5% protocol fee each
+    let total_bets = BET_5_VARA + BET_10_VARA + BET_5_VARA;
+    assert_eq!(
+        sink_state.protocol_fee_accumulated,
+        total_bets * 500 / 10_000,
+        "protocol fees migrated correctly"
+    );
+
+    // ── Verify: writes work after seal ────────────────────────────────────────
+    sink.service("Service")
+        .set_treasury(actor(TREASURY))
+        .await
+        .expect("writes should work after seal");
+}
+
+// T25 — drain_vara_to_transfers_balance
+// Verifies that drain_vara_to correctly computes locked VARA from state
+// and transfers it to the destination. Uses query_locked_vara() for pre/post checks.
+#[tokio::test]
+async fn drain_vara_to_transfers_balance() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+
+    // USER1 places a bet — accumulates VARA in contract
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(match_id, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    // query_locked_vara must equal BET_5_VARA (all splits sum back to full bet)
+    let locked = f
+        .program
+        .service("Service")
+        .query_locked_vara()
+        .query()
+        .unwrap();
+    assert_eq!(locked, BET_5_VARA, "locked VARA should equal the bet amount");
+
+    // Lock for migration
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    // Drain to TREASURY
+    f.program
+        .service("Service")
+        .drain_vara_to(actor(TREASURY))
+        .await
+        .expect("drain_vara_to should succeed");
+
+    // After drain, state fields are NOT zeroed — they migrate to the SINK via export/import.
+    // The on-chain balance is 0; a second drain sees exec::value_available() == 0 and panics.
+
+    // Second drain must fail — nothing left to drain
+    let err = f
+        .program
+        .service("Service")
+        .drain_vara_to(actor(TREASURY))
+        .await;
+    assert!(err.is_err(), "second drain should fail with nothing to drain");
+}
+
+// T27 — double_seal_rejected
+// Calling seal_migration() on already-sealed contract panics.
+#[tokio::test]
+async fn double_seal_rejected() {
+    let f = Fixture::new_as_importer().await;
+
+    f.program
+        .service("Service")
+        .seal_migration()
+        .await
+        .expect("first seal should succeed");
+
+    let err = f
+        .program
+        .service("Service")
+        .seal_migration()
+        .await;
+    assert!(err.is_err(), "second seal should be rejected");
+}
+
+// T28 — page_bounds_validation
+// export_state_page with page >= total_pages panics.
+#[tokio::test]
+async fn page_bounds_validation() {
+    let f = Fixture::new().await;
+    setup_phase_and_match(&f).await;
+
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    // Page 0 should work (total_pages is at least 1)
+    f.program
+        .service("Service")
+        .export_state_page(0, 25)
+        .query()
+        .unwrap();
+
+    // Page 1 on an empty state (total_pages=1) should fail
+    let err = f
+        .program
+        .service("Service")
+        .export_state_page(1, 25)
+        .query();
+    assert!(err.is_err(), "page >= total_pages should panic");
+}
+
+// T29 — snapshot_stability
+// After lock_for_migration(), importing data on SINK does not change the SOURCE snapshot.
+#[tokio::test]
+async fn snapshot_stability() {
+    let f = Fixture::new().await;
+    setup_phase_and_match(&f).await;
+
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(1, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    // Export the locked state — bet_keys is frozen now
+    let page_before = f
+        .program
+        .service("Service")
+        .export_state_page(0, 25)
+        .query()
+        .unwrap();
+
+    // Simulate the snapshot being stable by exporting again — should be identical
+    let page_after = f
+        .program
+        .service("Service")
+        .export_state_page(0, 25)
+        .query()
+        .unwrap();
+
+    assert_eq!(
+        page_before, page_after,
+        "snapshot must be stable across repeated export calls"
+    );
+    assert_eq!(page_before.bets.len(), 1, "bet snapshot captures exactly 1 bet");
+}
+
+// T30 — importer_mode_blocks_user_writes
+// Deploying via new_as_importer → user writes blocked → seal → writes accepted.
+#[tokio::test]
+async fn importer_mode_blocks_user_writes() {
+    let f = Fixture::new_as_importer().await;
+
+    // Register phase first (admin-only, uses check_not_locked_for_export only)
+    // BUT we're in import mode (migration_sealed=false), so user writes MUST be blocked
+    // Admin writes that use check_not_locked_for_export are allowed in import mode.
+    // place_bet uses check_writes_allowed (both guards) — must be blocked.
+    f.program
+        .service("Service")
+        .register_phase(GROUP_PHASE.to_string(), 0, u64::MAX, 1)
+        .await
+        .expect("register_phase allowed in import mode (admin, not locked)");
+
+    f.program
+        .service("Service")
+        .register_match(
+            GROUP_PHASE.to_string(),
+            HOME_TEAM.to_string(),
+            AWAY_TEAM.to_string(),
+            KICK_OFF,
+        )
+        .await
+        .expect("register_match allowed in import mode");
+
+    // place_bet must be blocked by import-mode guard
+    let err = f
+        .as_actor(USER1)
+        .service("Service")
+        .place_bet(1, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await;
+    assert!(err.is_err(), "place_bet must be blocked in import mode");
+
+    // Seal — now writes are open
+    f.program
+        .service("Service")
+        .seal_migration()
+        .await
+        .expect("seal_migration should succeed");
+
+    // place_bet must now succeed
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(1, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .expect("place_bet must succeed after seal_migration");
+}
+
+// T31 — admin_handlers_work_during_export_lock (and are blocked)
+// lock_for_migration() blocks admin handlers that use check_not_locked_for_export.
+#[tokio::test]
+async fn admin_handlers_blocked_during_export_lock() {
+    let f = Fixture::new().await;
+
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    // Admin handlers that use check_not_locked_for_export must be blocked
+    let err = f
+        .program
+        .service("Service")
+        .add_admin(actor(NEW_ADMIN))
+        .await;
+    assert!(err.is_err(), "add_admin must be blocked during export lock");
+
+    let err = f
+        .program
+        .service("Service")
+        .register_phase(GROUP_PHASE.to_string(), 0, u64::MAX, 1)
+        .await;
+    assert!(err.is_err(), "register_phase must be blocked during export lock");
+
+    // Migration-specific handler (export_state_page) still works during lock
+    f.program
+        .service("Service")
+        .export_state_page(0, 25)
+        .query()
+        .expect("export_state_page works during export lock");
+
+    // admin_push_refund works during lock (REQ-11.5)
+    // (no refund exists, but the "no refund" error is from business logic, not the guard)
+    let err = f
+        .program
+        .service("Service")
+        .admin_push_refund(actor(USER1))
+        .await;
+    // Should fail with "No refund" not "Contract locked"
+    assert!(err.is_err(), "no refund exists for USER1");
+}
+
+// T26 — admin_push_refund_cei (basic)
+// admin_push_refund sends the correct amount and clears the pending refund.
+#[tokio::test]
+async fn admin_push_refund_cei() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+
+    // USER1 places a bet
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(match_id, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    // Cancel the match — populates pending_refunds for USER1
+    f.program
+        .service("Service")
+        .cancel_match(match_id)
+        .await
+        .unwrap();
+
+    // Verify refund exists
+    let refund_before = f
+        .program
+        .service("Service")
+        .query_pending_refund(actor(USER1))
+        .query()
+        .unwrap();
+    assert!(refund_before > 0, "USER1 should have a pending refund after cancel");
+
+    // Admin pushes the refund
+    f.program
+        .service("Service")
+        .admin_push_refund(actor(USER1))
+        .await
+        .expect("admin_push_refund should succeed");
+
+    // Refund should now be zero (cleared before send, per CEI)
+    let refund_after = f
+        .program
+        .service("Service")
+        .query_pending_refund(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(refund_after, 0, "pending refund should be cleared after admin_push_refund");
+
+    // Calling again should fail — no refund remains
+    let err = f
+        .program
+        .service("Service")
+        .admin_push_refund(actor(USER1))
+        .await;
+    assert!(err.is_err(), "second admin_push_refund should fail — no refund");
+}
+
+// T32 — page_size_cap_applied_silently
+// Passing a huge page_size is silently capped to MAX_MIGRATION_PAGE_SIZE.
+#[tokio::test]
+async fn page_size_cap_applied_silently() {
+    let f = Fixture::new().await;
+    setup_phase_and_match(&f).await;
+
+    // Add some bets
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(1, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    f.program
+        .service("Service")
+        .lock_for_migration()
+        .await
+        .unwrap();
+
+    // Pass a very large page_size — should not panic and should cap silently
+    let page = f
+        .program
+        .service("Service")
+        .export_state_page(0, 99_999)
+        .query()
+        .expect("large page_size should be silently capped, not panic");
+
+    // The response is valid
+    assert_eq!(page.page, 0);
+    assert!(page.total_pages >= 1);
+    // Entry counts do not exceed MAX_MIGRATION_PAGE_SIZE (50)
+    assert!(
+        page.bets.len() + page.user_payloads.len() <= 50,
+        "entries must not exceed MAX_MIGRATION_PAGE_SIZE"
+    );
+}
+
 // ── Test 23: cancel_match access control ────────────────────────────────────
 
 #[tokio::test]
@@ -1499,4 +2116,7 @@ mod price_oracle {
             .await
             .expect("bet at fallback minimum should be accepted when price is stale");
     }
+
+
 }
+

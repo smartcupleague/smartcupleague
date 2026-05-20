@@ -34,4 +34,30 @@ pub enum SmartCupEvent {
     RefundClaimed(ActorId, u128),
     /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
     VaraPriceRefreshed(u64),
+
+    // ── Migration events ──────────────────────────────────────────────────────
+
+    /// Emitted by lock_for_migration() when the contract is locked for export.
+    MigrationLocked,
+
+    /// Emitted by export_state_page(): (page, entries_in_page).
+    MigrationPageExported(u32, u32),
+
+    /// Emitted by export_metadata().
+    MigrationMetadataExported,
+
+    /// Emitted by drain_vara_to(): (dest, amount).
+    MigrationVaraDrained(ActorId, u128),
+
+    /// Emitted by import_state_page(): (page, entries_imported).
+    MigrationPageImported(u32, u32),
+
+    /// Emitted by import_metadata().
+    MigrationMetadataImported,
+
+    /// Emitted by seal_migration().
+    MigrationSealed,
+
+    /// Emitted by admin_push_refund(): (user, amount).
+    RefundPushed(ActorId, u128),
 }

@@ -90,6 +90,9 @@ async fn main() -> anyhow::Result<()> {
     println!("\n[1/8] Uploading Oracle-Program code ({} bytes)...", oracle_wasm.len());
     let oracle_code_id = upload_or_reuse(&api, &oracle_wasm, "Oracle-Program").await?;
 
+    // Wait one block so the code-upload tx is included before deploying
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+
     // [2] Deploy (init)
     println!("[2/8] Deploying Oracle-Program...");
     let oracle = env
@@ -99,6 +102,9 @@ async fn main() -> anyhow::Result<()> {
         .context("Failed to deploy Oracle-Program")?;
     let oracle_id = oracle.id();
     println!("      program_id: 0x{}", hex::encode(oracle_id.as_ref()));
+
+    // Wait one block so the deploy tx is settled before setup calls
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
 
     // [3] Post-deploy: authorize feeder + gateway operator
     // Explicit FEEDER_PUBKEY takes priority; gateway is always authorized as feeder too.
@@ -134,17 +140,30 @@ async fn main() -> anyhow::Result<()> {
     //  BOLAOCORE-PROGRAM
     // ═══════════════════════════════════════════════════════════════════════════
 
+    // Wait one block before switching to BolaoCore operations
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+
     // [4] Upload code
     println!("[4/8] Uploading BolaoCore-Program code ({} bytes)...", bolao_wasm.len());
     let bolao_code_id = upload_or_reuse(&api, &bolao_wasm, "BolaoCore-Program").await?;
 
+    // Wait one block so the code-upload tx is included before deploying
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+
     // [5] Deploy (init)
-    println!("[5/8] Deploying BolaoCore-Program...");
-    let bolao = env
-        .deploy::<BolaoProgram>(bolao_code_id, format!("scl-bolao-{deploy_version}").into_bytes())
-        .new(admin, treasury)
-        .await
-        .context("Failed to deploy BolaoCore-Program")?;
+    let import_mode = std::env::var("IMPORT_MODE").map(|v| v == "true").unwrap_or(false);
+    println!("[5/8] Deploying BolaoCore-Program{}...", if import_mode { " (importer mode)" } else { "" });
+    let bolao = if import_mode {
+        env.deploy::<BolaoProgram>(bolao_code_id, format!("scl-bolao-{deploy_version}").into_bytes())
+            .new_as_importer(admin, treasury)
+            .await
+            .context("Failed to deploy BolaoCore-Program as importer")?
+    } else {
+        env.deploy::<BolaoProgram>(bolao_code_id, format!("scl-bolao-{deploy_version}").into_bytes())
+            .new(admin, treasury)
+            .await
+            .context("Failed to deploy BolaoCore-Program")?
+    };
     let bolao_id = bolao.id();
     println!("      program_id: 0x{}", hex::encode(bolao_id.as_ref()));
 

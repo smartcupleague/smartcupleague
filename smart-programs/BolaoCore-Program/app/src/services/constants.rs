@@ -36,3 +36,11 @@ pub const CHALLENGE_WINDOW_MS: u64 = 120_000; //2 minutos // 86_400_000; = 24 ho
 
 /// Claim window: time winners have to claim their match reward after finalization.
 pub const CLAIM_DEADLINE_MS: u64 = 240_000; //4 minutos // 259_200_000;= 72 hours // 48 hours(Final)
+
+// ── Migration constants ───────────────────────────────────────────────────────
+
+/// Maximum entries per migration page per collection (caps message size below Gear's ~1 MB limit).
+pub const MAX_MIGRATION_PAGE_SIZE: u32 = 50;
+
+/// Suggested default page size for migration export.
+pub const DEFAULT_MIGRATION_PAGE_SIZE: u32 = 25;

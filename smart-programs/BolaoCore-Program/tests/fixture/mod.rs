@@ -47,6 +47,40 @@ impl Fixture {
         Fixture { env, program }
     }
 
+    /// Deploy in importer mode (migration_sealed=false). Writes are blocked until seal_migration().
+    /// NOTE: Creates a fresh System — cannot be used in the same tokio::test as Fixture::new().
+    pub async fn new_as_importer() -> Self {
+        let system = System::new();
+        system.init_logger();
+
+        for id in [ADMIN, NEW_ADMIN, OPERATOR, TREASURY, STRANGER, ORACLE, USER1, USER2] {
+            system.mint_to(id, 10_000_000_000_000_000);
+        }
+
+        let code_id = system.submit_code(WASM_BINARY);
+        let env = GtestEnv::new(system, actor(ADMIN));
+
+        let program = env
+            .deploy::<BolaoProgram>(code_id, b"bolao-importer-salt".to_vec())
+            .new_as_importer(actor(ADMIN), actor(TREASURY))
+            .await
+            .unwrap();
+
+        Fixture { env, program }
+    }
+
+    /// Deploy a second program (importer mode) on the SAME system as this fixture.
+    /// Use this when you need both a source and a sink in the same test.
+    pub async fn deploy_importer_on_same_system(&self) -> Actor<BolaoProgram, GtestEnv> {
+        let code_id = self.env.system().submit_code(WASM_BINARY);
+        let env = self.env.clone();
+        env
+            .deploy::<BolaoProgram>(code_id, b"bolao-sink-salt".to_vec())
+            .new_as_importer(actor(ADMIN), actor(TREASURY))
+            .await
+            .unwrap()
+    }
+
     /// Returns an Actor with the signer set to `id`.
     pub fn as_actor(&self, id: u64) -> Actor<BolaoProgram, GtestEnv> {
         let env = self.env.clone().with_actor_id(id.into());
