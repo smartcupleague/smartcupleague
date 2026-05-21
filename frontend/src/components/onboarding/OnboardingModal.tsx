@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './OnboardingModal.css';
 
 interface Props {
   onAccept: (nickname: string) => void | Promise<void>;
+  onClose: () => void;
 }
 
-export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
+export const OnboardingModal: React.FC<Props> = ({ onAccept, onClose }) => {
   const [checkedTerms, setCheckedTerms] = useState(false);
   const [checkedAge, setCheckedAge] = useState(false);
   const [openedTerms, setOpenedTerms] = useState(false);
@@ -14,6 +15,15 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
   const [error, setError] = useState<string | null>(null);
 
   const canContinue = openedTerms && checkedTerms && checkedAge && !isSubmitting;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isSubmitting) onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSubmitting, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +43,16 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept }) => {
     <div className="ob-overlay" role="dialog" aria-modal="true" aria-labelledby="ob-title">
       <div className="ob-backdrop" aria-hidden="true" />
       <div className="ob-panel">
+        <button
+          className="ob-close"
+          type="button"
+          aria-label="Close onboarding"
+          onClick={onClose}
+          disabled={isSubmitting}
+        >
+          &times;
+        </button>
+
         <div className="ob-logo">
           <img src="/Logos.png" alt="SmartCup League" className="ob-logo__img" />
         </div>

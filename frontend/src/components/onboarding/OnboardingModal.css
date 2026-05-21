@@ -34,6 +34,38 @@
   gap: 20px;
 }
 
+.ob-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out, transform 110ms ease-out;
+}
+
+.ob-close:hover {
+  background: rgba(255, 0, 110, 0.14);
+  border-color: rgba(255, 79, 156, 0.45);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.ob-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
 .ob-logo {
   display: flex;
   justify-content: center;

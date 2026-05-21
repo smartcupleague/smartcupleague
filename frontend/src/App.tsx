@@ -90,7 +90,12 @@ function Component() {
 
   return isAppReady || isPreviewRoute ? (
     <>
-      {showOnboarding && <OnboardingModal onAccept={handleOnboardingAccept} />}
+      {showOnboarding && (
+        <OnboardingModal
+          onAccept={handleOnboardingAccept}
+          onClose={() => setOnboardingRequested(false)}
+        />
+      )}
       <Routing />
     </>
   ) : (
