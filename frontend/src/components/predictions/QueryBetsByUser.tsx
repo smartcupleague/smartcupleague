@@ -6,7 +6,7 @@ import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { TransactionBuilder } from 'sails-js';
 import { TeamFlag } from '@/components/common/TeamFlag';
-import { Header } from '../layout';
+import { StyledWallet } from '@/components/wallet/Wallet';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase } from '@/utils';
 
@@ -582,114 +582,115 @@ export const QueryBetsByUserComponent: React.FC = () => {
       <div className="mpBg" aria-hidden="true" />
 
       <header className="mpTop">
-        <div className="mpTop__row mpTop__row--walletSafe">
-          <div className="mpTitle mpTitle--shrink">
+        <div className="mpTop__row">
+          <div className="mpTitle">
             <h1>My Predictions</h1>
             <p>Potential Winnings is an estimate and becomes exact once the match is finalized + settled.</p>
           </div>
-          <Header />
-        </div>
 
-        <div className="mpTabs">
-          {activeTournamentTabs.length > 0 ? (
-            <div className="mpTabGroup">
-              {activeTournamentTabs.map((item) => (
-                <button
-                  key={item.key}
-                  className={'mpTab ' + (tab === item.key ? 'is-active' : '')}
-                  onClick={() => { setTab(item.key); setFilterStage(''); }}
-                  type="button">
-                  {item.label} ({item.count})
-                </button>
-              ))}
+          <div className="mpTop__right">
+            <div className="mpSearch" role="search">
+              <span className="mpSearch__icon" aria-hidden="true">
+                ⌕
+              </span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search teams, match ID, status..."
+                aria-label="Search predictions"
+              />
             </div>
-          ) : null}
 
-          <div className="mpSearch">
-            <span className="mpSearch__icon" aria-hidden="true">
-              ⌕
-            </span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search teams, match id, score (e.g. 2-1), status"
-              aria-label="Search predictions"
-            />
-          </div>
-
-          <div className="mpTools">
-            <button
-              className="mpIconBtn"
-              title="Refresh predictions"
-              onClick={() => (account && isApiReady ? fetchBets() : undefined)}
-              type="button">
-              ⟳
-            </button>
-            <button className="mpIconBtn" title="Refresh state" onClick={() => (isApiReady ? fetchState() : undefined)} type="button">
-              ⛁
-            </button>
+            <div className="mpWalletWrap">
+              <StyledWallet />
+            </div>
           </div>
         </div>
 
-        <div className="mpHintbar">
-          <span className="mpPill">Prediction closes 10m before kickoff</span>
-          <span className="mpPill">85% Match / 10% Final / 5% DAO</span>
-          <span className="mpPill">On-chain pools</span>
-          <span className="mpPill mpPill--live">LIVE</span>
-
-          {/* Sort + Stage + Date filters */}
-          <select
-            className="mpFilterSelect"
-            value={sortField}
-            onChange={(e) => setSortField(e.target.value as 'match_id' | 'date' | 'az' | 'za')}
-            aria-label="Sort predictions">
-            <option value="match_id">Sort: Match #</option>
-            <option value="date">Sort: Date</option>
-            <option value="az">Sort: A → Z</option>
-            <option value="za">Sort: Z → A</option>
-          </select>
-
-          <select
-            className="mpFilterSelect"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as '' | 'claimed' | 'pending' | 'eligible' | 'not_eligible')}
-            aria-label="Filter by status">
-            <option value="">All Statuses</option>
-            <option value="claimed">Claimed</option>
-            <option value="pending">Pending</option>
-            <option value="eligible">Eligible</option>
-            <option value="not_eligible">Not Eligible</option>
-          </select>
-
-          <select
-            className="mpFilterSelect"
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            aria-label="Filter by stage">
-            <option value="">All Stages</option>
-            {availablePhases.map((p) => (
-              <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
+        {activeTournamentTabs.length > 0 ? (
+          <div className="mpTabs" role="tablist" aria-label="Tournament tabs">
+            {activeTournamentTabs.map((item) => (
+              <button
+                key={item.key}
+                className={'mpTab ' + (tab === item.key ? 'is-active' : '')}
+                onClick={() => { setTab(item.key); setFilterStage(''); }}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.key}>
+                {item.label} ({item.count})
+              </button>
             ))}
-          </select>
+          </div>
+        ) : null}
 
-          <input
-            className="mpFilterDate"
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            aria-label="Filter by date"
-            title="Filter by date"
-          />
+        <div className="mpFilters">
+          <div className="mpFilters__left">
+            <span className="mpPill">Prediction closes 10m before kickoff</span>
+            <span className="mpPill">85% Match / 10% Final / 5% DAO</span>
+            <span className="mpPill">On-chain pools</span>
+            <span className="mpPill mpPill--live">LIVE</span>
+          </div>
 
-          {(filterStage || filterDate || filterStatus) && (
-            <button
-              className="mpIconBtn"
-              type="button"
-              title="Clear filters"
-              onClick={() => { setFilterStage(''); setFilterDate(''); setFilterStatus(''); }}>
-              ✕
+          <div className="mpFilters__right">
+            <select
+              className="mpFilterSelect"
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as 'match_id' | 'date' | 'az' | 'za')}
+              aria-label="Sort predictions">
+              <option value="match_id">Sort: Match #</option>
+              <option value="date">Sort: Date</option>
+              <option value="az">Sort: A → Z</option>
+              <option value="za">Sort: Z → A</option>
+            </select>
+
+            <select
+              className="mpFilterSelect"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as '' | 'claimed' | 'pending' | 'eligible' | 'not_eligible')}
+              aria-label="Filter by status">
+              <option value="">All Statuses</option>
+              <option value="claimed">Claimed</option>
+              <option value="pending">Pending</option>
+              <option value="eligible">Eligible</option>
+              <option value="not_eligible">Not Eligible</option>
+            </select>
+
+            <select
+              className="mpFilterSelect"
+              value={filterStage}
+              onChange={(e) => setFilterStage(e.target.value)}
+              aria-label="Filter by stage">
+              <option value="">All Stages</option>
+              {availablePhases.map((p) => (
+                <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+
+            <input
+              className="mpFilterDate"
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              aria-label="Filter by date"
+              title="Filter by date"
+            />
+
+            {(filterStage || filterDate || filterStatus || search) && (
+              <button
+                className="mpBtn mpBtn--ghost"
+                type="button"
+                onClick={() => { setFilterStage(''); setFilterDate(''); setFilterStatus(''); setSearch(''); }}>
+                Clear
+              </button>
+            )}
+
+            <button className="mpBtn mpBtn--ghost" type="button" onClick={() => {
+              if (account && isApiReady) void fetchBets();
+              if (isApiReady) void fetchState();
+            }}>
+              Refresh
             </button>
-          )}
+          </div>
         </div>
 
         {connected && pendingRefund > 0n ? (

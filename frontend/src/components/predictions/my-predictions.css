@@ -243,7 +243,6 @@
 /* ─── Top Right / Wallet ─────────────────────────────────────────── */
 
 .mpTop__right {
-  width: 300px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -303,7 +302,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  min-width: 360px;
+  min-width: 420px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.10);
   background: rgba(0,0,0,0.22);
@@ -344,6 +343,11 @@
 
 .mpSearch input::placeholder {
   color: rgba(255,255,255,0.42);
+}
+
+.mpWalletWrap {
+  display: flex;
+  align-items: center;
 }
 
 @media (max-width: 980px) {
@@ -387,11 +391,10 @@
 /* ─── Tabs ───────────────────────────────────────────────────────── */
 
 .mpTabs {
-  margin-top: 14px;
+  margin-top: 12px;
   display: flex;
   gap: 8px;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
 }
 
@@ -487,6 +490,23 @@
   gap: 8px;
   align-items: center;
   box-shadow: 0 4px 18px rgba(0,0,0,0.24);
+}
+
+.mpFilters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0 0;
+}
+
+.mpFilters__left,
+.mpFilters__right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 /* ─── Pills ──────────────────────────────────────────────────────── */
@@ -1184,9 +1204,39 @@
   cursor: pointer;
 }
 
+.mpBtn {
+  border: 1px solid rgba(255,46,118,0.24);
+  background: rgba(28,0,17,0.72);
+  color: rgba(255,255,255,0.90);
+  padding: 7px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.16s ease;
+}
+
+.mpBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,46,118,0.46);
+  background: rgba(255,46,118,0.12);
+  box-shadow: 0 6px 18px rgba(255,46,118,0.12);
+}
+
+.mpBtn--ghost {
+  background: rgba(0,0,0,0.16);
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────── */
 
 @media (max-width: 980px) {
+  .mpFilters {
+    align-items: flex-start;
+  }
+
+  .mpFilters__right { flex-wrap: wrap; }
+
   .mpTHead,
   .mpRow {
     grid-template-columns: 1fr 110px 150px 120px 140px;
