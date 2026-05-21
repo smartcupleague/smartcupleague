@@ -682,7 +682,7 @@
 
 .mpTHead {
   display: grid;
-  grid-template-columns: 1.6fr 120px 170px 180px 120px 140px;
+  grid-template-columns: 1.6fr 150px 140px 190px 120px 140px;
   gap: 10px;
   padding: 10px 14px;
   border-radius: 14px;
@@ -709,7 +709,7 @@
 .mpRow {
   position: relative;
   display: grid;
-  grid-template-columns: 1.6fr 120px 170px 180px 120px 140px;
+  grid-template-columns: 1.6fr 150px 140px 190px 120px 140px;
   gap: 10px;
   align-items: center;
   padding: 12px 14px;
@@ -943,10 +943,24 @@
 }
 
 .mpNum__sub {
-  font-size: 12px;
+  font-size: 10.5px;
   color: rgba(255,255,255,0.60);
   font-weight: 800;
   margin-top: 3px;
+}
+
+.mpNum__usd {
+  display: inline-flex;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.16);
+  color: rgba(255,255,255,0.66);
+  font-size: 10.5px;
+  font-weight: 850;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 /* ─── Pick / Score ───────────────────────────────────────────────── */
@@ -957,7 +971,7 @@
   background:
     radial-gradient(520px 180px at 20% 15%, rgba(255,46,118,0.16), transparent 60%),
     rgba(0,0,0,0.16);
-  padding: 10px 14px;
+  padding: 9px 10px;
   text-align: center;
   box-shadow:
     0 0 0 1px rgba(255,46,118,0.12) inset,
@@ -973,7 +987,7 @@
 }
 
 .mpPick__score {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 980;
   letter-spacing: 0.4px;
   color: var(--accent);
@@ -1255,7 +1269,7 @@
 
   .mpTHead,
   .mpRow {
-    grid-template-columns: 1fr 110px 150px 120px 140px;
+    grid-template-columns: 1fr 130px 130px 120px 140px;
   }
   .hideMd { display: none; }
 }
@@ -1263,7 +1277,7 @@
 @media (max-width: 720px) {
   .mpTHead,
   .mpRow {
-    grid-template-columns: 1fr 110px 150px;
+    grid-template-columns: 1fr 120px 120px;
   }
   .mpTHead > :nth-child(4),
   .mpTHead > :nth-child(5),

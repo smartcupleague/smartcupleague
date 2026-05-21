@@ -881,7 +881,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
             <div className="mpTable">
               <div className="mpTHead">
                 <div>Match</div>
-                <div className="num">Stake</div>
+                <div className="num">Pool Stake</div>
                 <div className="center">Your Pick</div>
                 <div className="num hideMd">Potential / Real</div>
                 <div className="center">Status</div>
@@ -897,6 +897,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
                     const stakeBn = toBn(b.stake_in_match_pool);
                     const stakeHuman = Number(formatAmount(stakeBn, 12));
+                    const stakeUsd = planckToUsd(stakeBn);
 
                     const pickText = `${b.score.home}-${b.score.away}`;
                     const betPenalty = parsePenaltyWinner(b.penalty_winner);
@@ -1040,7 +1041,8 @@ export const QueryBetsByUserComponent: React.FC = () => {
                           <div className="mpNum__main">
                             {Number.isFinite(stakeHuman) ? stakeHuman.toFixed(1) : '0.0'}
                           </div>
-                          <div className="mpNum__sub">VARA</div>
+                          <div className="mpNum__sub">VARA • 85% pool stake</div>
+                          {stakeUsd ? <div className="mpNum__usd">{stakeUsd}</div> : null}
                         </div>
 
                         <div className="mpPick">
