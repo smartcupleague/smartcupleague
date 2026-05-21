@@ -455,7 +455,7 @@ export default function Leaderboards() {
     return upcomingMatches
       .map(normalizeMatch)
       .filter((match) => selectedTournamentKey === 'worldcup' ? isWCPhase(match.phase) : !isWCPhase(match.phase))
-      .slice(0, 3);
+      .slice(0, 4);
   }, [selectedTournamentKey, upcomingMatches]);
 
   const filtered = useMemo(() => {
@@ -717,11 +717,6 @@ export default function Leaderboards() {
               )}
             </div>
 
-            <div className="lbCard__foot">
-              <button className="lbBtn lbBtn--ghost wfull" type="button" onClick={() => navigate('/all-matches')}>
-                View all matches →
-              </button>
-            </div>
           </section>
         </aside>
       </main>
