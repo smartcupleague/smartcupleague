@@ -1,10 +1,11 @@
 .app-footer {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px 12px;
-  padding: 16px 20px;
+  padding: 18px 20px 6px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
