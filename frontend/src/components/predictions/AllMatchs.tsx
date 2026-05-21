@@ -15,6 +15,7 @@ import { reportClaim } from '@/utils/statsReporter';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 
 type MatchInfo = {
@@ -35,6 +36,12 @@ type MatchInfo = {
 type CoreState = {
   r32_lock_time?: string | number | bigint | null;
   podium_finalized?: boolean;
+};
+
+type MatchPoolStats = {
+  match_id: string;
+  total_planck: string;
+  total_bets: number;
 };
 
 function getResultDetails(result: any): {
@@ -286,6 +293,7 @@ export const MatchesTableComponent: React.FC = () => {
   const [claimLoadingId, setClaimLoadingId] = useState<string | null>(null);
   const { planckToUsd } = useVaraPrice();
   const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
+  const [poolStatsByMatchId, setPoolStatsByMatchId] = useState<Map<string, MatchPoolStats>>(new Map());
 
   useEffect(() => {
     void web3Enable('Bolao Matches UI');
@@ -331,6 +339,33 @@ export const MatchesTableComponent: React.FC = () => {
   useEffect(() => {
     fetchMatches();
   }, [fetchMatches]);
+
+  const fetchPoolStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stats/pools`);
+      if (!res.ok) throw new Error(`Pool stats request failed: ${res.status}`);
+      const data = (await res.json()) as { pools?: MatchPoolStats[] };
+      const next = new Map<string, MatchPoolStats>();
+
+      for (const pool of data.pools ?? []) {
+        if (!pool?.match_id) continue;
+        next.set(String(pool.match_id), {
+          match_id: String(pool.match_id),
+          total_planck: String(pool.total_planck ?? '0'),
+          total_bets: Number(pool.total_bets ?? 0),
+        });
+      }
+
+      setPoolStatsByMatchId(next);
+    } catch (e) {
+      console.error('fetchPoolStats error', e);
+      setPoolStatsByMatchId(new Map());
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPoolStats();
+  }, [fetchPoolStats]);
 
   const fetchUserBets = useCallback(async () => {
     const previewBets = isLocalPredictedPreview() ? buildPreviewBets(matches ?? []) : null;
@@ -653,8 +688,12 @@ export const MatchesTableComponent: React.FC = () => {
           <div className="mxList">
             {filteredMatches.map((m) => {
               const r = getResultDetails(m.result);
-              const totalPoolPlanck = parsePlanckAmount(m.match_prize_pool);
-              const poolPlanckForDisplay = totalPoolPlanck ?? 0n;
+              const apiPoolPlanck = parsePlanckAmount(poolStatsByMatchId.get(m.match_id)?.total_planck);
+              const contractPoolPlanck = parsePlanckAmount(m.match_prize_pool);
+              const poolPlanckForDisplay =
+                apiPoolPlanck !== null && apiPoolPlanck > 0n
+                  ? apiPoolPlanck
+                  : contractPoolPlanck ?? 0n;
               const totalPoolHuman = formatAmount(poolPlanckForDisplay, 12);
 
               const prediction = predictionWindow(m.kick_off);
@@ -768,10 +807,10 @@ export const MatchesTableComponent: React.FC = () => {
                     <div className="mxPools">
                       <div className="mxPool">
                         <div className="mxPool__k">Match Prize Pool</div>
-                        <div className="mxPool__v">
-                          {`${totalPoolHuman} VARA`}
+                        <div className="mxPool__valueRow">
+                          <span className="mxPool__v">{`${totalPoolHuman} VARA`}</span>
+                          <span className="mxPool__usd">{planckToUsd(poolPlanckForDisplay) || 'USD unavailable'}</span>
                         </div>
-                        <div className="mxPool__usd">{planckToUsd(poolPlanckForDisplay) || 'USD conversion unavailable'}</div>
                       </div>
                     </div>
                   </div>

@@ -965,7 +965,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 3px;
-  min-width: 148px;
+  min-width: 170px;
   padding: 6px 12px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.09);
@@ -987,6 +987,13 @@
   line-height: 1.05;
 }
 
+.mxPool__valueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+
 .mxPool__v {
   color: rgba(255,255,255,0.88);
   font-weight: 950;
@@ -999,6 +1006,7 @@
   font-size: 10.5px;
   font-weight: 800;
   line-height: 1.05;
+  white-space: nowrap;
 }
 
 /* ─── Actions ────────────────────────────────────────────────────── */
