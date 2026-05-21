@@ -89,6 +89,54 @@ function toBn(val: string | number | bigint): bigint {
   }
 }
 
+function parsePlanckAmount(val: unknown): bigint | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'bigint') return val;
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val)) return null;
+    return BigInt(Math.trunc(val));
+  }
+  if (typeof val === 'object') {
+    const json = (val as any)?.toJSON?.();
+    if (json !== undefined && json !== val) {
+      const parsed = parsePlanckAmount(json);
+      if (parsed !== null) return parsed;
+    }
+    const stringified = (val as any)?.toString?.();
+    if (typeof stringified === 'string' && stringified !== '[object Object]') {
+      return parsePlanckAmount(stringified);
+    }
+    return null;
+  }
+  if (typeof val === 'string') {
+    const cleaned = val.trim().replace(/,/g, '');
+    if (!/^\d+$/.test(cleaned)) return null;
+    return BigInt(cleaned);
+  }
+  return null;
+}
+
+function readMatchPrizePoolPlanck(match: any): bigint {
+  const candidates = [
+    match?.match_prize_pool,
+    match?.matchPrizePool,
+    match?.total_pool,
+    match?.totalPool,
+    match?.pool_total,
+    match?.poolTotal,
+    match?.pool,
+  ];
+
+  let zeroFallback: bigint | null = null;
+  for (const candidate of candidates) {
+    const parsed = parsePlanckAmount(candidate);
+    if (parsed === null) continue;
+    if (parsed > 0n) return parsed;
+    if (zeroFallback === null) zeroFallback = parsed;
+  }
+  return zeroFallback ?? 0n;
+}
+
 function parsePenaltyWinner(v: any): PenaltyWinner {
   if (!v) return undefined;
   if (v === 'Home' || v === 'Away') return v;
@@ -280,7 +328,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
             away: String(m?.away ?? ''),
             kick_off: String(m?.kick_off ?? '0'),
             result: m?.result ?? null,
-            match_prize_pool: String(m?.match_prize_pool ?? '0'),
+            match_prize_pool: readMatchPrizePoolPlanck(m).toString(),
             has_bets: Boolean(m?.has_bets),
 
             total_claimed: m?.total_claimed != null ? String(m.total_claimed) : undefined,
