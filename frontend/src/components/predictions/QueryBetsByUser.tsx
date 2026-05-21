@@ -1042,7 +1042,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
                             {Number.isFinite(stakeHuman) ? stakeHuman.toFixed(0) : '0'} VARA
                           </div>
                           {stakeUsd ? <div className="mpNum__usd">{stakeUsd}</div> : null}
-                          <div className="mpNum__sub">Match stake</div>
+                          <div className="mpNum__sub">Match pool stake</div>
                         </div>
 
                         <div className="mpPick">
