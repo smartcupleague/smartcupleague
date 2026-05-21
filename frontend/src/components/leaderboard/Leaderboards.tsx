@@ -497,31 +497,56 @@ export default function Leaderboards() {
       <div className="lb__bg" aria-hidden="true" />
 
       <header className="lbTop">
-        <div className="lbTop__left">
-          {(leaderboardTournamentTabs.length ? leaderboardTournamentTabs : [WORLD_CUP_2026_TOURNAMENT]).map((tournament) => (
-            <button
-              key={tournament.key}
-              className={'lbChip' + (selectedTournamentKey === tournament.key ? ' lbChip--active' : '')}
-              type="button"
-              onClick={() => setSelectedTournamentKey(tournament.key)}>
-              <span className="lbChip__dot">{tournament.icon}</span>
-              {tournament.label}
-              <span className="lbChip__sub">{loading ? 'Syncing…' : tournament.statusLabel}</span>
-            </button>
-          ))}
+        <div className="lbTop__row">
+          <div className="lbTitle">
+            <h1>{activeTab}</h1>
+            <p>Track rankings, points, and prediction performance.</p>
+          </div>
 
-          <button
-            className="lbChip lbChip--ghost"
-            aria-label="Refresh"
-            type="button"
-            onClick={fetchLeaderboard}
-            title="Refresh">
-            ⟳
-          </button>
+          <div className="lbTop__right">
+            <div className="lbSearch" role="search">
+              <span className="lbSearch__icon" aria-hidden="true">
+                ⌕
+              </span>
+              <input
+                className="lbSearch__input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by address"
+                aria-label="Search by address"
+              />
+            </div>
+
+            <div className="lbWalletWrap">
+              <StyledWallet />
+            </div>
+          </div>
         </div>
 
-        <div className="lbTop__right">
-          <StyledWallet />
+        <div className="lbTop__controls">
+          <div className="lbTop__left" role="tablist" aria-label="Tournament tabs">
+            {(leaderboardTournamentTabs.length ? leaderboardTournamentTabs : [WORLD_CUP_2026_TOURNAMENT]).map((tournament) => (
+              <button
+                key={tournament.key}
+                className={'lbChip' + (selectedTournamentKey === tournament.key ? ' lbChip--active' : '')}
+                type="button"
+                role="tab"
+                aria-selected={selectedTournamentKey === tournament.key}
+                onClick={() => setSelectedTournamentKey(tournament.key)}>
+                {tournament.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="lbPager">
+            <span className="muted tiny">{loading ? 'Loading…' : `Players: ${activeTournamentRows.length}`}</span>
+            <button className="lbPage lbPage--ghost" type="button" onClick={handleJumpToMe} disabled={!myWalletHex}>
+              Jump to me
+            </button>
+            <button className="lbPage" type="button" onClick={fetchLeaderboard}>
+              Refresh
+            </button>
+          </div>
         </div>
       </header>
 
@@ -538,38 +563,6 @@ export default function Leaderboards() {
               {t}
             </button>
           ))}
-        </div>
-
-        <div className="lbSearch" role="search">
-          <span className="lbSearch__icon" aria-hidden="true">
-            ⌕
-          </span>
-          <input
-            className="lbSearch__input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by address"
-            aria-label="Search by address"
-          />
-        </div>
-      </section>
-
-      <section className="lbHeaderRow">
-        <div className="lbTitle">
-          <div className="lbTitle__main">{activeTab}</div>
-          <div className="lbTitle__sub muted">
-            {selectedTournament.label} • {selectedTournament.statusLabel}
-          </div>
-        </div>
-
-        <div className="lbPager">
-          <span className="muted tiny">{loading ? 'Loading…' : `Players: ${activeTournamentRows.length}`}</span>
-          <button className="lbPage" type="button" onClick={fetchLeaderboard}>
-            Refresh
-          </button>
-          <button className="lbPage lbPage--ghost" type="button" onClick={handleJumpToMe} disabled={!myWalletHex}>
-            Jump to me
-          </button>
         </div>
       </section>
 
