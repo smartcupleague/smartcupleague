@@ -1107,9 +1107,43 @@
 .lbUpMatch:hover::before { opacity: 1; }
 
 .lbUpMatch__teams {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
   font-size: 13px;
   font-weight: 800;
   color: rgba(255,255,255,0.92);
+}
+
+.lbUpMatch__team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lbUpMatch__flag {
+  width: 20px;
+  height: 14px;
+  flex: 0 0 20px;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 4px 10px rgba(0,0,0,0.22);
+}
+
+.lbUpMatch__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lbUpMatch__vs {
+  flex: 0 0 auto;
+  color: rgba(255,255,255,0.48);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .lbUpMatch__meta {

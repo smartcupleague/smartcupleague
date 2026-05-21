@@ -17,6 +17,7 @@ import {
   matchPath,
 } from '@/utils';
 import { UserProfileModal } from './UserProfileModal';
+import { TeamFlag } from '@/components/common/TeamFlag';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const MY_LB_KEY = 'scl_my_leaderboard_v1';
@@ -677,7 +678,12 @@ export default function Leaderboards() {
           <section className="lbCard">
             <div className="lbCard__head">
               <div className="lbCard__title">Upcoming Matches</div>
-              <div className="lbCard__sub muted tiny">Next to predict</div>
+              <button
+                className="lbBtn lbBtn--ghost lbBtn--sm"
+                type="button"
+                onClick={() => navigate('/all-matches')}>
+                View full matches →
+              </button>
             </div>
 
             <div className="lbUpcoming">
@@ -687,7 +693,15 @@ export default function Leaderboards() {
                 selectedUpcomingMatches.map((m: any, i: number) => (
                   <div className="lbUpMatch" key={i}>
                     <div className="lbUpMatch__teams">
-                      {m.home} vs {m.away}
+                      <span className="lbUpMatch__team">
+                        <TeamFlag team={m.home} className="lbUpMatch__flag" />
+                        <span className="lbUpMatch__name">{m.home}</span>
+                      </span>
+                      <span className="lbUpMatch__vs">vs</span>
+                      <span className="lbUpMatch__team">
+                        <TeamFlag team={m.away} className="lbUpMatch__flag" />
+                        <span className="lbUpMatch__name">{m.away}</span>
+                      </span>
                     </div>
                     <div className="lbUpMatch__meta muted tiny">
                       {(m.phase || '').replace(/_/g, ' ')} · {formatDateTime(kickOffToMs(Number(m.kick_off)))}
