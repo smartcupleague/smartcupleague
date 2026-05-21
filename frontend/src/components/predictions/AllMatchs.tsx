@@ -517,7 +517,7 @@ export const MatchesTableComponent: React.FC = () => {
       <header className="mxTop">
         <div className="mxTop__row">
           <div className="mxTitle">
-            <h1>⚽ All Matches</h1>
+            <h1>All Matches</h1>
             <p>Browse markets, live scores, pools, and predict outcomes.</p>
           </div>
 
