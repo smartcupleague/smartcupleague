@@ -995,11 +995,13 @@
 
 .mpWin__main {
   font-weight: 980;
+  font-size: 13px;
   background: linear-gradient(130deg, #ffd700 0%, #fffacd 50%, rgba(255,255,255,0.90) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
 }
 
 .mpWin__sub {
@@ -1007,6 +1009,20 @@
   color: rgba(255,255,255,0.58);
   margin-top: 4px;
   font-weight: 800;
+}
+
+.mpWin__usd {
+  display: inline-flex;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.16);
+  color: rgba(255,255,255,0.66);
+  font-size: 10.5px;
+  font-weight: 850;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 /* ─── Status Pills ───────────────────────────────────────────────── */

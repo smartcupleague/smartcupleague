@@ -7,10 +7,12 @@ import { Program, Service } from '@/hocs/lib';
 import { TransactionBuilder } from 'sails-js';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase } from '@/utils';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 type Score = { home: number; away: number };
 type PenaltyWinner = 'Home' | 'Away' | undefined;
@@ -44,6 +46,15 @@ type MatchInfo = {
   total_winner_stake?: string;
   settlement_prepared?: boolean;
   dust_swept?: boolean;
+};
+
+type MatchPoolStats = {
+  match_id: string;
+  home_planck: string;
+  draw_planck: string;
+  away_planck: string;
+  total_planck: string;
+  total_bets: number;
 };
 
 function normalizeTeamKey(team: string) {
@@ -220,6 +231,34 @@ function totalPoolVara(m?: MatchInfo) {
   return `${formatAmount(m.match_prize_pool ?? '0', 12)} VARA`;
 }
 
+function predictionOutcomeKey(score: Score): 'home' | 'draw' | 'away' {
+  if (score.home > score.away) return 'home';
+  if (score.home < score.away) return 'away';
+  return 'draw';
+}
+
+function poolForOutcome(stats: MatchPoolStats | undefined, outcome: 'home' | 'draw' | 'away') {
+  if (!stats) return 0n;
+  if (outcome === 'home') return toBn(stats.home_planck);
+  if (outcome === 'away') return toBn(stats.away_planck);
+  return toBn(stats.draw_planck);
+}
+
+function estimatePayoutBn(stakeInMatchPool: bigint, outcomePool: bigint, matchPrizePool: bigint): bigint | null {
+  if (stakeInMatchPool <= 0n) return null;
+  if (outcomePool <= 0n) return null;
+  if (matchPrizePool <= 0n) return null;
+  return (stakeInMatchPool * matchPrizePool) / outcomePool;
+}
+
+function formatPrizeValue(amount: bigint | null) {
+  if (amount === null) return '—';
+  const raw = formatAmount(amount, 12);
+  const [intPart, fracPart] = raw.split('.');
+  const frac = (fracPart ?? '').slice(0, 4).replace(/0+$/, '');
+  return `${frac ? `${intPart}.${frac}` : intPart} VARA`;
+}
+
 function computeDeterministicShareBn(
   stakeInMatchPool: bigint,
   matchPrizePool: bigint,
@@ -293,6 +332,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
   const { account } = useAccount();
   const toast = useToast();
   const { api, isApiReady } = useApi();
+  const { planckToUsd } = useVaraPrice();
 
   const [bets, setBets] = useState<ContractUserBetView[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -309,6 +349,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
   const [claimingByMatch, setClaimingByMatch] = useState<Record<number, boolean>>({});
   const [pendingRefund, setPendingRefund] = useState<bigint>(0n);
   const [claimingRefund, setClaimingRefund] = useState(false);
+  const [poolStatsByMatchId, setPoolStatsByMatchId] = useState<Map<string, MatchPoolStats>>(new Map());
 
   useEffect(() => {
     void web3Enable('Bolao Bets UI');
@@ -386,6 +427,32 @@ export const QueryBetsByUserComponent: React.FC = () => {
     }
   }, [api, isApiReady, account, toast]);
 
+  const fetchPoolStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/stats/pools`);
+      if (!res.ok) throw new Error(`Pool stats request failed: ${res.status}`);
+      const data = (await res.json()) as { pools?: MatchPoolStats[] };
+      const next = new Map<string, MatchPoolStats>();
+
+      for (const pool of data.pools ?? []) {
+        if (!pool?.match_id) continue;
+        next.set(String(pool.match_id), {
+          match_id: String(pool.match_id),
+          home_planck: String(pool.home_planck ?? '0'),
+          draw_planck: String(pool.draw_planck ?? '0'),
+          away_planck: String(pool.away_planck ?? '0'),
+          total_planck: String(pool.total_planck ?? '0'),
+          total_bets: Number(pool.total_bets ?? 0),
+        });
+      }
+
+      setPoolStatsByMatchId(next);
+    } catch (e) {
+      console.error('fetchPoolStats error', e);
+      setPoolStatsByMatchId(new Map());
+    }
+  }, []);
+
   const fetchPendingRefund = useCallback(async () => {
     if (!api || !isApiReady || !account) {
       setPendingRefund(0n);
@@ -406,11 +473,16 @@ export const QueryBetsByUserComponent: React.FC = () => {
   }, [isApiReady, fetchState]);
 
   useEffect(() => {
+    void fetchPoolStats();
+  }, [fetchPoolStats]);
+
+  useEffect(() => {
     if (account && isApiReady) {
       void fetchBets();
       void fetchPendingRefund();
+      void fetchPoolStats();
     }
-  }, [account, isApiReady, fetchBets, fetchPendingRefund]);
+  }, [account, isApiReady, fetchBets, fetchPendingRefund, fetchPoolStats]);
 
   const connected = !!account;
 
@@ -585,6 +657,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
         toast.success('Claim completed!');
         await fetchBets();
         await fetchState();
+        await fetchPoolStats();
       } catch (e: any) {
         console.error('Claim failed', e);
         toast.error(e?.message ?? 'Claim failed');
@@ -592,7 +665,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
         setClaimingByMatch((p) => ({ ...p, [matchId]: false }));
       }
     },
-    [api, isApiReady, account, toast, fetchBets, fetchState],
+    [api, isApiReady, account, toast, fetchBets, fetchState, fetchPoolStats],
   );
 
   const claimRefund = useCallback(async () => {
@@ -617,13 +690,14 @@ export const QueryBetsByUserComponent: React.FC = () => {
       await fetchPendingRefund();
       await fetchBets();
       await fetchState();
+      await fetchPoolStats();
     } catch (e: any) {
       console.error('Refund claim failed', e);
       toast.error(e?.message ?? 'Refund claim failed');
     } finally {
       setClaimingRefund(false);
     }
-  }, [api, isApiReady, account, pendingRefund, toast, fetchPendingRefund, fetchBets, fetchState]);
+  }, [api, isApiReady, account, pendingRefund, toast, fetchPendingRefund, fetchBets, fetchState, fetchPoolStats]);
 
   return (
     <div className="mpShell">
@@ -831,14 +905,20 @@ export const QueryBetsByUserComponent: React.FC = () => {
                     const away = m?.away ?? `Away`;
                     const phase = m?.phase ?? '—';
                     const kickoff = m?.kick_off ? formatKickoff(m.kick_off) : '—';
-                    const poolHuman = m ? totalPoolVara(m) : '—';
+                    const supabasePoolStats = poolStatsByMatchId.get(String(b.match_id));
+                    const supabaseMatchPoolBn = toBn(supabasePoolStats?.total_planck ?? 0);
+                    const contractMatchPoolBn = toBn(m?.match_prize_pool ?? 0);
+                    const matchPoolBn = supabaseMatchPoolBn > 0n ? supabaseMatchPoolBn : contractMatchPoolBn;
+                    const poolHuman = matchPoolBn > 0n ? `${formatAmount(matchPoolBn, 12)} VARA` : m ? totalPoolVara(m) : '—';
 
                     const current = m ? getCurrentScore(m.result) : { home: 0, away: 0, tag: 'OPEN' as const };
                     const matchFinal = m ? isMatchFinal(m.result) : false;
 
                     const settlementPrepared = !!m?.settlement_prepared;
-                    const matchPoolBn = toBn(m?.match_prize_pool ?? 0);
                     const totalWinnerStakeBn = toBn(m?.total_winner_stake ?? 0);
+                    const predictedOutcome = predictionOutcomeKey(b.score);
+                    const predictedOutcomePoolBn = poolForOutcome(supabasePoolStats, predictedOutcome);
+                    const estimatedPayoutBn = estimatePayoutBn(stakeBn, predictedOutcomePoolBn, matchPoolBn);
 
                     const phaseWeight = m ? getPhaseWeight(m.phase, phases) : 1;
                     const { score: finalScore, penaltyWinner: finalPenalty } = m ? getFinalizedResult(m.result) : {};
@@ -849,26 +929,26 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
                     const realBn =
                       matchFinal && settlementPrepared && eligible
-                        ? computeDeterministicShareBn(stakeBn, matchPoolBn, totalWinnerStakeBn)
+                        ? estimatedPayoutBn ?? computeDeterministicShareBn(stakeBn, matchPoolBn, totalWinnerStakeBn)
                         : 0n;
 
-                    const realHuman = Number(formatAmount(realBn, 12));
-                    const potentialBefore = matchPoolBn > 0n ? matchPoolBn : 0n;
-                    const potentialText = potentialBefore > 0n ? `${formatAmount(potentialBefore, 12)}` : '—';
+                    const potentialText = formatPrizeValue(estimatedPayoutBn);
 
                     const displayValue =
-                      settlementPrepared && matchFinal ? (eligible ? realHuman.toFixed(4) : '0.0000') : potentialText;
+                      matchFinal ? (eligible ? formatPrizeValue(realBn) : '0 VARA') : potentialText;
+                    const displayPlanck = matchFinal ? (eligible ? realBn : 0n) : estimatedPayoutBn;
+                    const displayUsd = displayPlanck !== null ? planckToUsd(displayPlanck) : null;
 
                     const exactHit = matchFinal ? isExactScore(b.score, finalScore) : false;
 
                     const displaySub =
-                      settlementPrepared && matchFinal
+                      matchFinal
                         ? eligible
-                          ? exactHit
-                            ? 'Real (claimable • exact)'
-                            : 'Real (claimable • outcome)'
+                          ? 'Real prize'
                           : 'Not eligible'
-                        : 'Potential (max pool)';
+                        : estimatedPayoutBn === null
+                          ? 'Potential syncing'
+                          : 'Potential at current pool';
 
                     const claimed = !!b.claimed;
                     const matchCancelled = m ? isCancelledMatch(m.result) : false;
@@ -971,6 +1051,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
                         <div className="mpWin hideMd">
                           <div className="mpWin__main">{displayValue}</div>
+                          {displayUsd ? <div className="mpWin__usd">{displayUsd}</div> : null}
                           <div className="mpWin__sub">{displaySub}</div>
                         </div>
 
