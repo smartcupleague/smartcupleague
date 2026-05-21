@@ -751,7 +751,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
               </div>
 
               <div className="mpCard__right">
-                <span className="mpMini">{`Total bets: ${wcBets.length}`}</span>
+                <span className="mpMini">{`Total predictions: ${wcBets.length}`}</span>
               </div>
             </div>
 
