@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 
-const TERMS_VERSION = 'v1';
+const TERMS_VERSION = 'v2';
 export const ONBOARDING_CONNECT_EVENT = 'smartcup:onboarding-connect-intent';
 
 function storageKey(walletAddress?: string): string | null {
