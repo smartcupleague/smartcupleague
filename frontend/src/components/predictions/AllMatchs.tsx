@@ -136,6 +136,21 @@ function formatAmount(val: unknown, decimals = 12) {
   }
 }
 
+function parsePlanckAmount(val: unknown): bigint | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'bigint') return val;
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val)) return null;
+    return BigInt(Math.trunc(val));
+  }
+  if (typeof val === 'string') {
+    const cleaned = val.trim().replace(/,/g, '');
+    if (!/^\d+$/.test(cleaned)) return null;
+    return BigInt(cleaned);
+  }
+  return null;
+}
+
 // Extract unique phases from matches list
 function getPhases(matches: MatchInfo[]): string[] {
   const set = new Set<string>();
@@ -605,7 +620,9 @@ export const MatchesTableComponent: React.FC = () => {
           <div className="mxList">
             {filteredMatches.map((m) => {
               const r = getResultDetails(m.result);
-              const totalPoolHuman = formatAmount(m.match_prize_pool, 12);
+              const totalPoolPlanck = parsePlanckAmount(m.match_prize_pool);
+              const poolPlanckForDisplay = totalPoolPlanck ?? 0n;
+              const totalPoolHuman = formatAmount(poolPlanckForDisplay, 12);
 
               const prediction = predictionWindow(m.kick_off);
               const displayLabel = r.label === "OPEN" && prediction.closed ? "CLOSED" : r.label;
@@ -719,11 +736,9 @@ export const MatchesTableComponent: React.FC = () => {
                       <div className="mxPool">
                         <div className="mxPool__k">Match Prize Pool</div>
                         <div className="mxPool__v">
-                          {totalPoolHuman !== '—' ? `${totalPoolHuman} VARA` : (m.has_bets ? 'Pool active' : '—')}
+                          {`${totalPoolHuman} VARA`}
                         </div>
-                        {totalPoolHuman !== '—' && (
-                          <div className="mxPool__usd">{planckToUsd(m.match_prize_pool) || 'USD conversion unavailable'}</div>
-                        )}
+                        <div className="mxPool__usd">{planckToUsd(poolPlanckForDisplay) || 'USD conversion unavailable'}</div>
                       </div>
                     </div>
                   </div>
