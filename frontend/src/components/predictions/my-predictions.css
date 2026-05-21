@@ -682,8 +682,8 @@
 
 .mpTHead {
   display: grid;
-  grid-template-columns: 1.6fr 150px 140px 190px 120px 140px;
-  gap: 10px;
+  grid-template-columns: minmax(340px, 1.7fr) repeat(5, minmax(132px, 1fr));
+  gap: 12px;
   padding: 10px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255,255,255,0.07);
@@ -695,7 +695,7 @@
   text-transform: uppercase;
 }
 
-.mpTHead .num    { text-align: right; }
+.mpTHead .num,
 .mpTHead .center { text-align: center; }
 
 .mpTBody {
@@ -709,8 +709,8 @@
 .mpRow {
   position: relative;
   display: grid;
-  grid-template-columns: 1.6fr 150px 140px 190px 120px 140px;
-  gap: 10px;
+  grid-template-columns: minmax(340px, 1.7fr) repeat(5, minmax(132px, 1fr));
+  gap: 12px;
   align-items: center;
   padding: 12px 14px;
   border-radius: 14px;
@@ -934,19 +934,20 @@
 
 /* ─── Numbers ────────────────────────────────────────────────────── */
 
-.mpNum { text-align: right; }
+.mpNum { text-align: center; }
 
 .mpNum__main {
   font-weight: 980;
   letter-spacing: 0.2px;
   color: rgba(255,255,255,0.92);
+  white-space: nowrap;
 }
 
 .mpNum__sub {
   font-size: 10.5px;
   color: rgba(255,255,255,0.60);
   font-weight: 800;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .mpNum__usd {
@@ -1005,7 +1006,7 @@
 
 /* ─── Winnings ───────────────────────────────────────────────────── */
 
-.mpWin { text-align: right; }
+.mpWin { text-align: center; }
 
 .mpWin__main {
   font-weight: 980;
@@ -1269,7 +1270,7 @@
 
   .mpTHead,
   .mpRow {
-    grid-template-columns: 1fr 130px 130px 120px 140px;
+    grid-template-columns: minmax(260px, 1fr) repeat(4, minmax(120px, 1fr));
   }
   .hideMd { display: none; }
 }
@@ -1277,7 +1278,7 @@
 @media (max-width: 720px) {
   .mpTHead,
   .mpRow {
-    grid-template-columns: 1fr 120px 120px;
+    grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(108px, 1fr));
   }
   .mpTHead > :nth-child(4),
   .mpTHead > :nth-child(5),
