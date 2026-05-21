@@ -471,7 +471,7 @@
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 14px;
-  padding-bottom: 76px;
+  padding-bottom: 30px;
   min-width: 0;
 }
 
@@ -557,7 +557,7 @@
 .lbRight {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -1070,16 +1070,16 @@
 .lbUpcoming {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 4px 0;
+  gap: 7px;
+  padding: 2px 0 0;
 }
 
 .lbUpMatch {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
+  gap: 3px;
+  padding: 9px 12px;
   border-radius: 14px;
   border: 1px solid rgba(255,255,255,0.09);
   background: rgba(0,0,0,0.18);
@@ -1264,8 +1264,8 @@
   bottom: 0;
   z-index: 10;
   width: 100%;
-  margin-top: 14px;
-  padding: 14px 18px;
+  margin-top: 8px;
+  padding: 12px 18px;
   border-radius: calc(var(--r) + 6px);
   border: 1px solid rgba(255,255,255,0.10);
   border-top: 1px solid rgba(255,46,118,0.35);
