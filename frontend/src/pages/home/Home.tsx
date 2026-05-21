@@ -790,26 +790,29 @@ export default function Home() {
       <div className="h-bg" aria-hidden="true" />
 
       <header className="h-topbar">
-        <div className="h-tabs">
+        <div className="h-topbar__row">
+          <div className="h-title">
+            <h1>My Progress</h1>
+            <p>Monitor your rank, points, predictions, and upcoming opportunities.</p>
+          </div>
+
+          <div className="h-user">
+            <StyledWallet />
+          </div>
+        </div>
+
+        <div className="h-tabs" role="tablist" aria-label="Tournament tabs">
           {(homeTournamentTabs.length ? homeTournamentTabs : [WORLD_CUP_2026_TOURNAMENT]).map((tournament) => (
             <button
               key={tournament.key}
               className={'h-tab' + (activeTournamentKey === tournament.key ? ' h-tab--active' : '')}
               type="button"
+              role="tab"
+              aria-selected={activeTournamentKey === tournament.key}
               onClick={() => setActiveTournamentKey(tournament.key)}>
-              <span className="h-tab__dot">{tournament.icon}</span>
               {tournament.label}
-              <span className="h-tab__sub">{loading ? 'Syncing…' : tournament.statusLabel}</span>
             </button>
           ))}
-
-          <button className="h-tab h-tab--ghost" aria-label="Refresh" type="button" onClick={fetchAll} title="Refresh">
-            ⟳
-          </button>
-        </div>
-
-        <div className="h-user">
-          <StyledWallet />
         </div>
       </header>
 
