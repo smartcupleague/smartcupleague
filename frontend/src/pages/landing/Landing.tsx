@@ -4,7 +4,7 @@ import { FaInstagram, FaTelegram, FaXTwitter } from 'react-icons/fa6';
 import { Link, useNavigate } from 'react-router-dom';
 import { Program, Service } from '@/hocs/lib';
 import { matchPath } from '@/utils';
-import { TEAM_FLAGS } from '@/utils/teams';
+import { getTeamFlagSrc } from '@/utils/teams';
 import './landing.css';
 
 type Slide = { src: string; alt: string; kicker?: string; title: string; titleLines?: string[]; subtitle: string };
@@ -53,8 +53,7 @@ function isFinalized(result: any) {
 }
 
 function flagSrc(team: string) {
-  const key = (team || '').trim().toUpperCase().replace(/\s+/g, ' ');
-  return TEAM_FLAGS[key] ?? null;
+  return getTeamFlagSrc(team);
 }
 
 function teamInitials(team: string) {

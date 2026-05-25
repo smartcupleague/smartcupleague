@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTeamCrests } from '@/hooks/useTeamCrests';
-import { TEAM_FLAGS } from '@/utils/teams';
-
-function localFlag(name: string): string | null {
-  const key = (name || '').trim().toUpperCase().replace(/\s+/g, ' ');
-  return TEAM_FLAGS[key] ?? null;
-}
+import { getTeamFlagSrc } from '@/utils/teams';
 
 function teamInitials(name: string): string {
   return (name || '?')
@@ -25,7 +20,7 @@ interface TeamFlagProps {
 export function TeamFlag({ team, className, alt }: TeamFlagProps) {
   const getCrest = useTeamCrests();
   const crest = getCrest(team);
-  const local = localFlag(team);
+  const flag = getTeamFlagSrc(team);
 
   const [failedCrest, setFailedCrest] = useState(false);
   const [failedLocal, setFailedLocal] = useState(false);
@@ -34,6 +29,10 @@ export function TeamFlag({ team, className, alt }: TeamFlagProps) {
   useEffect(() => {
     if (crest) setFailedCrest(false);
   }, [crest]);
+
+  useEffect(() => {
+    if (flag) setFailedLocal(false);
+  }, [flag]);
 
   if (crest && !failedCrest) {
     return (
@@ -47,11 +46,11 @@ export function TeamFlag({ team, className, alt }: TeamFlagProps) {
     );
   }
 
-  if (local && !failedLocal) {
+  if (flag && !failedLocal) {
     return (
       <img
         className={className}
-        src={local}
+        src={flag}
         alt={alt ?? team}
         onError={() => setFailedLocal(true)}
         loading="lazy"
