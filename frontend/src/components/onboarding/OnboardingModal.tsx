@@ -4,9 +4,10 @@ import './OnboardingModal.css';
 interface Props {
   onAccept: (nickname: string) => void | Promise<void>;
   onClose: () => void;
+  canClose?: boolean;
 }
 
-export const OnboardingModal: React.FC<Props> = ({ onAccept, onClose }) => {
+export const OnboardingModal: React.FC<Props> = ({ onAccept, onClose, canClose = true }) => {
   const [checkedTerms, setCheckedTerms] = useState(false);
   const [checkedAge, setCheckedAge] = useState(false);
   const [openedTerms, setOpenedTerms] = useState(false);
@@ -18,12 +19,12 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept, onClose }) => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isSubmitting) onClose();
+      if (event.key === 'Escape' && !isSubmitting && canClose) onClose();
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSubmitting, onClose]);
+  }, [canClose, isSubmitting, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,15 +44,17 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept, onClose }) => {
     <div className="ob-overlay" role="dialog" aria-modal="true" aria-labelledby="ob-title">
       <div className="ob-backdrop" aria-hidden="true" />
       <div className="ob-panel">
-        <button
-          className="ob-close"
-          type="button"
-          aria-label="Close onboarding"
-          onClick={onClose}
-          disabled={isSubmitting}
-        >
-          &times;
-        </button>
+        {canClose ? (
+          <button
+            className="ob-close"
+            type="button"
+            aria-label="Close onboarding"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            &times;
+          </button>
+        ) : null}
 
         <div className="ob-logo">
           <img src="/Logos.png" alt="SmartCup League" className="ob-logo__img" />

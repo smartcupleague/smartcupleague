@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useApi, useAccount } from '@gear-js/react-hooks';
 import { ApiLoader } from '@/components';
 import { withProviders } from '@/hocs';
 import { Routing } from '@/pages';
-import { ONBOARDING_CONNECT_EVENT, useOnboarding } from '@/hooks/useOnboarding';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import './app-layout.css';
@@ -18,7 +18,6 @@ function Component() {
     isSaving: isProfileSaving,
     save: saveWalletProfile,
   } = useWalletProfile();
-  const [onboardingRequested, setOnboardingRequested] = useState(false);
   const syncedProfileNicknameRef = useRef<string | null>(null);
 
   const isAppReady = isApiReady;
@@ -43,17 +42,7 @@ function Component() {
   const isPreviewRoute = previewRoutes.includes(pathname) || previewRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
   const onboardingExemptRoutes = ['/terms-of-use', '/dao-constitution', '/rules'];
   const isOnboardingExemptRoute = onboardingExemptRoutes.includes(pathname);
-  const showOnboarding = !!account && onboardingRequested && !onboarding.accepted && !isOnboardingExemptRoute;
-
-  useEffect(() => {
-    const requestOnboarding = () => setOnboardingRequested(true);
-    window.addEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
-    return () => window.removeEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
-  }, []);
-
-  useEffect(() => {
-    if (!account || onboarding.accepted) setOnboardingRequested(false);
-  }, [account, onboarding.accepted]);
+  const showOnboarding = !!account && !onboarding.accepted && !isOnboardingExemptRoute;
 
   useEffect(() => {
     if (!account || !onboarding.accepted || !onboarding.nickname || displayName || isProfileLoading || isProfileSaving) {
@@ -85,7 +74,6 @@ function Component() {
     }
 
     onboarding.accept(trimmed);
-    setOnboardingRequested(false);
   };
 
   return isAppReady || isPreviewRoute ? (
@@ -93,7 +81,8 @@ function Component() {
       {showOnboarding && (
         <OnboardingModal
           onAccept={handleOnboardingAccept}
-          onClose={() => setOnboardingRequested(false)}
+          onClose={() => {}}
+          canClose={false}
         />
       )}
       <Routing />
