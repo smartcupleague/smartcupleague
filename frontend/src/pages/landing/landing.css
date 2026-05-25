@@ -513,6 +513,7 @@ a:hover {
   width: 100vw;
   margin: 36px calc(50% - 50vw) 0;
   padding: 46px 7% 50px;
+  scroll-margin-top: var(--scroll-offset);
   background:
     radial-gradient(760px 260px at 50% 12%, rgba(255, 46, 118, 0.13), transparent 70%),
     linear-gradient(180deg, #1a000c 0%, #270011 48%, #270011 100%);
@@ -543,7 +544,7 @@ a:hover {
 .scb-video {
   position: relative;
   max-width: 920px;
-  margin: 0 auto;
+  margin: 28px auto 0;
   aspect-ratio: 16 / 9;
   border-radius: var(--radius);
   overflow: hidden;
@@ -840,6 +841,10 @@ a:hover {
   color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.58;
+}
+
+.scb-steps--video {
+  margin-top: 24px;
 }
 
 .scb-faq {
