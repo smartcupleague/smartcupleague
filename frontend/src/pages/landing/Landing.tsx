@@ -198,8 +198,9 @@ export const Landing: React.FC = () => {
         </div>
       </nav>
 
-      <main id="top">
+      <main>
         <section
+          id="top"
           className="scb-hero-carousel"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}>
