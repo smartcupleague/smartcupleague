@@ -1244,6 +1244,12 @@
   box-shadow: none;
 }
 
+.lbBtn--predicted {
+  border-color: rgba(70, 255, 180, 0.28);
+  background: rgba(70, 255, 180, 0.12);
+  color: rgba(218, 255, 239, 0.96);
+}
+
 .lbBtn--disabled,
 .lbBtn--disabled:disabled {
   opacity: 1;

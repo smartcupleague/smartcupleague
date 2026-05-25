@@ -82,6 +82,10 @@ function formatDateTime(ms: number) {
   );
 }
 
+function isFinalizedMatch(m: LeaderboardMatch) {
+  return !!((m.result as any)?.Finalized || (m.result as any)?.finalized);
+}
+
 function normalizeMatch(m: any): LeaderboardMatch {
   return {
     match_id: String(m?.match_id ?? m?.matchId ?? ''),
@@ -249,6 +253,7 @@ export default function Leaderboards() {
   const [rows, setRows] = useState<LbRow[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [stateMatches, setStateMatches] = useState<LeaderboardMatch[]>([]);
+  const [predictedMatchIds, setPredictedMatchIds] = useState<Set<string>>(new Set());
   const [profileRow, setProfileRow] = useState<LbRow | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -290,10 +295,22 @@ export default function Leaderboards() {
       const statsMap = await fetchApiStats();
 
       let chainState: QueryStateResponse | null = null;
+      let svc: Service | null = null;
       try {
-        const svc = new Service(new Program(api, PROGRAM_ID));
+        svc = new Service(new Program(api, PROGRAM_ID));
         chainState = (await (svc as any).queryState()) as QueryStateResponse;
       } catch { /* non-fatal; indexer path can still render leaderboard */ }
+
+      if (svc && account?.decodedAddress) {
+        try {
+          const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+          setPredictedMatchIds(new Set((bets ?? []).map((b) => String(b?.match_id ?? '')).filter(Boolean)));
+        } catch {
+          setPredictedMatchIds(new Set());
+        }
+      } else {
+        setPredictedMatchIds(new Set());
+      }
 
       const normalizedStateMatches = Array.isArray(chainState?.matches)
         ? chainState.matches.map(normalizeMatch)
@@ -374,8 +391,7 @@ export default function Leaderboards() {
           .filter((m: any) => {
             const ko = Number(m?.kick_off ?? 0);
             const ms = ko < 10_000_000_000 ? ko * 1000 : ko;
-            const isFinalized = !!(m?.result?.Finalized || m?.result?.finalized);
-            return !isFinalized && ms > now;
+            return !isFinalizedMatch(m) && ms > now;
           })
           .sort((a: any, b: any) => {
             const aMs = kickOffToMs(Number(a.kick_off));
@@ -392,7 +408,7 @@ export default function Leaderboards() {
     } finally {
       setLoading(false);
     }
-  }, [api, isApiReady, toast]);
+  }, [account, api, isApiReady, toast]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -452,11 +468,22 @@ export default function Leaderboards() {
   }, [activeTournamentMatches, rows, stateMatches.length]);
 
   const selectedUpcomingMatches = useMemo(() => {
-    return upcomingMatches
-      .map(normalizeMatch)
-      .filter((match) => selectedTournamentKey === 'worldcup' ? isWCPhase(match.phase) : !isWCPhase(match.phase))
-      .slice(0, 4);
-  }, [selectedTournamentKey, upcomingMatches]);
+    const now = Date.now();
+    const upcoming = activeTournamentMatches
+      .filter((match) => {
+        const kickOff = kickOffToMs(Number(match.kick_off));
+        return kickOff > now && !isFinalizedMatch(match);
+      })
+      .sort((a, b) => kickOffToMs(Number(a.kick_off)) - kickOffToMs(Number(b.kick_off)));
+
+    const unpredicted = upcoming.filter((match) => !predictedMatchIds.has(String(match.match_id)));
+    const displayMatches = unpredicted.length ? unpredicted.slice(0, 4) : upcoming.slice(0, 1);
+
+    return displayMatches.map((match) => ({
+      ...match,
+      isPredicted: predictedMatchIds.has(String(match.match_id)),
+    }));
+  }, [activeTournamentMatches, predictedMatchIds]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -683,8 +710,8 @@ export default function Leaderboards() {
               {selectedUpcomingMatches.length === 0 ? (
                 <div className="muted tiny" style={{ padding: '8px 0' }}>No upcoming matches loaded.</div>
               ) : (
-                selectedUpcomingMatches.map((m: any, i: number) => (
-                  <div className="lbUpMatch" key={i}>
+                selectedUpcomingMatches.map((m) => (
+                  <div className="lbUpMatch" key={m.match_id}>
                     <div className="lbUpMatch__teams">
                       <span className="lbUpMatch__team">
                         <TeamFlag team={m.home} className="lbUpMatch__flag" />
@@ -700,10 +727,10 @@ export default function Leaderboards() {
                       {(m.phase || '').replace(/_/g, ' ')} · {formatDateTime(kickOffToMs(Number(m.kick_off)))}
                     </div>
                     <button
-                      className="lbBtn lbBtn--soft lbBtn--sm"
+                      className={'lbBtn lbBtn--soft lbBtn--sm' + (m.isPredicted ? ' lbBtn--predicted' : '')}
                       type="button"
                       onClick={() => navigate(matchPath(m.phase, m.match_id))}>
-                      Predict
+                      {m.isPredicted ? 'Predicted' : 'Predict'}
                     </button>
                   </div>
                 ))
