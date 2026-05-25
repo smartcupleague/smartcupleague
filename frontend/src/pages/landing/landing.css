@@ -332,12 +332,7 @@ a:hover {
 
 
 .scb-slide--2 .scb-slide__img {
-  width: 112%;
-  height: 112%;
-  object-fit: cover;
-  object-position: left 38%;
-  transform: translate(-3%, -6%) scale(0.94);
-  transform-origin: left top;
+  object-position: 42% 38%;
 }
 
 .scb-slide--2 .scb-slide__content {
