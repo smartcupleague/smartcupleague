@@ -610,20 +610,80 @@ a:hover {
 
 .scb-highlight {
   position: relative;
+  appearance: none;
+  width: 100%;
+  min-height: 240px;
+  padding: 0;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.02);
   box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
-.scb-highlight img {
+.scb-highlight:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 46, 118, 0.28);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.48);
+}
+
+.scb-highlight__flags {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.44)),
+    radial-gradient(circle at 30% 15%, rgba(255, 255, 255, 0.16), transparent 34%);
+}
+
+.scb-highlight__flagPane {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.scb-highlight__flagPane--home {
+  clip-path: polygon(0 0, 68% 0, 43% 100%, 0 100%);
+}
+
+.scb-highlight__flagPane--away {
+  clip-path: polygon(58% 0, 100% 0, 100% 100%, 34% 100%);
+}
+
+.scb-highlight__flagPane img {
   width: 100%;
-  height: 240px;
+  height: 100%;
   object-fit: cover;
   display: block;
-  filter: brightness(0.72) saturate(1.02);
-  transform: scale(1.02);
+  filter: brightness(0.72) saturate(1.08) contrast(1.05);
+  transform: scale(1.06);
+}
+
+.scb-highlight__flagPane span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 3rem;
+  font-weight: 950;
+  background: linear-gradient(135deg, rgba(255, 46, 118, 0.22), rgba(255, 255, 255, 0.08));
+}
+
+.scb-highlight__split {
+  position: absolute;
+  inset: -18% 43% -18% auto;
+  width: 18%;
+  transform: rotate(18deg);
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent),
+    rgba(25, 0, 14, 0.22);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.38);
+  opacity: 0.78;
 }
 
 .scb-highlight__overlay {
@@ -631,18 +691,41 @@ a:hover {
   left: 14px;
   right: 14px;
   bottom: 12px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
   font-size: 0.96rem;
   font-weight: 900;
   letter-spacing: -0.01em;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
 }
 
 .scb-highlight__overlay span {
-  display: block;
+  flex: 0 0 100%;
   font-size: 12px;
   letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.scb-highlight__overlay small {
+  color: #ffd35f;
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.scb-highlight__overlay em {
+  flex: 0 0 100%;
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .scb-steps--cards {
@@ -858,8 +941,8 @@ a:hover {
   .scb-steps--cards {
     grid-template-columns: 1fr;
   }
-  .scb-highlight img {
-    height: 220px;
+  .scb-highlight {
+    min-height: 220px;
   }
 }
 

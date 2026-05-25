@@ -1,9 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useApi } from '@gear-js/react-hooks';
 import { FaInstagram, FaTelegram, FaXTwitter } from 'react-icons/fa6';
 import { Link, useNavigate } from 'react-router-dom';
+import { Program, Service } from '@/hocs/lib';
+import { matchPath } from '@/utils';
+import { TEAM_FLAGS } from '@/utils/teams';
 import './landing.css';
 
 type Slide = { src: string; alt: string; kicker?: string; title: string; titleLines?: string[]; subtitle: string };
+type HighlightMatch = {
+  match_id: string;
+  phase: string;
+  home: string;
+  away: string;
+  kick_off: number;
+  result?: any;
+};
+
+const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
+
+const fallbackHighlights: HighlightMatch[] = [
+  { match_id: '1', phase: 'Europe', home: 'Spain', away: 'France', kick_off: 0 },
+  { match_id: '2', phase: 'South America', home: 'Argentina', away: 'Uruguay', kick_off: 0 },
+  { match_id: '3', phase: 'Global', home: 'England', away: 'Germany', kick_off: 0 },
+];
 
 const socialLinks = [
   {
@@ -23,8 +43,38 @@ const socialLinks = [
   },
 ];
 
+function kickOffToMs(input: number) {
+  if (!input || !Number.isFinite(input)) return 0;
+  return input < 10_000_000_000 ? input * 1000 : input;
+}
+
+function isFinalized(result: any) {
+  return !!(result?.Finalized || result?.finalized);
+}
+
+function flagSrc(team: string) {
+  const key = (team || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return TEAM_FLAGS[key] ?? null;
+}
+
+function teamInitials(team: string) {
+  return (team || '?')
+    .split(/\s+/)
+    .map((word) => word[0] ?? '')
+    .join('')
+    .slice(0, 3)
+    .toUpperCase();
+}
+
+function formatKickoff(ms: number) {
+  if (!ms) return 'Next top clash';
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
+  const { api, isApiReady } = useApi();
+  const [highlightMatches, setHighlightMatches] = useState<HighlightMatch[]>(fallbackHighlights);
 
   const slides: Slide[] = useMemo(
     () => [
@@ -69,6 +119,43 @@ export const Landing: React.FC = () => {
     const t = window.setInterval(() => setActive((i) => (i + 1) % slides.length), 5200);
     return () => window.clearInterval(t);
   }, [paused, slides.length]);
+
+  useEffect(() => {
+    if (!api || !isApiReady || !PROGRAM_ID) return;
+
+    let cancelled = false;
+    const readyApi = api;
+
+    async function fetchHighlights() {
+      try {
+        const svc = new Service(new Program(readyApi, PROGRAM_ID));
+        const state = (await (svc as any).queryState()) as { matches?: any[] };
+        const now = Date.now();
+        const upcoming = (Array.isArray(state?.matches) ? state.matches : [])
+          .map((m) => ({
+            match_id: String(m?.match_id ?? ''),
+            phase: String(m?.phase ?? ''),
+            home: String(m?.home ?? ''),
+            away: String(m?.away ?? ''),
+            kick_off: Number(m?.kick_off ?? 0),
+            result: m?.result ?? null,
+          }))
+          .filter((m) => m.match_id && m.home && m.away && kickOffToMs(m.kick_off) > now && !isFinalized(m.result))
+          .sort((a, b) => kickOffToMs(a.kick_off) - kickOffToMs(b.kick_off))
+          .slice(0, 3);
+
+        if (!cancelled && upcoming.length) setHighlightMatches(upcoming);
+      } catch {
+        if (!cancelled) setHighlightMatches(fallbackHighlights);
+      }
+    }
+
+    void fetchHighlights();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, isApiReady]);
 
   const goPrev = () => setActive((i) => (i - 1 + slides.length) % slides.length);
   const goNext = () => setActive((i) => (i + 1) % slides.length);
@@ -306,34 +393,42 @@ export const Landing: React.FC = () => {
 
         <section className="scb-section scb-section--highlights">
           <header className="scb-section__header scb-section__header--center">
-            <h2>Tonight’s top clashes</h2>
-            <p>Next top clashes</p>
+            <h2>The Next Top Clashes</h2>
+            <p>Predict the next matches before kickoff and start climbing the leaderboard.</p>
           </header>
 
           <div className="scb-highlights">
-            <div className="scb-highlight">
-              <img src="/images/highlight-spain-france.jpg" alt="Spain vs France" />
-              <div className="scb-highlight__overlay">
-                <span>Europe</span>
-                Spain 🇪🇸 vs 🇫🇷 France
-              </div>
-            </div>
+            {highlightMatches.map((match) => {
+              const homeFlag = flagSrc(match.home);
+              const awayFlag = flagSrc(match.away);
+              const kickoff = kickOffToMs(match.kick_off);
 
-            <div className="scb-highlight">
-              <img src="/images/highlight-argentina-uruguay.jpg" alt="Argentina vs Uruguay" />
-              <div className="scb-highlight__overlay">
-                <span>South America</span>
-                Argentina 🇦🇷 vs 🇺🇾 Uruguay
-              </div>
-            </div>
+              return (
+                <button
+                  className="scb-highlight"
+                  type="button"
+                  key={`${match.phase}-${match.match_id}`}
+                  onClick={() => navigate(matchPath(match.phase, match.match_id))}>
+                  <div className="scb-highlight__flags" aria-hidden="true">
+                    <div className="scb-highlight__flagPane scb-highlight__flagPane--home">
+                      {homeFlag ? <img src={homeFlag} alt="" /> : <span>{teamInitials(match.home)}</span>}
+                    </div>
+                    <div className="scb-highlight__flagPane scb-highlight__flagPane--away">
+                      {awayFlag ? <img src={awayFlag} alt="" /> : <span>{teamInitials(match.away)}</span>}
+                    </div>
+                    <div className="scb-highlight__split" />
+                  </div>
 
-            <div className="scb-highlight">
-              <img src="/images/highlight-england-germany.jpg" alt="England vs Germany" />
-              <div className="scb-highlight__overlay">
-                <span>Global</span>
-                England 🏴 vs 🇩🇪 Germany
-              </div>
-            </div>
+                  <div className="scb-highlight__overlay">
+                    <span>{(match.phase || 'Upcoming').replace(/_/g, ' ')}</span>
+                    <b>{match.home}</b>
+                    <small>vs</small>
+                    <b>{match.away}</b>
+                    <em>{formatKickoff(kickoff)}</em>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
 
