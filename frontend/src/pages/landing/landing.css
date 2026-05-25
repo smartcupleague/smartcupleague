@@ -269,12 +269,8 @@ a:hover {
 
 
 .scb-slide--1 .scb-slide__img {
-  width: 112%;
-  height: 112%;
-  object-fit: cover;
-  object-position: center 38%;
-  transform: translate(4%, -2%) scale(0.94) scaleX(-1);
-  transform-origin: center top;
+  object-position: 54% 38%;
+  transform: scaleX(-1);
 }
 
 .scb-slide__gradient {
@@ -364,10 +360,7 @@ a:hover {
 
 
 .scb-slide--3 .scb-slide__img {
-  width: 108%;
-  height: 108%;
-  object-position: center top;
-  transform: translate(2%, -6%);
+  object-position: 48% top;
 }
 
 .scb-slide--3 .scb-hero__headline-main span {
