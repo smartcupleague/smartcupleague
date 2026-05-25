@@ -168,9 +168,9 @@ export const Landing: React.FC = () => {
               <img className="scb-brand__logo" src="./Logos.png" alt="SmartCupLeague logo" />
             </a>
             <a href="#prediction">Prediction Game</a>
+            <a href="#how">How it works</a>
             <a href="#tournaments">Tournaments</a>
             <a href="#why">Why</a>
-            <a href="#how">How it works</a>
             <a href="#faq">FAQ</a>
           </div>
         </div>
@@ -299,44 +299,8 @@ export const Landing: React.FC = () => {
 
           <div className="scb-video-band" id="how">
             <div className="scb-video-copy">
-              <h3>See How It Works</h3>
+              <h3>How It Works</h3>
               <p>Learn how to create your wallet, get VARA, connect, and place your first SmartCup League prediction.</p>
-            </div>
-
-            <div className="scb-steps scb-steps--cards scb-steps--video">
-              <div className="scb-step-card">
-                <div className="scb-step-card__num">1</div>
-                <div>
-                  <b>Connect your wallet</b>
-                  <p>
-                    Use your Subwallet to start playing instantly. No account creation or personal data needed — just
-                    connect and you’re in.
-                  </p>
-                </div>
-              </div>
-
-              <div className="scb-step-card">
-                <div className="scb-step-card__num">2</div>
-                <div>
-                  <b>Join a tournament & make your predictions</b>
-                  <p>
-                    Choose a tournament and select the matches you want to predict. Each position enters you into the
-                    match-by-match polls and also the season-long Grand Final Championship.
-                  </p>
-                </div>
-              </div>
-
-              <div className="scb-step-card">
-                <div className="scb-step-card__num">3</div>
-                <div>
-                  <b>Score points & climb the leaderboard</b>
-                  <p>
-                    Accurate outcomes earn more points; partial predictions still count; missed outcomes earn none.
-                    Your points accumulate throughout the tournament, helping you climb the leaderboard and compete for
-                    the ultimate on-chain rewards.
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="scb-video">
