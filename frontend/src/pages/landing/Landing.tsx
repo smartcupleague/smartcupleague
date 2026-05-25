@@ -260,13 +260,13 @@ export const Landing: React.FC = () => {
           </div>
         </section>
 
-        <section id="prediction" className="scb-section scb-section--tight">
+        <section id="prediction" className="scb-section scb-section--tight scb-section--prediction">
           <header className="scb-section__header scb-section__header--center">
             <h2>What is a sport prediction game?</h2>
             <p>
-              SmartCup League is not a traditional sports bookmaker. It’s a gamified, on-chain prediction tournament
-              where players compete with each other — not against a house. Two games in one: win match-by-match and
-              climb a season-long leaderboard. No custody. No manipulation. Full transparency.
+              SmartCup League is a gamified, on-chain prediction tournament where players compete with each other —
+              not against a house. Two games in one: win match-by-match and climb a season-long leaderboard. No
+              custody. No manipulation. Full transparency.
             </p>
           </header>
 
@@ -295,9 +295,34 @@ export const Landing: React.FC = () => {
               </p>
             </div>
           </div>
+
+          <div className="scb-video-band">
+            <div className="scb-video-copy">
+              <h3>See How It Works</h3>
+              <p>Learn how to create your wallet, get VARA, connect, and place your first SmartCup League prediction.</p>
+            </div>
+
+            <div className="scb-video">
+              <iframe
+                src="https://www.youtube.com/embed/2JTLWyvIHug"
+                title="How to play SmartCup League"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+          </div>
         </section>
 
         <section className="scb-section scb-section--band">
+          <header className="scb-section__header scb-section__header--center scb-band__header">
+            <h2>Built for Fair Competition</h2>
+            <p>
+              SmartCup League keeps prediction pools transparent, automated, and player-driven from the first match to
+              the final leaderboard.
+            </p>
+          </header>
+
           <div className="scb-band">
             <div className="scb-band__item">
               <p className="scb-band__value">100%</p>
@@ -312,7 +337,7 @@ export const Landing: React.FC = () => {
               </p>
             </div>
             <div className="scb-band__item">
-              <p className="scb-band__value">20%</p>
+              <p className="scb-band__value">10%</p>
               <p className="scb-band__label">Flows into the Grand Final Pool</p>
               <p className="scb-band__sub">Every position brings you closer to the league’s top rewards</p>
             </div>
