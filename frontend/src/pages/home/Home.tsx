@@ -602,6 +602,11 @@ export default function Home() {
     ? predictedMatchIds.has(String(nextMatch.match_id))
     : false;
 
+  const displayedUpcomingMatches = useMemo(() => {
+    const unpredicted = upcoming.filter((m) => !predictedMatchIds.has(String(m.match_id)));
+    return unpredicted.length ? unpredicted.slice(0, 4) : upcoming.slice(0, 1);
+  }, [predictedMatchIds, upcoming]);
+
   const userPredStats = useMemo(() => {
     if (!account || !activeUserBets.length || !activeMatches.length) {
       return { made: 0, exactResults: 0, correctOutcomes: 0 };
@@ -1182,7 +1187,7 @@ export default function Home() {
           </div>
 
           <div className="h-matches">
-            {upcoming.slice(0, 4).map((m) => {
+            {displayedUpcomingMatches.map((m) => {
               const hasPred = predictedMatchIds.has(String(m.match_id));
 
               return (
@@ -1210,13 +1215,13 @@ export default function Home() {
                     className={hasPred ? 'h-btn h-btn--ghost' : 'h-btn h-btn--soft'}
                     type="button"
                     onClick={() => navigate(matchPath(m.phase, m.match_id))}>
-                    {hasPred ? 'Details' : 'Predict Now'}
+                    {hasPred ? 'Predicted' : 'Predict Now'}
                   </button>
                 </div>
               );
             })}
 
-            {!upcoming.length ? <div className="muted">No upcoming matches</div> : null}
+            {!displayedUpcomingMatches.length ? <div className="muted">No upcoming matches</div> : null}
           </div>
         </section>
       </main>
