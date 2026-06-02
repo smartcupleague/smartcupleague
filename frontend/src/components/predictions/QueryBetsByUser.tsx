@@ -8,11 +8,15 @@ import { TransactionBuilder } from 'sails-js';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
+import { FREEBET_BALANCE_CHANGED_EVENT } from '@/hooks/useFreebetBalance';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
+import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
+import { toHexAddress } from '@/utils/address';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase } from '@/utils';
+import { PiCaretDownBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
-const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
+const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string | undefined;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
 
 type Score = { home: number; away: number };
 type PenaltyWinner = 'Home' | 'Away' | undefined;
@@ -29,6 +33,7 @@ type ContractUserBetView = {
   score: Score;
   penalty_winner?: any;
   stake_in_match_pool: string | number | bigint;
+  freebet_principal?: string | number | bigint;
   claimed: boolean;
 };
 
@@ -121,7 +126,7 @@ function parsePlanckAmount(val: unknown): bigint | null {
   }
   if (typeof val === 'string') {
     const cleaned = val.trim().replace(/,/g, '');
-    if (!/^\d+$/.test(cleaned)) return null;
+    if (!/^(?:\d+|0x[0-9a-fA-F]+)$/.test(cleaned)) return null;
     return BigInt(cleaned);
   }
   return null;
@@ -146,6 +151,18 @@ function readMatchPrizePoolPlanck(match: any): bigint {
     if (zeroFallback === null) zeroFallback = parsed;
   }
   return zeroFallback ?? 0n;
+}
+
+function mergeBetsByMatchId(lists: any[][]): any[] {
+  const byMatchId = new Map<string, any>();
+  for (const list of lists) {
+    for (const bet of list ?? []) {
+      const matchId = String(bet?.match_id ?? '');
+      if (!matchId) continue;
+      byMatchId.set(matchId, bet);
+    }
+  }
+  return Array.from(byMatchId.values());
 }
 
 function parsePenaltyWinner(v: any): PenaltyWinner {
@@ -259,6 +276,19 @@ function formatPrizeValue(amount: bigint | null) {
   return `${frac ? `${intPart}.${frac}` : intPart} VARA`;
 }
 
+function addGroupSeparators(value: string) {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function formatStakeValue(amount: bigint) {
+  const raw = formatAmount(amount, 12);
+  const [intPart, fracPart = ''] = raw.split('.');
+  const intBn = toBn(intPart || '0');
+  const fractionDigits = intBn >= 1000n ? 0 : intBn >= 100n ? 1 : 4;
+  const frac = fractionDigits > 0 ? fracPart.slice(0, fractionDigits).replace(/0+$/, '') : '';
+  return `${addGroupSeparators(intPart)}${frac ? `.${frac}` : ''}`;
+}
+
 function computeDeterministicShareBn(
   stakeInMatchPool: bigint,
   matchPrizePool: bigint,
@@ -346,19 +376,30 @@ export const QueryBetsByUserComponent: React.FC = () => {
   const [filterDate, setFilterDate] = useState('');
   const [sortField, setSortField] = useState<'match_id' | 'date' | 'az' | 'za'>('match_id');
   const [filterStatus, setFilterStatus] = useState<'' | 'claimed' | 'pending' | 'eligible' | 'not_eligible'>('');
+  const [claimedOverrideByMatch, setClaimedOverrideByMatch] = useState<Record<number, boolean>>({});
   const [claimingByMatch, setClaimingByMatch] = useState<Record<number, boolean>>({});
   const [pendingRefund, setPendingRefund] = useState<bigint>(0n);
   const [claimingRefund, setClaimingRefund] = useState(false);
   const [poolStatsByMatchId, setPoolStatsByMatchId] = useState<Map<string, MatchPoolStats>>(new Map());
+  const hasProgramId = Boolean(PROGRAM_ID && /^0x[0-9a-fA-F]{64}$/.test(PROGRAM_ID));
+  const programId = hasProgramId ? (PROGRAM_ID as `0x${string}`) : undefined;
+  const accountHex = useMemo(
+    () => toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? null),
+    [account],
+  );
 
   useEffect(() => {
     void web3Enable('Bolao Bets UI');
   }, []);
 
   const fetchState = useCallback(async () => {
-    if (!api || !isApiReady) return;
+    if (!api || !isApiReady || !hasProgramId) {
+      setMatches([]);
+      setPhases([]);
+      return;
+    }
     try {
-      const svc = new Service(new Program(api, PROGRAM_ID));
+      const svc = new Service(new Program(api, programId));
       const state = (await (svc as any).queryState()) as any;
 
       const list: MatchInfo[] = Array.isArray(state?.matches)
@@ -395,23 +436,43 @@ export const QueryBetsByUserComponent: React.FC = () => {
       setMatches([]);
       setPhases([]);
     }
-  }, [api, isApiReady]);
+  }, [api, isApiReady, hasProgramId, programId]);
 
   const fetchBets = useCallback(async () => {
-    if (!api || !isApiReady || !account) return;
+    if (!api || !isApiReady || !accountHex || !hasProgramId) {
+      setBets([]);
+      setErrMsg(hasProgramId ? null : 'BolaoCore program is not configured');
+      return;
+    }
 
     setLoading(true);
     setErrMsg(null);
 
     try {
-      const svc = new Service(new Program(api, PROGRAM_ID));
-      const result = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+      const svc = new Service(new Program(api, programId));
+      const candidates = Array.from(new Set([
+        accountHex,
+        typeof account?.decodedAddress === 'string' ? account.decodedAddress : null,
+        typeof (account as any)?.address === 'string' ? (account as any).address : null,
+      ].filter(Boolean))) as string[];
+      const results = await Promise.all(
+        candidates.map(async (candidate) => {
+          try {
+            const value = await (svc as any).queryBetsByUser(candidate);
+            return Array.isArray(value) ? value : [];
+          } catch {
+            return [];
+          }
+        }),
+      );
+      const result = mergeBetsByMatchId(results);
 
       const parsed: ContractUserBetView[] = (result ?? []).map((v: any) => ({
         match_id: Number(v?.match_id ?? 0),
         score: { home: Number(v?.score?.home ?? 0) || 0, away: Number(v?.score?.away ?? 0) || 0 },
         penalty_winner: v?.penalty_winner ?? null,
         stake_in_match_pool: v?.stake_in_match_pool ?? 0,
+        freebet_principal: v?.freebet_principal ?? 0,
         claimed: !!v?.claimed,
       }));
 
@@ -425,7 +486,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, isApiReady, account, toast]);
+  }, [api, isApiReady, accountHex, toast, hasProgramId, programId]);
 
   const fetchPoolStats = useCallback(async () => {
     try {
@@ -454,19 +515,19 @@ export const QueryBetsByUserComponent: React.FC = () => {
   }, []);
 
   const fetchPendingRefund = useCallback(async () => {
-    if (!api || !isApiReady || !account) {
+    if (!api || !isApiReady || !accountHex || !hasProgramId) {
       setPendingRefund(0n);
       return;
     }
     try {
-      const svc = new Service(new Program(api, PROGRAM_ID));
-      const raw = await (svc as any).queryPendingRefund(account.decodedAddress);
+      const svc = new Service(new Program(api, programId));
+      const raw = await (svc as any).queryPendingRefund(accountHex);
       setPendingRefund(toBn(raw));
     } catch (e) {
       console.error('Failed to fetch pending refund', e);
       setPendingRefund(0n);
     }
-  }, [api, isApiReady, account]);
+  }, [api, isApiReady, accountHex, hasProgramId, programId]);
 
   useEffect(() => {
     if (isApiReady) void fetchState();
@@ -484,16 +545,42 @@ export const QueryBetsByUserComponent: React.FC = () => {
     }
   }, [account, isApiReady, fetchBets, fetchPendingRefund, fetchPoolStats]);
 
+  useEffect(() => {
+    const refreshPredictions = () => {
+      if (!account || !isApiReady) return;
+      void fetchBets();
+      void fetchState();
+      void fetchPoolStats();
+      window.setTimeout(() => {
+        void fetchBets();
+        void fetchState();
+        void fetchPoolStats();
+      }, 1200);
+    };
+
+    window.addEventListener(PREDICTION_PLACED_EVENT, refreshPredictions);
+    window.addEventListener('focus', refreshPredictions);
+    return () => {
+      window.removeEventListener(PREDICTION_PLACED_EVENT, refreshPredictions);
+      window.removeEventListener('focus', refreshPredictions);
+    };
+  }, [account, isApiReady, fetchBets, fetchState, fetchPoolStats]);
+
   const connected = !!account;
 
   const matchById = useMemo(() => {
-    const map = new Map<number, MatchInfo>();
+    const map = new Map<string, MatchInfo>();
     for (const m of matches ?? []) {
-      const idNum = Number(m.match_id);
-      if (Number.isFinite(idNum)) map.set(idNum, m);
+      const id = String(m.match_id ?? '').trim();
+      if (id) map.set(id, m);
     }
     return map;
   }, [matches]);
+
+  const staleBetsCount = useMemo(
+    () => (bets ?? []).filter((b) => !matchById.has(String(b.match_id))).length,
+    [bets, matchById],
+  );
 
   const tabCounts = useMemo(() => {
     const all = matches ?? [];
@@ -506,10 +593,15 @@ export const QueryBetsByUserComponent: React.FC = () => {
   const predictionCounts = useMemo(() => {
     const all = bets ?? [];
     const leagues = all.filter((b) => {
-      const phase = matchById.get(Number(b.match_id))?.phase ?? '';
+      const phase = matchById.get(String(b.match_id))?.phase;
+      if (phase === undefined) return false;
       return !isWCPhase(phase);
     }).length;
-    const worldcup = all.length - leagues;
+    const worldcup = all.filter((b) => {
+      const phase = matchById.get(String(b.match_id))?.phase;
+      if (phase === undefined) return false;
+      return isWCPhase(phase);
+    }).length;
     return { leagues, worldcup };
   }, [bets, matchById]);
 
@@ -544,13 +636,15 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
   const wcBets = useMemo(() => {
     let list = (bets ?? []) as ContractUserBetView[];
+    const isClaimed = (bet: ContractUserBetView) =>
+      !!bet.claimed || !!claimedOverrideByMatch[Number(bet.match_id)];
 
     // Text search
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((b) => {
         const pick = `${b.score.home}-${b.score.away}`;
-        const m = matchById.get(Number(b.match_id));
+        const m = matchById.get(String(b.match_id));
         const teams = m ? `${m.home} ${m.away}` : '';
         const s = `#${String(b.match_id)} ${teams} ${pick} ${b.claimed ? 'claimed' : 'pending'}`.toLowerCase();
         return s.includes(q);
@@ -560,7 +654,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     // Stage filter
     if (filterStage) {
       list = list.filter((b) => {
-        const m = matchById.get(Number(b.match_id));
+        const m = matchById.get(String(b.match_id));
         return m?.phase === filterStage;
       });
     }
@@ -568,7 +662,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     // Date filter
     if (filterDate) {
       list = list.filter((b) => {
-        const m = matchById.get(Number(b.match_id));
+        const m = matchById.get(String(b.match_id));
         if (!m) return false;
         const n = Number(m.kick_off);
         if (!n) return false;
@@ -579,13 +673,21 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
     // Status filter
     if (filterStatus === 'claimed') {
-      list = list.filter((b) => b.claimed);
+      list = list.filter((b) => isClaimed(b));
     } else if (filterStatus === 'pending') {
-      list = list.filter((b) => !b.claimed);
+      list = list.filter((b) => {
+        if (isClaimed(b)) return false;
+        const m = matchById.get(String(b.match_id));
+        if (!m) return false;
+        if (isCancelledMatch(m.result)) return false;
+        return !isMatchFinal(m.result) || !m.settlement_prepared;
+      });
     } else if (filterStatus === 'eligible') {
       list = list.filter((b) => {
-        const m = matchById.get(Number(b.match_id));
+        if (isClaimed(b)) return false;
+        const m = matchById.get(String(b.match_id));
         if (!m || !isMatchFinal(m.result)) return false;
+        if (!m.settlement_prepared) return false;
         const betPenalty = parsePenaltyWinner(b.penalty_winner);
         const { score: finalScore, penaltyWinner: finalPenalty } = getFinalizedResult(m.result);
         const phaseWeight = getPhaseWeight(m.phase, phases);
@@ -593,8 +695,10 @@ export const QueryBetsByUserComponent: React.FC = () => {
       });
     } else if (filterStatus === 'not_eligible') {
       list = list.filter((b) => {
-        const m = matchById.get(Number(b.match_id));
-        if (!m || !isMatchFinal(m.result)) return true;
+        if (isClaimed(b)) return false;
+        const m = matchById.get(String(b.match_id));
+        if (!m || !isMatchFinal(m.result)) return false;
+        if (!m.settlement_prepared) return false;
         const betPenalty = parsePenaltyWinner(b.penalty_winner);
         const { score: finalScore, penaltyWinner: finalPenalty } = getFinalizedResult(m.result);
         const phaseWeight = getPhaseWeight(m.phase, phases);
@@ -605,20 +709,20 @@ export const QueryBetsByUserComponent: React.FC = () => {
     // Sort
     if (sortField === 'date') {
       list = [...list].sort((a, b) => {
-        const ma = matchById.get(Number(a.match_id));
-        const mb = matchById.get(Number(b.match_id));
+        const ma = matchById.get(String(a.match_id));
+        const mb = matchById.get(String(b.match_id));
         return Number(ma?.kick_off ?? 0) - Number(mb?.kick_off ?? 0);
       });
     } else if (sortField === 'az') {
       list = [...list].sort((a, b) => {
-        const ma = matchById.get(Number(a.match_id));
-        const mb = matchById.get(Number(b.match_id));
+        const ma = matchById.get(String(a.match_id));
+        const mb = matchById.get(String(b.match_id));
         return (`${ma?.home ?? ''} ${ma?.away ?? ''}`).localeCompare(`${mb?.home ?? ''} ${mb?.away ?? ''}`);
       });
     } else if (sortField === 'za') {
       list = [...list].sort((a, b) => {
-        const ma = matchById.get(Number(a.match_id));
-        const mb = matchById.get(Number(b.match_id));
+        const ma = matchById.get(String(a.match_id));
+        const mb = matchById.get(String(b.match_id));
         return (`${mb?.home ?? ''} ${mb?.away ?? ''}`).localeCompare(`${ma?.home ?? ''} ${ma?.away ?? ''}`);
       });
     } else {
@@ -628,8 +732,9 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
     // Tab filter
     list = list.filter((b) => {
-      const m = matchById.get(Number(b.match_id));
-      const phase = m?.phase ?? '';
+      const m = matchById.get(String(b.match_id));
+      if (!m) return false;
+      const phase = m.phase ?? '';
       return tab === 'worldcup' ? isWCPhase(phase) : !isWCPhase(phase);
     });
 
@@ -638,26 +743,37 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
   const claim = useCallback(
     async (matchId: number) => {
-      if (!api || !isApiReady || !account) return;
+      if (!api || !isApiReady || !account || !hasProgramId) return;
 
       setClaimingByMatch((p) => ({ ...p, [matchId]: true }));
       try {
-        const svc = new Service(new Program(api, PROGRAM_ID));
+        const svc = new Service(new Program(api, programId));
         const tx: TransactionBuilder<unknown> = (svc as any).claimMatchReward(matchId);
 
         const injector = await web3FromSource(account.meta.source);
         tx.withAccount(account.decodedAddress, { signer: injector.signer });
 
-        await tx.calculateGas();
+        await tx.calculateGas(false, 50);
         const { blockHash, response } = await tx.signAndSend();
 
         toast.info(`Transaction included in block ${blockHash}`);
         await response();
 
+        setBets((current) =>
+          (current ?? []).map((bet) =>
+            Number(bet.match_id) === matchId ? { ...bet, claimed: true } : bet,
+          ),
+        );
+        setClaimedOverrideByMatch((current) => ({ ...current, [matchId]: true }));
+        window.dispatchEvent(new Event(FREEBET_BALANCE_CHANGED_EVENT));
         toast.success('Claim completed!');
-        await fetchBets();
         await fetchState();
         await fetchPoolStats();
+        window.setTimeout(() => {
+          void fetchBets();
+          void fetchState();
+          window.dispatchEvent(new Event(FREEBET_BALANCE_CHANGED_EVENT));
+        }, 1200);
       } catch (e: any) {
         console.error('Claim failed', e);
         toast.error(e?.message ?? 'Claim failed');
@@ -665,16 +781,16 @@ export const QueryBetsByUserComponent: React.FC = () => {
         setClaimingByMatch((p) => ({ ...p, [matchId]: false }));
       }
     },
-    [api, isApiReady, account, toast, fetchBets, fetchState, fetchPoolStats],
+    [api, isApiReady, account, toast, fetchBets, fetchState, fetchPoolStats, hasProgramId, programId],
   );
 
   const claimRefund = useCallback(async () => {
-    if (!api || !isApiReady || !account) return;
+    if (!api || !isApiReady || !account || !hasProgramId) return;
     if (pendingRefund <= 0n) return;
 
     setClaimingRefund(true);
     try {
-      const svc = new Service(new Program(api, PROGRAM_ID));
+      const svc = new Service(new Program(api, programId));
       const tx: TransactionBuilder<unknown> = (svc as any).claimRefund();
 
       const injector = await web3FromSource(account.meta.source);
@@ -697,7 +813,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     } finally {
       setClaimingRefund(false);
     }
-  }, [api, isApiReady, account, pendingRefund, toast, fetchPendingRefund, fetchBets, fetchState, fetchPoolStats]);
+  }, [api, isApiReady, account, pendingRefund, toast, fetchPendingRefund, fetchBets, fetchState, fetchPoolStats, hasProgramId, programId]);
 
   return (
     <div className="mpShell">
@@ -712,9 +828,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
           <div className="mpTop__right">
             <div className="mpSearch" role="search">
-              <span className="mpSearch__icon" aria-hidden="true">
-                ⌕
-              </span>
+              <PiMagnifyingGlassBold className="mpSearch__icon" aria-hidden="true" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -745,57 +859,78 @@ export const QueryBetsByUserComponent: React.FC = () => {
           </div>
         ) : null}
 
-        <div className="mpFilters">
-          <div className="mpFilters__left">
-            <span className="mpPill">Prediction closes 10m before kickoff</span>
-            <span className="mpPill">85% Match / 10% Final / 5% DAO</span>
-            <span className="mpPill">On-chain pools</span>
-            <span className="mpPill mpPill--live">LIVE</span>
+        <div className="mpInfoGrid" aria-label="Prediction rules summary">
+          <div className="mpInfoCard">
+            <span>Prediction window</span>
+            <strong>Locks 10 min before kickoff</strong>
           </div>
+          <div className="mpInfoCard">
+            <span>Prize split</span>
+            <strong>Wallet: 85% pool; freebet: 100% pool</strong>
+          </div>
+          <div className="mpInfoCard">
+            <span>Settlement</span>
+            <strong>All payouts are settled on-chain</strong>
+          </div>
+          <div className="mpInfoCard mpInfoCard--live">
+            <span>Status</span>
+            <strong>Live data</strong>
+          </div>
+        </div>
 
+        <div className="mpFilters">
           <div className="mpFilters__right">
-            <select
-              className="mpFilterSelect"
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value as 'match_id' | 'date' | 'az' | 'za')}
-              aria-label="Sort predictions">
-              <option value="match_id">Sort: Match #</option>
-              <option value="date">Sort: Date</option>
-              <option value="az">Sort: A → Z</option>
-              <option value="za">Sort: Z → A</option>
-            </select>
+            <label className="mpFilterField">
+              <span>Sort</span>
+              <span className="mpSelectWrap">
+                <select
+                  className="mpFilterSelect"
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value as 'match_id' | 'date' | 'az' | 'za')}
+                  aria-label="Sort predictions">
+                  <option value="match_id">Match number</option>
+                  <option value="date">Kickoff date</option>
+                  <option value="az">Teams A to Z</option>
+                  <option value="za">Teams Z to A</option>
+                </select>
+                <PiCaretDownBold className="mpSelectChevron" aria-hidden="true" />
+              </span>
+            </label>
 
-            <select
-              className="mpFilterSelect"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as '' | 'claimed' | 'pending' | 'eligible' | 'not_eligible')}
-              aria-label="Filter by status">
-              <option value="">All Statuses</option>
-              <option value="claimed">Claimed</option>
-              <option value="pending">Pending</option>
-              <option value="eligible">Eligible</option>
-              <option value="not_eligible">Not Eligible</option>
-            </select>
+            <label className="mpFilterField">
+              <span>Status</span>
+              <span className="mpSelectWrap">
+                <select
+                  className="mpFilterSelect"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as '' | 'claimed' | 'pending' | 'eligible' | 'not_eligible')}
+                  aria-label="Filter by status">
+                  <option value="">Any status</option>
+                  <option value="claimed">Claimed</option>
+                  <option value="pending">Pending</option>
+                  <option value="eligible">Ready to claim</option>
+                  <option value="not_eligible">Not eligible</option>
+                </select>
+                <PiCaretDownBold className="mpSelectChevron" aria-hidden="true" />
+              </span>
+            </label>
 
-            <select
-              className="mpFilterSelect"
-              value={filterStage}
-              onChange={(e) => setFilterStage(e.target.value)}
-              aria-label="Filter by stage">
-              <option value="">All Stages</option>
-              {availablePhases.map((p) => (
-                <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
-              ))}
-            </select>
-
-            <input
-              className="mpFilterDate"
-              type="date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              aria-label="Filter by date"
-              title="Filter by date"
-            />
+            <label className="mpFilterField">
+              <span>Stage</span>
+              <span className="mpSelectWrap">
+                <select
+                  className="mpFilterSelect"
+                  value={filterStage}
+                  onChange={(e) => setFilterStage(e.target.value)}
+                  aria-label="Filter by stage">
+                  <option value="">All stages</option>
+                  {availablePhases.map((p) => (
+                    <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+                <PiCaretDownBold className="mpSelectChevron" aria-hidden="true" />
+              </span>
+            </label>
 
             {(filterStage || filterDate || filterStatus || search) && (
               <button
@@ -805,13 +940,6 @@ export const QueryBetsByUserComponent: React.FC = () => {
                 Clear
               </button>
             )}
-
-            <button className="mpBtn mpBtn--ghost" type="button" onClick={() => {
-              if (account && isApiReady) void fetchBets();
-              if (isApiReady) void fetchState();
-            }}>
-              Refresh
-            </button>
           </div>
         </div>
 
@@ -864,6 +992,12 @@ export const QueryBetsByUserComponent: React.FC = () => {
           <div className="mpState mpState--error">{errMsg}</div>
         ) : (
           <section className="mpCard">
+            {staleBetsCount > 0 ? (
+              <div className="mpState mpState--error">
+                {staleBetsCount} prediction record{staleBetsCount === 1 ? '' : 's'} could not be matched to the current fixture state.
+              </div>
+            ) : null}
+
             <div className="mpCard__head">
               <div className="mpCard__left">
                 <span className="mpCup">🏆</span>
@@ -893,10 +1027,10 @@ export const QueryBetsByUserComponent: React.FC = () => {
                   <div className="mpEmpty">No Predictions found for your account.</div>
                 ) : (
                   wcBets.map((b, i) => {
-                    const m = matchById.get(Number(b.match_id));
+                    const m = matchById.get(String(b.match_id));
 
                     const stakeBn = toBn(b.stake_in_match_pool);
-                    const stakeHuman = Number(formatAmount(stakeBn, 12));
+                    const freebetPrincipalBn = toBn(b.freebet_principal ?? 0);
                     const stakeUsd = planckToUsd(stakeBn);
 
                     const pickText = `${b.score.home}-${b.score.away}`;
@@ -920,6 +1054,12 @@ export const QueryBetsByUserComponent: React.FC = () => {
                     const predictedOutcome = predictionOutcomeKey(b.score);
                     const predictedOutcomePoolBn = poolForOutcome(supabasePoolStats, predictedOutcome);
                     const estimatedPayoutBn = estimatePayoutBn(stakeBn, predictedOutcomePoolBn, matchPoolBn);
+                    const estimatedWalletPayoutBn =
+                      estimatedPayoutBn === null
+                        ? null
+                        : estimatedPayoutBn > freebetPrincipalBn
+                          ? estimatedPayoutBn - freebetPrincipalBn
+                          : 0n;
 
                     const phaseWeight = m ? getPhaseWeight(m.phase, phases) : 1;
                     const { score: finalScore, penaltyWinner: finalPenalty } = m ? getFinalizedResult(m.result) : {};
@@ -932,12 +1072,14 @@ export const QueryBetsByUserComponent: React.FC = () => {
                       matchFinal && settlementPrepared && eligible
                         ? estimatedPayoutBn ?? computeDeterministicShareBn(stakeBn, matchPoolBn, totalWinnerStakeBn)
                         : 0n;
+                    const walletRealBn =
+                      realBn > freebetPrincipalBn ? realBn - freebetPrincipalBn : 0n;
 
-                    const potentialText = formatPrizeValue(estimatedPayoutBn);
+                    const potentialText = formatPrizeValue(estimatedWalletPayoutBn);
 
                     const displayValue =
-                      matchFinal ? (eligible ? formatPrizeValue(realBn) : '0 VARA') : potentialText;
-                    const displayPlanck = matchFinal ? (eligible ? realBn : 0n) : estimatedPayoutBn;
+                      matchFinal ? (eligible ? formatPrizeValue(walletRealBn) : '0 VARA') : potentialText;
+                    const displayPlanck = matchFinal ? (eligible ? walletRealBn : 0n) : estimatedWalletPayoutBn;
                     const displayUsd = displayPlanck !== null ? planckToUsd(displayPlanck) : null;
 
                     const exactHit = matchFinal ? isExactScore(b.score, finalScore) : false;
@@ -949,11 +1091,20 @@ export const QueryBetsByUserComponent: React.FC = () => {
                           : 'Not eligible'
                         : estimatedPayoutBn === null
                           ? 'Potential syncing'
-                          : 'Potential at current pool';
+                          : freebetPrincipalBn > 0n
+                            ? 'Potential net winnings'
+                            : 'Potential at current pool';
 
-                    const claimed = !!b.claimed;
+                    const claimed = !!b.claimed || !!claimedOverrideByMatch[Number(b.match_id)];
                     const matchCancelled = m ? isCancelledMatch(m.result) : false;
-                    const canClaim = matchFinal && settlementPrepared && eligible && !claimed && realBn > 0n && !matchCancelled;
+                    const hasFreebetPrincipalToReturn = freebetPrincipalBn > 0n;
+                    const canClaim =
+                      matchFinal &&
+                      settlementPrepared &&
+                      eligible &&
+                      !claimed &&
+                      (realBn > 0n || hasFreebetPrincipalToReturn) &&
+                      !matchCancelled;
 
                     const statusLabelText = matchCancelled
                       ? 'Cancelled'
@@ -984,7 +1135,9 @@ export const QueryBetsByUserComponent: React.FC = () => {
                               ? 'Not eligible'
                               : isClaiming
                                 ? 'Claiming...'
-                                : 'Claim your winnings';
+                                : freebetPrincipalBn > 0n
+                                  ? 'Return freebet principal and claim net winnings'
+                                  : 'Claim your winnings';
 
                     return (
                       <div className="mpRow" key={`wc-${String(b.match_id)}-${i}`}>
@@ -1039,7 +1192,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
                         <div className="mpNum">
                           <div className="mpNum__main">
-                            {Number.isFinite(stakeHuman) ? stakeHuman.toFixed(0) : '0'} VARA
+                            {formatStakeValue(stakeBn)} VARA
                           </div>
                           {stakeUsd ? <div className="mpNum__usd">{stakeUsd}</div> : null}
                           <div className="mpNum__sub">Match pool stake</div>
@@ -1058,7 +1211,23 @@ export const QueryBetsByUserComponent: React.FC = () => {
                         </div>
 
                         <div className="mpCenter">
-                          <span className={'mpStatus mpStatus--' + statusTone}>{statusLabelText}</span>
+                          {canClaim ? (
+                            <button
+                              className="mpClaim is-ready"
+                              disabled={isClaiming}
+                              title={claimTitle}
+                              onClick={() => claim(Number(b.match_id))}
+                              type="button">
+                              <span className="mpClaim__dot" aria-hidden="true" />
+                              {isClaiming
+                                ? 'Claiming…'
+                                : hasFreebetPrincipalToReturn && walletRealBn <= 0n
+                                  ? 'Return freebet'
+                                  : 'Claim'}
+                            </button>
+                          ) : (
+                            <span className={'mpStatus mpStatus--' + statusTone}>{statusLabelText}</span>
+                          )}
                         </div>
 
                         <div className="mpCenter">
@@ -1075,6 +1244,8 @@ export const QueryBetsByUserComponent: React.FC = () => {
                                 ? 'Refund'
                                 : claimed
                                   ? 'Claimed'
+                                  : hasFreebetPrincipalToReturn && walletRealBn <= 0n
+                                    ? 'Return freebet'
                                   : 'Claim'}
                           </button>
                         </div>

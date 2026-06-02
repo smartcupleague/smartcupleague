@@ -1,12 +1,14 @@
+use bolao_program::{
+    client::{BolaoCtors, BolaoProgram},
+    WASM_BINARY,
+};
 use sails_rs::{
     client::{Actor, GearEnv, GtestEnv},
     gtest::System,
     prelude::*,
 };
-use bolao_program::{
-    client::{BolaoCtors, BolaoProgram},
-    WASM_BINARY,
-};
+use smartcup_freebet_ledger::WASM_BINARY as FREEBET_LEDGER_WASM_BINARY;
+use smartcup_freebet_ledger_client::{FreebetLedgerCtors, FreebetLedgerInit, FreebetLedgerProgram};
 
 pub const ADMIN: u64 = 100;
 pub const NEW_ADMIN: u64 = 101;
@@ -16,6 +18,7 @@ pub const STRANGER: u64 = 199;
 pub const ORACLE: u64 = 200;
 pub const USER1: u64 = 201;
 pub const USER2: u64 = 202;
+pub const FREEBET_ISSUER: u64 = 203;
 
 pub fn actor(id: u64) -> ActorId {
     id.into()
@@ -31,7 +34,17 @@ impl Fixture {
         let system = System::new();
         system.init_logger();
 
-        for id in [ADMIN, NEW_ADMIN, OPERATOR, TREASURY, STRANGER, ORACLE, USER1, USER2] {
+        for id in [
+            ADMIN,
+            NEW_ADMIN,
+            OPERATOR,
+            TREASURY,
+            STRANGER,
+            ORACLE,
+            USER1,
+            USER2,
+            FREEBET_ISSUER,
+        ] {
             system.mint_to(id, 10_000_000_000_000_000);
         }
 
@@ -53,7 +66,17 @@ impl Fixture {
         let system = System::new();
         system.init_logger();
 
-        for id in [ADMIN, NEW_ADMIN, OPERATOR, TREASURY, STRANGER, ORACLE, USER1, USER2] {
+        for id in [
+            ADMIN,
+            NEW_ADMIN,
+            OPERATOR,
+            TREASURY,
+            STRANGER,
+            ORACLE,
+            USER1,
+            USER2,
+            FREEBET_ISSUER,
+        ] {
             system.mint_to(id, 10_000_000_000_000_000);
         }
 
@@ -74,9 +97,19 @@ impl Fixture {
     pub async fn deploy_importer_on_same_system(&self) -> Actor<BolaoProgram, GtestEnv> {
         let code_id = self.env.system().submit_code(WASM_BINARY);
         let env = self.env.clone();
-        env
-            .deploy::<BolaoProgram>(code_id, b"bolao-sink-salt".to_vec())
+        env.deploy::<BolaoProgram>(code_id, b"bolao-sink-salt".to_vec())
             .new_as_importer(actor(ADMIN), actor(TREASURY))
+            .await
+            .unwrap()
+    }
+
+    pub async fn deploy_freebet_ledger(&self) -> Actor<FreebetLedgerProgram, GtestEnv> {
+        let code_id = self.env.system().submit_code(FREEBET_LEDGER_WASM_BINARY);
+        let env = self.env.clone();
+        env.deploy::<FreebetLedgerProgram>(code_id, b"smartcup-freebet-ledger".to_vec())
+            .new(FreebetLedgerInit {
+                admin: actor(ADMIN),
+            })
             .await
             .unwrap()
     }

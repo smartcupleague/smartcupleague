@@ -11,6 +11,81 @@ use utils::VOTING_PERIOD_BLOCKS;
 // ── Test 1: deploy ─────────────────────────────────────────────────────────────
 
 #[tokio::test]
+async fn multiple_admins_can_manage_and_withdraw_vara() {
+    let f = Fixture::new().await;
+
+    assert_eq!(
+        f.program
+            .service("Service")
+            .query_state()
+            .query()
+            .unwrap()
+            .admins,
+        vec![actor(OWNER)]
+    );
+
+    let stranger_add = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .add_admin(actor(NEW_OWNER))
+        .await;
+    assert!(stranger_add.is_err(), "stranger should not add admins");
+
+    f.program
+        .service("Service")
+        .add_admin(actor(NEW_OWNER))
+        .await
+        .expect("owner should add admin");
+
+    f.as_actor(NEW_OWNER)
+        .service("Service")
+        .set_bolao_program(actor(NEW_OWNER))
+        .with_value(2_000)
+        .await
+        .expect("new admin should manage DAO and fund contract");
+
+    let program_balance = f.env.system().balance_of(f.program.id());
+    assert!(program_balance >= 2_000);
+
+    f.as_actor(NEW_OWNER)
+        .service("Service")
+        .withdraw_vara(actor(STRANGER), 700)
+        .await
+        .expect("admin should withdraw DAO balance");
+
+    assert_eq!(
+        f.env.system().balance_of(f.program.id()),
+        program_balance - 700
+    );
+
+    f.as_actor(NEW_OWNER)
+        .service("Service")
+        .remove_admin(actor(OWNER))
+        .await
+        .expect("new admin should remove original owner");
+
+    let state = f.program.service("Service").query_state().query().unwrap();
+    assert_eq!(state.owner, actor(NEW_OWNER));
+
+    let removed_owner_call = f
+        .program
+        .service("Service")
+        .set_bolao_program(actor(MOCK_BOLAO))
+        .await;
+    assert!(
+        removed_owner_call.is_err(),
+        "removed owner should lose admin access"
+    );
+
+    let remove_last = f
+        .as_actor(NEW_OWNER)
+        .service("Service")
+        .remove_admin(actor(NEW_OWNER))
+        .await;
+    assert!(remove_last.is_err(), "last admin cannot be removed");
+}
+
+#[tokio::test]
 async fn deploy_and_query_state() {
     let f = Fixture::new().await;
 
@@ -115,7 +190,9 @@ async fn create_proposal_happy_path() {
     f.as_actor(VOTER_A)
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 3_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 3_000,
+            },
             "Raise quorum to 30%".to_string(),
         )
         .await
@@ -147,7 +224,9 @@ async fn create_proposal_description_too_long() {
         .program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 1_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 1_000,
+            },
             long_desc,
         )
         .await;
@@ -163,7 +242,9 @@ async fn vote_happy_path() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 1_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 1_000,
+            },
             "Test vote".to_string(),
         )
         .await
@@ -187,7 +268,13 @@ async fn vote_happy_path() {
         .await
         .expect("VOTER_C should abstain");
 
-    let p = f.program.service("Service").query_proposal(1).query().unwrap().unwrap();
+    let p = f
+        .program
+        .service("Service")
+        .query_proposal(1)
+        .query()
+        .unwrap()
+        .unwrap();
     assert_eq!(p.yes, 1);
     assert_eq!(p.no, 1);
     assert_eq!(p.abstain, 1);
@@ -200,7 +287,9 @@ async fn vote_double_vote_rejected() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 1_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 1_000,
+            },
             "Double vote test".to_string(),
         )
         .await
@@ -261,7 +350,13 @@ async fn finalize_sets_succeeded_when_yes_wins() {
         .await
         .expect("finalize should succeed after voting ends");
 
-    let p = f.program.service("Service").query_proposal(1).query().unwrap().unwrap();
+    let p = f
+        .program
+        .service("Service")
+        .query_proposal(1)
+        .query()
+        .unwrap()
+        .unwrap();
     assert!(
         matches!(p.status, ProposalStatus::Succeeded),
         "proposal with yes > no and quorum met should be Succeeded"
@@ -275,7 +370,9 @@ async fn finalize_sets_defeated_when_quorum_not_met() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetVotingPeriod { new_voting_period: 1_000 },
+            ProposalKind::SetVotingPeriod {
+                new_voting_period: 1_000,
+            },
             "Quorum test".to_string(),
         )
         .await
@@ -296,7 +393,13 @@ async fn finalize_sets_defeated_when_quorum_not_met() {
         .await
         .unwrap();
 
-    let p = f.program.service("Service").query_proposal(1).query().unwrap().unwrap();
+    let p = f
+        .program
+        .service("Service")
+        .query_proposal(1)
+        .query()
+        .unwrap()
+        .unwrap();
     assert!(
         matches!(p.status, ProposalStatus::Defeated),
         "proposal with insufficient votes should be Defeated"
@@ -312,7 +415,9 @@ async fn execute_set_quorum_proposal() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 5_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 5_000,
+            },
             "Raise quorum".to_string(),
         )
         .await
@@ -336,9 +441,18 @@ async fn execute_set_quorum_proposal() {
         .expect("execute should succeed");
 
     let state = f.program.service("Service").query_state().query().unwrap();
-    assert_eq!(state.quorum_bps, 5_000, "quorum_bps should be updated to 5000");
+    assert_eq!(
+        state.quorum_bps, 5_000,
+        "quorum_bps should be updated to 5000"
+    );
 
-    let p = f.program.service("Service").query_proposal(1).query().unwrap().unwrap();
+    let p = f
+        .program
+        .service("Service")
+        .query_proposal(1)
+        .query()
+        .unwrap()
+        .unwrap();
     assert!(matches!(p.status, ProposalStatus::Executed));
     assert!(p.executed);
 }
@@ -351,7 +465,9 @@ async fn execute_set_voting_period_proposal() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetVotingPeriod { new_voting_period: new_period },
+            ProposalKind::SetVotingPeriod {
+                new_voting_period: new_period,
+            },
             "Shorten voting period".to_string(),
         )
         .await
@@ -367,7 +483,11 @@ async fn execute_set_voting_period_proposal() {
 
     f.spend_blocks(VOTING_PERIOD_BLOCKS + 1);
 
-    f.program.service("Service").execute(1).await.expect("execute should succeed");
+    f.program
+        .service("Service")
+        .execute(1)
+        .await
+        .expect("execute should succeed");
 
     let state = f.program.service("Service").query_state().query().unwrap();
     assert_eq!(state.voting_period, new_period);
@@ -396,7 +516,11 @@ async fn execute_set_default_bolao_proposal() {
     }
 
     f.spend_blocks(VOTING_PERIOD_BLOCKS + 1);
-    f.program.service("Service").execute(1).await.expect("execute should succeed");
+    f.program
+        .service("Service")
+        .execute(1)
+        .await
+        .expect("execute should succeed");
 
     let state = f.program.service("Service").query_state().query().unwrap();
     assert_eq!(state.bolao_program, new_bolao);
@@ -411,7 +535,9 @@ async fn execute_while_active_panics() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 1_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 1_000,
+            },
             "Still voting".to_string(),
         )
         .await
@@ -431,7 +557,9 @@ async fn execute_double_execute_panics() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 100 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 100,
+            },
             "Execute twice test".to_string(),
         )
         .await
@@ -446,7 +574,11 @@ async fn execute_double_execute_panics() {
     }
     f.spend_blocks(VOTING_PERIOD_BLOCKS + 1);
 
-    f.program.service("Service").execute(1).await.expect("first execute should succeed");
+    f.program
+        .service("Service")
+        .execute(1)
+        .await
+        .expect("first execute should succeed");
 
     let err = f.program.service("Service").execute(1).await;
     assert!(err.is_err(), "second execute should fail");
@@ -461,7 +593,9 @@ async fn query_proposals_and_votes() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetQuorum { new_quorum_bps: 1_000 },
+            ProposalKind::SetQuorum {
+                new_quorum_bps: 1_000,
+            },
             "Proposal A".to_string(),
         )
         .await
@@ -469,13 +603,20 @@ async fn query_proposals_and_votes() {
     f.program
         .service("Service")
         .create_proposal(
-            ProposalKind::SetVotingPeriod { new_voting_period: 1_000 },
+            ProposalKind::SetVotingPeriod {
+                new_voting_period: 1_000,
+            },
             "Proposal B".to_string(),
         )
         .await
         .unwrap();
 
-    let all = f.program.service("Service").query_proposals().query().unwrap();
+    let all = f
+        .program
+        .service("Service")
+        .query_proposals()
+        .query()
+        .unwrap();
     assert_eq!(all.len(), 2);
 
     f.as_actor(VOTER_A)

@@ -1,5 +1,5 @@
-use sails_rs::prelude::*;
 use super::types::{ProposalStatus, VoteChoice};
+use sails_rs::prelude::*;
 
 #[event]
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
@@ -24,4 +24,12 @@ pub enum DaoEvent {
     GovernanceParamUpdated,
     /// The DAO owner was changed. (new_owner)
     OwnerChanged(ActorId),
+    /// An additional admin was added. (admin)
+    AdminAdded(ActorId),
+    /// An admin was removed. (admin)
+    AdminRemoved(ActorId),
+    /// Admin withdrew VARA held by this DAO. (to, amount)
+    VaraWithdrawn(ActorId, u128),
+    /// Owner emergency withdrawal of any VARA held by this DAO. (to, amount)
+    ForceVaraWithdrawn(ActorId, u128),
 }

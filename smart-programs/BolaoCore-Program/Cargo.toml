@@ -35,6 +35,8 @@ sails-client-gen.workspace = true
 [dev-dependencies]
 bolao-program  = { path = ".", features = ["wasm-binary", "bolao-client"] }
 oracle-program = { path = "../Oracle-Program", features = ["wasm-binary", "oracle-client"] }
+smartcup-freebet-ledger = { path = "../FreebetLedger-Program", features = ["wasm-binary"] }
+smartcup-freebet-ledger-client = { path = "../FreebetLedger-Program/client" }
 sails-rs = { version = "0.10.2", features = ["gtest"] }
 tokio.workspace = true
 

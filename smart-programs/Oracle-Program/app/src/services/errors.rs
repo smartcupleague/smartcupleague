@@ -32,6 +32,14 @@ pub enum OracleError {
     ThresholdExceedsMaxFeeders,
     /// new_admin cannot be the zero address.
     InvalidAdmin,
+    /// Cannot remove the last admin.
+    CannotRemoveLastAdmin,
+    /// withdraw destination cannot be zero/self.
+    InvalidWithdrawDestination,
+    /// amount must be greater than zero.
+    InvalidAmount,
+    /// not enough VARA is available to withdraw.
+    InsufficientBalance,
     /// Address is already in the operators list.
     AlreadyAnOperator,
     /// Address is not in the operators list.

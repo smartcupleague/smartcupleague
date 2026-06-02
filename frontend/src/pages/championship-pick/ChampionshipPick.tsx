@@ -253,19 +253,19 @@ export function ChampionshipPick() {
   }, [fetchCoreState]);
 
   const fetchUserBets = useCallback(async () => {
-    if (!api || !isApiReady || !PROGRAM_ID || !account) {
+    if (!api || !isApiReady || !PROGRAM_ID || !myWalletHex) {
       setUserBets([]);
       return;
     }
 
     try {
       const svc = new Service(new Program(api, PROGRAM_ID));
-      const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+      const bets = (await (svc as any).queryBetsByUser(myWalletHex)) as any[];
       setUserBets(Array.isArray(bets) ? bets : []);
     } catch {
       setUserBets([]);
     }
-  }, [account, api, isApiReady]);
+  }, [api, isApiReady, myWalletHex]);
 
   useEffect(() => {
     void fetchUserBets();

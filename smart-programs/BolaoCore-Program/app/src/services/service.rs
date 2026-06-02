@@ -1,23 +1,23 @@
-use sails_rs::{prelude::*, gstd::{exec, msg}};
+use sails_rs::{
+    gstd::{exec, msg},
+    prelude::*,
+};
 
 use super::constants::{
-    PROTOCOL_FEE_BPS, FINAL_PRIZE_BPS, BPS_DENOMINATOR,
-    PODIUM_FINAL_PRIZE_BPS, PODIUM_PROTOCOL_FEE_BPS,
-    BET_CLOSE_WINDOW_SECONDS,
-    MAX_PHASE_NAME_LEN, MAX_POINTS_WEIGHT, MAX_TEAM_NAME_LEN,
-    CHALLENGE_WINDOW_MS, CLAIM_DEADLINE_MS,
-};
-use super::types::{
-    Score, PenaltyWinner, ResultStatus, Match, Bet, UserBetRecord,
-    UserBetView, PhaseConfig, PodiumPick, PodiumResult,
-    WalletClaimStatus, FinalPrizeClaimStatus,
+    BET_CLOSE_WINDOW_SECONDS, BPS_DENOMINATOR, CHALLENGE_WINDOW_MS, CLAIM_DEADLINE_MS,
+    FINAL_PRIZE_BPS, MAX_PHASE_NAME_LEN, MAX_POINTS_WEIGHT, MAX_TEAM_NAME_LEN,
+    PODIUM_FINAL_PRIZE_BPS, PODIUM_PROTOCOL_FEE_BPS, PROTOCOL_FEE_BPS,
 };
 use super::events::SmartCupEvent;
-use super::state::{SmartCupState, IoSmartCupState};
-use super::migration::{MigrationPage, MigrationMetadata};
+use super::migration::{MigrationMetadata, MigrationPage};
+use super::state::{IoSmartCupState, SmartCupState};
+use super::types::{
+    Bet, FinalPrizeClaimStatus, Match, PenaltyWinner, PhaseConfig, PodiumPick, PodiumResult,
+    ResultStatus, Score, UserBetRecord, UserBetView, WalletClaimStatus,
+};
 use super::utils::{
-    outcome, advance_outcome, is_knockout, eligible_for_payout,
-    top5_share_sum_bps, collect_leaderboard,
+    advance_outcome, collect_leaderboard, eligible_for_payout, is_knockout, outcome,
+    top5_share_sum_bps,
 };
 
 // ── Service bootstrap ─────────────────────────────────────────────────────────
@@ -40,11 +40,31 @@ impl Service {
     pub fn seed_as_importer(admin: ActorId, treasury: ActorId) {
         SmartCupState::init_as_importer(admin, treasury)
     }
+
+    async fn return_freebet_to_ledger(ledger: ActorId, user: ActorId, match_id: u64, amount: u128) {
+        if amount == 0 {
+            return;
+        }
+        let payload = {
+            use sails_rs::scale_codec::Encode;
+            (
+                String::from("FreebetLedger"),
+                String::from("ReturnFreebet"),
+                user,
+                match_id,
+            )
+                .encode()
+        };
+
+        msg::send_bytes_for_reply(ledger, payload, amount, 0)
+            .expect("FreebetLedger return send failed")
+            .await
+            .expect("FreebetLedger return reply failed");
+    }
 }
 
 #[sails_rs::service(events = SmartCupEvent)]
 impl Service {
-
     // ── Admin: oracle management ──────────────────────────────────────────────
 
     #[export]
@@ -75,6 +95,19 @@ impl Service {
         state.check_not_locked_for_export();
         state.only_admin();
         state.price_staleness_limit_ms = staleness_limit_ms;
+    }
+
+    #[export]
+    pub fn set_freebet_ledger(&mut self, ledger_program_id: Option<ActorId>) {
+        let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
+        state.only_admin();
+        if matches!(ledger_program_id, Some(id) if id == ActorId::zero()) {
+            panic!("Invalid freebet ledger");
+        }
+        state.freebet_ledger_program_id = ledger_program_id;
+        self.emit_event(SmartCupEvent::FreebetLedgerSet(ledger_program_id))
+            .expect("event");
     }
 
     /// Queries the Oracle-Program for the current VARA/USD price and caches it.
@@ -113,7 +146,7 @@ impl Service {
         let now = exec::block_timestamp();
         let state = SmartCupState::state_mut();
         state.vara_price_usd_micro = price_usd_micro;
-        state.price_cached_at      = now;
+        state.price_cached_at = now;
 
         self.emit_event(SmartCupEvent::VaraPriceRefreshed(price_usd_micro))
             .expect("event");
@@ -142,7 +175,7 @@ impl Service {
         if points_weight == 0 {
             panic!("Invalid points weight");
         }
-       
+
         if points_weight > MAX_POINTS_WEIGHT {
             panic!("Points weight too large");
         }
@@ -160,13 +193,7 @@ impl Service {
     }
 
     #[export]
-    pub fn register_match(
-        &mut self,
-        phase: String,
-        home: String,
-        away: String,
-        kick_off: u64,
-    ) {
+    pub fn register_match(&mut self, phase: String, home: String, away: String, kick_off: u64) {
         let state = SmartCupState::state_mut();
         state.check_not_locked_for_export();
         state.only_admin_or_operator();
@@ -220,11 +247,7 @@ impl Service {
         state.matches.insert(match_id, m);
 
         self.emit_event(SmartCupEvent::MatchRegistered(
-            match_id,
-            phase,
-            home,
-            away,
-            kick_off,
+            match_id, phase, home, away, kick_off,
         ))
         .expect("event");
     }
@@ -296,8 +319,9 @@ impl Service {
 
         state.protocol_fee_accumulated =
             state.protocol_fee_accumulated.saturating_add(protocol_fee);
-        state.final_prize_accumulated =
-            state.final_prize_accumulated.saturating_add(final_prize_cut);
+        state.final_prize_accumulated = state
+            .final_prize_accumulated
+            .saturating_add(final_prize_cut);
 
         m.match_prize_pool = m.match_prize_pool.saturating_add(match_pool_cut);
         m.has_bets = true;
@@ -311,6 +335,7 @@ impl Service {
             score: predicted_score,
             penalty_winner: predicted_penalty_winner,
             stake_in_match_pool: match_pool_cut,
+            freebet_principal: 0,
             claimed: false,
         };
         state.bets.insert((bettor, match_id), bet);
@@ -321,6 +346,7 @@ impl Service {
             score: predicted_score,
             penalty_winner: predicted_penalty_winner,
             stake_in_match_pool: match_pool_cut,
+            freebet_principal: 0,
         });
 
         self.emit_event(SmartCupEvent::BetAccepted(
@@ -331,6 +357,107 @@ impl Service {
             match_pool_cut,
         ))
         .expect("event");
+    }
+
+    #[export]
+    pub fn place_bet_from_freebet_ledger(
+        &mut self,
+        user: ActorId,
+        match_id: u64,
+        predicted_score: Score,
+        predicted_penalty_winner: Option<PenaltyWinner>,
+    ) -> u128 {
+        let state = SmartCupState::state_mut();
+        state.check_writes_allowed();
+
+        let ledger = state
+            .freebet_ledger_program_id
+            .expect("Freebet ledger not configured");
+        if msg::source() != ledger {
+            panic!("Only freebet ledger");
+        }
+        if user == ActorId::zero() {
+            panic!("Invalid user");
+        }
+
+        let sent_value = msg::value();
+        let now = exec::block_timestamp();
+
+        let min_bet = state.compute_min_bet_planck(now);
+        if sent_value < min_bet {
+            panic!("Freebet below minimum");
+        }
+
+        let m = state.matches.get_mut(&match_id).expect("Match not found");
+
+        let close_time = m.kick_off.saturating_sub(BET_CLOSE_WINDOW_SECONDS);
+        if now >= close_time {
+            panic!("Betting closed");
+        }
+        if state.bets.contains_key(&(user, match_id)) {
+            panic!("Already bet");
+        }
+        if predicted_score.home > 20 || predicted_score.away > 20 {
+            panic!("Score too high");
+        }
+
+        let phase_weight = state
+            .phases
+            .get(&m.phase)
+            .map(|p| p.points_weight)
+            .unwrap_or(1);
+        let knockout = is_knockout(phase_weight);
+
+        let predicted_draw = predicted_score.home == predicted_score.away;
+
+        if !knockout {
+            if predicted_penalty_winner.is_some() {
+                panic!("Penalty winner not allowed in group stage");
+            }
+        } else if predicted_draw {
+            if predicted_penalty_winner.is_none() {
+                panic!("Knockout draw requires penalty winner");
+            }
+        } else if predicted_penalty_winner.is_some() {
+            panic!("Penalty winner only allowed when predicting draw");
+        }
+
+        m.match_prize_pool = m.match_prize_pool.saturating_add(sent_value);
+        m.has_bets = true;
+        if !m.participants.contains(&user) {
+            m.participants.push(user);
+        }
+
+        let bet = Bet {
+            user,
+            match_id,
+            score: predicted_score,
+            penalty_winner: predicted_penalty_winner,
+            stake_in_match_pool: sent_value,
+            freebet_principal: sent_value,
+            claimed: false,
+        };
+        state.bets.insert((user, match_id), bet);
+
+        let list = state.user_bets.entry(user).or_insert(Vec::new());
+        list.push(UserBetRecord {
+            match_id,
+            score: predicted_score,
+            penalty_winner: predicted_penalty_winner,
+            stake_in_match_pool: sent_value,
+            freebet_principal: sent_value,
+        });
+
+        self.emit_event(SmartCupEvent::FreebetBetAccepted(
+            user,
+            match_id,
+            predicted_score,
+            predicted_penalty_winner,
+            sent_value,
+        ))
+        .expect("event");
+
+        sent_value
     }
 
     // ── Oracle: result proposal ───────────────────────────────────────────────
@@ -350,7 +477,11 @@ impl Service {
         let proposed_at = exec::block_timestamp();
         let m = state.matches.get_mut(&match_id).expect("No such match");
 
-        let phase_weight = state.phases.get(&m.phase).map(|p| p.points_weight).unwrap_or(1);
+        let phase_weight = state
+            .phases
+            .get(&m.phase)
+            .map(|p| p.points_weight)
+            .unwrap_or(1);
         if !is_knockout(phase_weight) && penalty_winner.is_some() {
             panic!("Group stage must not include penalty winner");
         }
@@ -387,13 +518,17 @@ impl Service {
         let m = state.matches.get_mut(&match_id).expect("No such match");
 
         let oracle = match &m.result {
-            ResultStatus::Proposed { oracle, proposed_at, .. } => {
+            ResultStatus::Proposed {
+                oracle,
+                proposed_at,
+                ..
+            } => {
                 let expires_at = proposed_at.saturating_add(CHALLENGE_WINDOW_MS);
                 if exec::block_timestamp() >= expires_at {
                     panic!("Challenge window expired — result is now final");
                 }
                 *oracle
-            },
+            }
             ResultStatus::Unresolved => panic!("No proposal to cancel"),
             ResultStatus::Finalized { .. } => panic!("Result already finalized — cannot cancel"),
             ResultStatus::Cancelled => panic!("Match already cancelled"),
@@ -409,66 +544,100 @@ impl Service {
     /// Marks a match as Cancelled and accumulates per-bettor refunds in
     /// pending_refunds. Use when a match cannot or will not produce a real
     /// result (suspension, abandonment, FIFA voiding, registration error).
-    /// Bettors then call claim_refund() to pull their stake out.
+    /// Cash bettors then call claim_refund() to pull their stake out. Freebet
+    /// principal is returned to FreebetLedger immediately during cancellation
+    /// because no finalized match payout exists.
     ///
-    /// Refund amount per bettor = stake_in_match_pool (the 85% post-fee share).
-    /// The 5% protocol fee and 10% final-prize cut already left this match's
-    /// pool at place_bet time and are not returned.
+    /// Cash refund amount per bettor = stake_in_match_pool (the 85% post-fee
+    /// share). Freebet refund amount = stake_in_match_pool, because freebet
+    /// entries do not pay protocol/final-prize fees. Once a match is finalized,
+    /// winning freebet claims return the principal to FreebetLedger and send
+    /// only net winnings to the user's wallet.
     ///
     /// Cancelling a match is terminal — no transition out of Cancelled.
     /// Cannot cancel a match already Finalized (claims may have happened).
     #[export]
-    pub fn cancel_match(&mut self, match_id: u64) {
-        let state = SmartCupState::state_mut();
-        state.check_not_locked_for_export();
-        state.only_admin();
+    pub async fn cancel_match(&mut self, match_id: u64) {
+        let (ledger, freebet_returns, total_refunded) = {
+            let state = SmartCupState::state_mut();
+            state.check_not_locked_for_export();
+            state.only_admin();
 
-        // Validate state transition
-        {
-            let m = state.matches.get(&match_id).expect("No such match");
-            match m.result {
-                ResultStatus::Unresolved | ResultStatus::Proposed { .. } => {}
-                ResultStatus::Finalized { .. } => {
-                    panic!("Match already finalized — cannot cancel")
+            // Validate state transition
+            {
+                let m = state.matches.get(&match_id).expect("No such match");
+                match m.result {
+                    ResultStatus::Unresolved | ResultStatus::Proposed { .. } => {}
+                    ResultStatus::Finalized { .. } => {
+                        panic!("Match already finalized — cannot cancel")
+                    }
+                    ResultStatus::Cancelled => panic!("Match already cancelled"),
                 }
-                ResultStatus::Cancelled => panic!("Match already cancelled"),
+            }
+
+            // Snapshot participants to release the matches borrow before touching bets
+            let participants: Vec<ActorId> = state
+                .matches
+                .get(&match_id)
+                .expect("No such match")
+                .participants
+                .clone();
+
+            // Accumulate cash refunds and collect freebet principal returns;
+            // mark each bet as claimed to block claim_match_reward and double-cancel.
+            let mut total_refunded: u128 = 0;
+            let mut freebet_returns: Vec<(ActorId, u128)> = Vec::new();
+            for participant in participants.iter() {
+                let (refund, freebet_principal) =
+                    match state.bets.get_mut(&(*participant, match_id)) {
+                        Some(bet) if !bet.claimed && bet.stake_in_match_pool > 0 => {
+                            let refund = bet.stake_in_match_pool;
+                            let freebet_principal = bet.freebet_principal;
+                            bet.claimed = true;
+                            (refund, freebet_principal)
+                        }
+                        _ => continue,
+                    };
+
+                if freebet_principal > 0 {
+                    freebet_returns.push((*participant, refund));
+                } else {
+                    let entry = state.pending_refunds.entry(*participant).or_insert(0);
+                    *entry = entry.saturating_add(refund);
+                }
+                total_refunded = total_refunded.saturating_add(refund);
+            }
+
+            // Mark match as cancelled and saneado for finalize_final_prize_pool
+            let m = state.matches.get_mut(&match_id).expect("No such match");
+            m.match_prize_pool = 0;
+            m.total_winner_stake = 0;
+            m.settlement_prepared = true;
+            m.dust_swept = true;
+            m.result = ResultStatus::Cancelled;
+            m.finalized_at = Some(exec::block_timestamp());
+
+            let ledger = if freebet_returns.is_empty() {
+                None
+            } else {
+                Some(
+                    state
+                        .freebet_ledger_program_id
+                        .expect("Freebet ledger not configured"),
+                )
+            };
+            (ledger, freebet_returns, total_refunded)
+        };
+
+        if let Some(ledger) = ledger {
+            for (user, amount) in freebet_returns {
+                Service::return_freebet_to_ledger(ledger, user, match_id, amount).await;
+                self.emit_event(SmartCupEvent::FreebetPrincipalReturned(
+                    user, match_id, amount,
+                ))
+                .expect("event");
             }
         }
-
-        // Snapshot participants to release the matches borrow before touching bets
-        let participants: Vec<ActorId> = state
-            .matches
-            .get(&match_id)
-            .expect("No such match")
-            .participants
-            .clone();
-
-        // Accumulate refunds per bettor; mark each bet as claimed to block
-        // both claim_match_reward and double-cancel.
-        let mut total_refunded: u128 = 0;
-        for participant in participants.iter() {
-            let refund = match state.bets.get_mut(&(*participant, match_id)) {
-                Some(bet) if !bet.claimed && bet.stake_in_match_pool > 0 => {
-                    let r = bet.stake_in_match_pool;
-                    bet.claimed = true;
-                    r
-                }
-                _ => continue,
-            };
-
-            let entry = state.pending_refunds.entry(*participant).or_insert(0);
-            *entry = entry.saturating_add(refund);
-            total_refunded = total_refunded.saturating_add(refund);
-        }
-
-        // Mark match as cancelled and saneado for finalize_final_prize_pool
-        let m = state.matches.get_mut(&match_id).expect("No such match");
-        m.match_prize_pool = 0;
-        m.total_winner_stake = 0;
-        m.settlement_prepared = true;
-        m.dust_swept = true;
-        m.result = ResultStatus::Cancelled;
-        m.finalized_at = Some(exec::block_timestamp());
 
         self.emit_event(SmartCupEvent::MatchCancelled(match_id, total_refunded))
             .expect("event");
@@ -489,8 +658,7 @@ impl Service {
         // CEI: clear before send
         state.pending_refunds.insert(caller, 0);
 
-        msg::send_with_gas(caller, (), 0, amount)
-            .unwrap_or_else(|_| panic!("Refund send failed"));
+        msg::send_with_gas(caller, (), 0, amount).unwrap_or_else(|_| panic!("Refund send failed"));
 
         self.emit_event(SmartCupEvent::RefundClaimed(caller, amount))
             .expect("event");
@@ -498,16 +666,17 @@ impl Service {
 
     // ── Oracle: pull result directly from Oracle-Program ─────────────────────
     #[export]
-    pub async fn propose_from_oracle(
-        &mut self,
-        match_id: u64,
-        oracle_program_id: ActorId,
-    ) {
+    pub async fn propose_from_oracle(&mut self, match_id: u64, oracle_program_id: ActorId) {
         // 1. Verify oracle is authorized and match is still Unresolved
         {
             let state = SmartCupState::state_mut();
             state.check_writes_allowed();
-            if !state.authorized_oracles.get(&oracle_program_id).cloned().unwrap_or(false) {
+            if !state
+                .authorized_oracles
+                .get(&oracle_program_id)
+                .cloned()
+                .unwrap_or(false)
+            {
                 panic!("Oracle not authorized");
             }
             let m = state.matches.get(&match_id).expect("No such match");
@@ -559,7 +728,12 @@ impl Service {
         if !matches!(m.result, ResultStatus::Unresolved) {
             panic!("Match state changed during oracle query — aborting proposal");
         }
-        m.result = ResultStatus::Proposed { score, penalty_winner, oracle: oracle_program_id, proposed_at };
+        m.result = ResultStatus::Proposed {
+            score,
+            penalty_winner,
+            oracle: oracle_program_id,
+            proposed_at,
+        };
 
         self.emit_event(SmartCupEvent::ResultProposed(
             match_id,
@@ -593,7 +767,7 @@ impl Service {
                     panic!("Challenge window not expired yet");
                 }
                 (*score, *penalty_winner)
-            },
+            }
             ResultStatus::Cancelled => panic!("Match cancelled — cannot finalize"),
             _ => panic!("Not proposed or already finalized"),
         };
@@ -683,8 +857,7 @@ impl Service {
                     final_penalty_winner,
                     phase_weight,
                 ) {
-                    total_winner_stake =
-                        total_winner_stake.saturating_add(bet.stake_in_match_pool);
+                    total_winner_stake = total_winner_stake.saturating_add(bet.stake_in_match_pool);
                 }
             }
         }
@@ -708,76 +881,111 @@ impl Service {
         ))
         .expect("event");
 
-        self.emit_event(SmartCupEvent::SettlementPrepared(match_id, total_winner_stake))
-            .expect("event");
+        self.emit_event(SmartCupEvent::SettlementPrepared(
+            match_id,
+            total_winner_stake,
+        ))
+        .expect("event");
     }
 
     // ── Settlement ────────────────────────────────────────────────────────────
 
     #[export]
-    pub fn claim_match_reward(&mut self, match_id: u64) {
-        let state = SmartCupState::state_mut();
-        state.check_writes_allowed();
+    pub async fn claim_match_reward(&mut self, match_id: u64) {
         let caller = msg::source();
 
-        let m = state.matches.get_mut(&match_id).expect("No such match");
+        let (ledger_return, user_payout) = {
+            let state = SmartCupState::state_mut();
+            state.check_writes_allowed();
 
-        if m.match_prize_pool == 0 || m.total_winner_stake == 0 {
-            panic!("No rewards for this match");
-        }
+            let m = state.matches.get_mut(&match_id).expect("No such match");
 
-        let bet = state
-            .bets
-            .get_mut(&(caller, match_id))
-            .expect("No bet for this match");
+            if m.match_prize_pool == 0 || m.total_winner_stake == 0 {
+                panic!("No rewards for this match");
+            }
 
-        if bet.claimed {
-            panic!("Already claimed");
-        }
+            let bet = state
+                .bets
+                .get_mut(&(caller, match_id))
+                .expect("No bet for this match");
 
-        let (final_score, final_penalty_winner) = match m.result {
-            ResultStatus::Finalized { score, penalty_winner } => (score, penalty_winner),
-            ResultStatus::Cancelled => panic!("Match cancelled — claim refund instead"),
-            _ => panic!("Match not finalized"),
+            if bet.claimed {
+                panic!("Already claimed");
+            }
+
+            let (final_score, final_penalty_winner) = match m.result {
+                ResultStatus::Finalized {
+                    score,
+                    penalty_winner,
+                } => (score, penalty_winner),
+                ResultStatus::Cancelled => panic!("Match cancelled — claim refund instead"),
+                _ => panic!("Match not finalized"),
+            };
+
+            let phase_weight = state
+                .phases
+                .get(&m.phase)
+                .map(|p| p.points_weight)
+                .unwrap_or(1);
+
+            let eligible = eligible_for_payout(
+                bet.score,
+                bet.penalty_winner,
+                final_score,
+                final_penalty_winner,
+                phase_weight,
+            );
+
+            if !eligible {
+                panic!("Not eligible for payout");
+            }
+
+            let share = bet
+                .stake_in_match_pool
+                .saturating_mul(m.match_prize_pool)
+                .checked_div(m.total_winner_stake)
+                .expect("Division by zero: total_winner_stake is zero");
+
+            if share == 0 {
+                bet.claimed = true;
+                panic!("Zero payout");
+            }
+
+            let freebet_principal = bet.freebet_principal.min(share);
+            let ledger_return = if freebet_principal > 0 {
+                let ledger = state
+                    .freebet_ledger_program_id
+                    .expect("Freebet ledger not configured");
+                Some((ledger, caller, match_id, freebet_principal))
+            } else {
+                None
+            };
+            let user_payout = share.saturating_sub(freebet_principal);
+
+            bet.claimed = true;
+            m.total_claimed = m.total_claimed.saturating_add(share);
+            (ledger_return, user_payout)
         };
 
-        let phase_weight = state
-            .phases
-            .get(&m.phase)
-            .map(|p| p.points_weight)
-            .unwrap_or(1);
-
-        let eligible = eligible_for_payout(
-            bet.score,
-            bet.penalty_winner,
-            final_score,
-            final_penalty_winner,
-            phase_weight,
-        );
-
-        if !eligible {
-            panic!("Not eligible for payout");
-        }
-
-        let share = bet
-            .stake_in_match_pool
-            .saturating_mul(m.match_prize_pool)
-            .checked_div(m.total_winner_stake)
-            .expect("Division by zero: total_winner_stake is zero");
-
-        if share == 0 {
-            bet.claimed = true;
-            panic!("Zero payout");
-        }
-
-        bet.claimed = true;
-        m.total_claimed = m.total_claimed.saturating_add(share);
-
-        msg::send_with_gas(caller, (), 0, share)
-            .unwrap_or_else(|_| panic!("Failed to send reward"));
-
-        self.emit_event(SmartCupEvent::MatchRewardClaimed(match_id, caller, share))
+        if let Some((ledger, user, match_id, amount)) = ledger_return {
+            Service::return_freebet_to_ledger(ledger, user, match_id, amount).await;
+            self.emit_event(SmartCupEvent::FreebetPrincipalReturned(
+                user, match_id, amount,
+            ))
             .expect("event");
+        }
+
+        if user_payout > 0 {
+            msg::send_with_gas(caller, (), 0, user_payout)
+                .unwrap_or_else(|_| panic!("Failed to send reward"));
+        }
+
+        self.emit_event(SmartCupEvent::MatchRewardClaimed(
+            match_id,
+            caller,
+            user_payout,
+        ))
+        .expect("event");
     }
 
     // ── Dust sweep ────────────────────────────────────────────────────────────
@@ -799,14 +1007,18 @@ impl Service {
             }
 
             if m.match_prize_pool > 0 {
-                let deadline_passed = m.finalized_at
+                let deadline_passed = m
+                    .finalized_at
                     .map(|t| exec::block_timestamp() >= t.saturating_add(CLAIM_DEADLINE_MS))
                     .unwrap_or(false);
 
                 // Before deadline: guard requires all winners to have claimed
                 if !deadline_passed {
                     let (final_score, final_penalty_winner) = match m.result {
-                        ResultStatus::Finalized { score, penalty_winner } => (score, penalty_winner),
+                        ResultStatus::Finalized {
+                            score,
+                            penalty_winner,
+                        } => (score, penalty_winner),
                         _ => panic!("Match not finalized"),
                     };
                     let phase_weight = state
@@ -826,7 +1038,9 @@ impl Service {
                                     phase_weight,
                                 )
                             {
-                                panic!("Unclaimed eligible bets remain — wait for 72h claim deadline");
+                                panic!(
+                                    "Unclaimed eligible bets remain — wait for 72h claim deadline"
+                                );
                             }
                         }
                     }
@@ -845,8 +1059,7 @@ impl Service {
         }
 
         let dust = m.match_prize_pool.saturating_sub(m.total_claimed);
-        state.final_prize_accumulated =
-            state.final_prize_accumulated.saturating_add(dust);
+        state.final_prize_accumulated = state.final_prize_accumulated.saturating_add(dust);
 
         m.match_prize_pool = 0;
         m.dust_swept = true;
@@ -858,12 +1071,7 @@ impl Service {
     // ── Podium picks ──────────────────────────────────────────────────────────
 
     #[export]
-    pub fn submit_podium_pick(
-        &mut self,
-        champion: String,
-        runner_up: String,
-        third_place: String,
-    ) {
+    pub fn submit_podium_pick(&mut self, champion: String, runner_up: String, third_place: String) {
         let state = SmartCupState::state_mut();
         state.check_writes_allowed();
         let user = msg::source();
@@ -894,14 +1102,13 @@ impl Service {
         }
 
         let protocol_fee = sent_value.saturating_mul(PODIUM_PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
-        let final_prize_cut = sent_value
-            .saturating_mul(PODIUM_FINAL_PRIZE_BPS)
-            / BPS_DENOMINATOR;
+        let final_prize_cut = sent_value.saturating_mul(PODIUM_FINAL_PRIZE_BPS) / BPS_DENOMINATOR;
 
         state.protocol_fee_accumulated =
             state.protocol_fee_accumulated.saturating_add(protocol_fee);
-        state.final_prize_accumulated =
-            state.final_prize_accumulated.saturating_add(final_prize_cut);
+        state.final_prize_accumulated = state
+            .final_prize_accumulated
+            .saturating_add(final_prize_cut);
 
         state.podium_picks.insert(
             user,
@@ -922,12 +1129,7 @@ impl Service {
     }
 
     #[export]
-    pub fn finalize_podium(
-        &mut self,
-        champion: String,
-        runner_up: String,
-        third_place: String,
-    ) {
+    pub fn finalize_podium(&mut self, champion: String, runner_up: String, third_place: String) {
         let state = SmartCupState::state_mut();
         state.check_not_locked_for_export();
         state.only_admin();
@@ -965,7 +1167,11 @@ impl Service {
                 if pick.third_place == third_place {
                     bonus = bonus.saturating_add(5);
                 }
-                if bonus > 0 { Some((*user, bonus)) } else { None }
+                if bonus > 0 {
+                    Some((*user, bonus))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -1071,14 +1277,19 @@ impl Service {
             let treasury = state.treasury;
             state.final_prize_rounding_dust = 0;
             msg::send(treasury, (), dust).expect("Dust auto-sweep failed");
-            self.emit_event(SmartCupEvent::FinalPrizeRoundingDustWithdrawn(dust, treasury))
-                .expect("event");
+            self.emit_event(SmartCupEvent::FinalPrizeRoundingDustWithdrawn(
+                dust, treasury,
+            ))
+            .expect("event");
         } else {
             state.final_prize_rounding_dust = 0;
         }
 
-        self.emit_event(SmartCupEvent::FinalPrizePoolFinalized(total_allocated, dust))
-            .expect("event");
+        self.emit_event(SmartCupEvent::FinalPrizePoolFinalized(
+            total_allocated,
+            dust,
+        ))
+        .expect("event");
     }
 
     #[export]
@@ -1165,6 +1376,51 @@ impl Service {
         msg::send(to, (), amt).expect("Final prize rounding dust transfer failed");
 
         self.emit_event(SmartCupEvent::FinalPrizeRoundingDustWithdrawn(amt, to))
+            .expect("event");
+    }
+
+    #[export]
+    pub fn withdraw_surplus_vara(&mut self, to: ActorId, amount: u128) {
+        let state = SmartCupState::state_mut();
+        state.check_not_locked_for_export();
+        state.only_admin();
+
+        if to == ActorId::zero() || to == exec::program_id() {
+            panic!("Invalid withdraw destination");
+        }
+        if amount == 0 {
+            panic!("Amount must be greater than zero");
+        }
+
+        let locked = state.total_locked_vara();
+        let available = exec::value_available();
+        let surplus = available.saturating_sub(locked);
+        if amount > surplus {
+            panic!("Insufficient surplus VARA");
+        }
+
+        msg::send(to, (), amount).expect("Surplus VARA transfer failed");
+        self.emit_event(SmartCupEvent::SurplusVaraWithdrawn(amount, to))
+            .expect("event");
+    }
+
+    #[export]
+    pub fn force_withdraw_vara(&mut self, to: ActorId, amount: u128) {
+        let state = SmartCupState::state_mut();
+        state.only_admin();
+
+        if to == ActorId::zero() || to == exec::program_id() {
+            panic!("Invalid withdraw destination");
+        }
+        if amount == 0 {
+            panic!("Amount must be greater than zero");
+        }
+        if exec::value_available() < amount {
+            panic!("Insufficient balance");
+        }
+
+        msg::send(to, (), amount).expect("Force VARA transfer failed");
+        self.emit_event(SmartCupEvent::ForceVaraWithdrawn(amount, to))
             .expect("event");
     }
 
@@ -1331,8 +1587,7 @@ impl Service {
         if amount == 0 {
             panic!("Nothing to drain");
         }
-        msg::send_with_gas(dest, (), 0, amount)
-            .unwrap_or_else(|_| panic!("Drain send failed"));
+        msg::send_with_gas(dest, (), 0, amount).unwrap_or_else(|_| panic!("Drain send failed"));
         self.emit_event(SmartCupEvent::MigrationVaraDrained(dest, amount))
             .expect("event");
     }
@@ -1380,7 +1635,9 @@ impl Service {
                 state.podium_picks.insert(up.user, pp.clone());
             }
             if up.final_prize_allocation > 0 {
-                state.final_prize_allocations.insert(up.user, up.final_prize_allocation);
+                state
+                    .final_prize_allocations
+                    .insert(up.user, up.final_prize_allocation);
             }
             if up.final_prize_claimed {
                 state.final_prize_claimed.insert(up.user, true);
@@ -1405,23 +1662,24 @@ impl Service {
             panic!("Contract already sealed");
         }
 
-        state.admins                      = meta.admins;
-        state.operators                   = meta.operators;
-        state.treasury                    = meta.treasury;
-        state.authorized_oracles          = meta.authorized_oracles.into_iter().collect();
-        state.next_match_id               = meta.next_match_id;
-        state.protocol_fee_accumulated    = meta.protocol_fee_accumulated;
-        state.final_prize_accumulated     = meta.final_prize_accumulated;
-        state.r32_lock_time               = meta.r32_lock_time;
-        state.podium_result               = meta.podium_result;
-        state.podium_finalized            = meta.podium_finalized;
-        state.final_prize_finalized       = meta.final_prize_finalized;
+        state.admins = meta.admins;
+        state.operators = meta.operators;
+        state.treasury = meta.treasury;
+        state.authorized_oracles = meta.authorized_oracles.into_iter().collect();
+        state.next_match_id = meta.next_match_id;
+        state.protocol_fee_accumulated = meta.protocol_fee_accumulated;
+        state.final_prize_accumulated = meta.final_prize_accumulated;
+        state.r32_lock_time = meta.r32_lock_time;
+        state.podium_result = meta.podium_result;
+        state.podium_finalized = meta.podium_finalized;
+        state.final_prize_finalized = meta.final_prize_finalized;
         state.final_prize_claimable_total = meta.final_prize_claimable_total;
-        state.final_prize_rounding_dust   = meta.final_prize_rounding_dust;
-        state.vara_price_usd_micro        = meta.vara_price_usd_micro;
-        state.price_cached_at             = meta.price_cached_at;
-        state.price_staleness_limit_ms    = meta.price_staleness_limit_ms;
-        state.price_oracle_program_id     = meta.price_oracle_program_id;
+        state.final_prize_rounding_dust = meta.final_prize_rounding_dust;
+        state.vara_price_usd_micro = meta.vara_price_usd_micro;
+        state.price_cached_at = meta.price_cached_at;
+        state.price_staleness_limit_ms = meta.price_staleness_limit_ms;
+        state.price_oracle_program_id = meta.price_oracle_program_id;
+        state.freebet_ledger_program_id = meta.freebet_ledger_program_id;
         // pending_refunds_scalar is informational only — NOT persisted (REQ-8.4)
     }
 
@@ -1465,12 +1723,13 @@ impl Service {
         // CEI: clear BEFORE send
         state.pending_refunds.insert(user, 0);
 
-        msg::send_with_gas(user, (), 0, amount)
-            .unwrap_or_else(|_| {
-                // Restore bookkeeping — value never left
-                SmartCupState::state_mut().pending_refunds.insert(user, amount);
-                panic!("Push refund send failed");
-            });
+        msg::send_with_gas(user, (), 0, amount).unwrap_or_else(|_| {
+            // Restore bookkeeping — value never left
+            SmartCupState::state_mut()
+                .pending_refunds
+                .insert(user, amount);
+            panic!("Push refund send failed");
+        });
 
         self.emit_event(SmartCupEvent::RefundPushed(user, amount))
             .expect("event");
@@ -1510,8 +1769,7 @@ impl Service {
         SmartCupState::state_ref().total_locked_vara()
     }
 
-
-        #[export]
+    #[export]
     pub fn query_state(&self) -> IoSmartCupState {
         SmartCupState::state_ref().clone().into()
     }
@@ -1554,7 +1812,10 @@ impl Service {
             }
 
             let (final_score, final_penalty_winner) = match m.result {
-                ResultStatus::Finalized { score, penalty_winner } => (score, penalty_winner),
+                ResultStatus::Finalized {
+                    score,
+                    penalty_winner,
+                } => (score, penalty_winner),
                 _ => continue,
             };
 
@@ -1576,14 +1837,15 @@ impl Service {
                 continue;
             }
 
-            let claimable = bet
+            let gross = bet
                 .stake_in_match_pool
                 .saturating_mul(m.match_prize_pool)
                 .checked_div(m.total_winner_stake)
                 .unwrap_or(0);
-
-            if claimable > 0 {
-                total_claimable = total_claimable.saturating_add(claimable);
+            if gross > 0 {
+                let freebet_principal = bet.freebet_principal.min(gross);
+                let wallet_payout = gross.saturating_sub(freebet_principal);
+                total_claimable = total_claimable.saturating_add(wallet_payout);
                 has_unclaimed_eligible = true;
             }
         }
@@ -1617,6 +1879,7 @@ impl Service {
                 score: r.score,
                 penalty_winner: r.penalty_winner,
                 stake_in_match_pool: r.stake_in_match_pool,
+                freebet_principal: r.freebet_principal,
                 claimed,
             });
         }

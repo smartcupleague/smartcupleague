@@ -1,13 +1,16 @@
-use sails_rs::{cell::RefCell, prelude::*, gstd::{exec, msg}};
+use sails_rs::{
+    cell::RefCell,
+    gstd::{exec, msg},
+    prelude::*,
+};
 
 use super::constants::{MAX_FEEDERS, MAX_MATCH_ID};
 use super::errors::OracleError;
-use super::types::{
-    FinalResult, OracleMatchEntry, OracleResultStatus,
-    PenaltyWinner, ResultSubmission, Score,
-};
 use super::events::OracleEvent;
 use super::state::{IoMatchResult, IoOracleState, OracleState};
+use super::types::{
+    FinalResult, OracleMatchEntry, OracleResultStatus, PenaltyWinner, ResultSubmission, Score,
+};
 use super::utils::{feeder_already_submitted, find_consensus};
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -22,7 +25,7 @@ impl<'a> Service<'a> {
     }
 
     fn ensure_admin(&self) -> Result<(), OracleError> {
-        if msg::source() != self.state.borrow().admin {
+        if !self.state.borrow().admins.contains(&msg::source()) {
             return Err(OracleError::Unauthorized);
         }
         Ok(())
@@ -31,7 +34,7 @@ impl<'a> Service<'a> {
     fn ensure_admin_or_operator(&self) -> Result<(), OracleError> {
         let caller = msg::source();
         let state = self.state.borrow();
-        if caller != state.admin && !state.operators.contains(&caller) {
+        if !state.admins.contains(&caller) && !state.operators.contains(&caller) {
             return Err(OracleError::Unauthorized);
         }
         Ok(())
@@ -39,7 +42,14 @@ impl<'a> Service<'a> {
 
     fn ensure_feeder(&self) -> Result<(), OracleError> {
         let caller = msg::source();
-        if !self.state.borrow().authorized_feeders.get(&caller).cloned().unwrap_or(false) {
+        if !self
+            .state
+            .borrow()
+            .authorized_feeders
+            .get(&caller)
+            .cloned()
+            .unwrap_or(false)
+        {
             return Err(OracleError::NotAuthorizedFeeder);
         }
         Ok(())
@@ -48,7 +58,6 @@ impl<'a> Service<'a> {
 
 #[sails_rs::service(events = OracleEvent)]
 impl<'a> Service<'a> {
-
     // ── ADMIN — match registration ────────────────────────────────────────────
 
     /// Admin or operator pre-registers a match_id before feeders can submit results.
@@ -72,18 +81,22 @@ impl<'a> Service<'a> {
             if state.match_results.contains_key(&match_id) {
                 return Err(OracleError::MatchAlreadyRegistered);
             }
-            state.match_results.insert(match_id, OracleMatchEntry {
+            state.match_results.insert(
                 match_id,
-                phase,
-                home,
-                away,
-                kick_off,
-                submissions:  Vec::new(),
-                status:       OracleResultStatus::Pending,
-                final_result: None,
-            });
+                OracleMatchEntry {
+                    match_id,
+                    phase,
+                    home,
+                    away,
+                    kick_off,
+                    submissions: Vec::new(),
+                    status: OracleResultStatus::Pending,
+                    final_result: None,
+                },
+            );
         }
-        self.emit_event(OracleEvent::MatchRegistered(match_id)).expect("event");
+        self.emit_event(OracleEvent::MatchRegistered(match_id))
+            .expect("event");
         Ok(())
     }
 
@@ -116,7 +129,8 @@ impl<'a> Service<'a> {
             }
             state.authorized_feeders.insert(feeder, authorized);
         }
-        self.emit_event(OracleEvent::FeederSet(feeder, authorized)).expect("event");
+        self.emit_event(OracleEvent::FeederSet(feeder, authorized))
+            .expect("event");
         Ok(())
     }
 
@@ -134,7 +148,8 @@ impl<'a> Service<'a> {
             return Err(OracleError::ThresholdExceedsMaxFeeders);
         }
         self.state.borrow_mut().consensus_threshold = threshold;
-        self.emit_event(OracleEvent::ConsensusThresholdSet(threshold)).expect("event");
+        self.emit_event(OracleEvent::ConsensusThresholdSet(threshold))
+            .expect("event");
         Ok(())
     }
 
@@ -143,7 +158,8 @@ impl<'a> Service<'a> {
     pub fn set_bolao_program(&mut self, program_id: ActorId) -> Result<(), OracleError> {
         self.ensure_admin()?;
         self.state.borrow_mut().bolao_program_id = Some(program_id);
-        self.emit_event(OracleEvent::BolaoProgram(program_id)).expect("event");
+        self.emit_event(OracleEvent::BolaoProgram(program_id))
+            .expect("event");
         Ok(())
     }
 
@@ -171,12 +187,12 @@ impl<'a> Service<'a> {
                 .entry(match_id)
                 .or_insert_with(|| OracleMatchEntry {
                     match_id,
-                    phase:        String::new(),
-                    home:         String::new(),
-                    away:         String::new(),
-                    kick_off:     0,
-                    submissions:  Vec::new(),
-                    status:       OracleResultStatus::Pending,
+                    phase: String::new(),
+                    home: String::new(),
+                    away: String::new(),
+                    kick_off: 0,
+                    submissions: Vec::new(),
+                    status: OracleResultStatus::Pending,
                     final_result: None,
                 });
             if entry.status == OracleResultStatus::Finalized {
@@ -189,7 +205,8 @@ impl<'a> Service<'a> {
                 finalized_at: exec::block_timestamp(),
             });
         }
-        self.emit_event(OracleEvent::ResultForced(match_id, score, penalty_winner)).expect("event");
+        self.emit_event(OracleEvent::ResultForced(match_id, score, penalty_winner))
+            .expect("event");
         Ok(())
     }
 
@@ -216,7 +233,8 @@ impl<'a> Service<'a> {
             entry.final_result = None;
             entry.submissions.clear();
         }
-        self.emit_event(OracleEvent::ResultCancelled(match_id)).expect("event");
+        self.emit_event(OracleEvent::ResultCancelled(match_id))
+            .expect("event");
         Ok(())
     }
 
@@ -232,7 +250,8 @@ impl<'a> Service<'a> {
         }
         let old = self.state.borrow().admin;
         self.state.borrow_mut().pending_admin = Some(new_admin);
-        self.emit_event(OracleEvent::AdminProposed(old, new_admin)).expect("event");
+        self.emit_event(OracleEvent::AdminProposed(old, new_admin))
+            .expect("event");
         Ok(())
     }
 
@@ -250,10 +269,91 @@ impl<'a> Service<'a> {
         }
         {
             let mut state = self.state.borrow_mut();
-            state.admin         = caller;
+            state.admin = caller;
+            if !state.admins.contains(&caller) {
+                state.admins.push(caller);
+            }
             state.pending_admin = None;
         }
-        self.emit_event(OracleEvent::AdminChanged(old, caller)).expect("event");
+        self.emit_event(OracleEvent::AdminChanged(old, caller))
+            .expect("event");
+        Ok(())
+    }
+
+    #[export(unwrap_result)]
+    pub fn add_admin(&mut self, new_admin: ActorId) -> Result<(), OracleError> {
+        self.ensure_admin()?;
+        if new_admin == ActorId::zero() {
+            return Err(OracleError::InvalidAdmin);
+        }
+        {
+            let mut state = self.state.borrow_mut();
+            if !state.admins.contains(&new_admin) {
+                state.admins.push(new_admin);
+            }
+        }
+        self.emit_event(OracleEvent::AdminAdded(new_admin))
+            .expect("event");
+        Ok(())
+    }
+
+    #[export(unwrap_result)]
+    pub fn remove_admin(&mut self, admin: ActorId) -> Result<(), OracleError> {
+        self.ensure_admin()?;
+        let mut state = self.state.borrow_mut();
+        if state.admins.len() <= 1 {
+            return Err(OracleError::CannotRemoveLastAdmin);
+        }
+        let pos = state
+            .admins
+            .iter()
+            .position(|id| *id == admin)
+            .ok_or(OracleError::InvalidAdmin)?;
+        state.admins.remove(pos);
+        if state.admin == admin {
+            state.admin = state.admins[0];
+        }
+        drop(state);
+        self.emit_event(OracleEvent::AdminRemoved(admin))
+            .expect("event");
+        Ok(())
+    }
+
+    #[export(unwrap_result)]
+    pub fn withdraw_vara(&mut self, to: ActorId, amount: u128) -> Result<(), OracleError> {
+        self.ensure_admin()?;
+        if to == ActorId::zero() || to == exec::program_id() {
+            return Err(OracleError::InvalidWithdrawDestination);
+        }
+        if amount == 0 {
+            return Err(OracleError::InvalidAmount);
+        }
+        if exec::value_available() < amount {
+            return Err(OracleError::InsufficientBalance);
+        }
+
+        msg::send(to, (), amount).map_err(|_| OracleError::InvalidWithdrawDestination)?;
+        self.emit_event(OracleEvent::VaraWithdrawn(to, amount))
+            .expect("event");
+        Ok(())
+    }
+
+    #[export(unwrap_result)]
+    pub fn force_withdraw_vara(&mut self, to: ActorId, amount: u128) -> Result<(), OracleError> {
+        self.ensure_admin()?;
+        if to == ActorId::zero() || to == exec::program_id() {
+            return Err(OracleError::InvalidWithdrawDestination);
+        }
+        if amount == 0 {
+            return Err(OracleError::InvalidAmount);
+        }
+        if exec::value_available() < amount {
+            return Err(OracleError::InsufficientBalance);
+        }
+
+        msg::send(to, (), amount).map_err(|_| OracleError::InvalidWithdrawDestination)?;
+        self.emit_event(OracleEvent::ForceVaraWithdrawn(to, amount))
+            .expect("event");
         Ok(())
     }
 
@@ -282,7 +382,7 @@ impl<'a> Service<'a> {
         }
 
         let feeder = msg::source();
-        let score  = Score { home, away };
+        let score = Score { home, away };
 
         let (consensus_result, threshold) = {
             let mut state = self.state.borrow_mut();
@@ -327,11 +427,11 @@ impl<'a> Service<'a> {
                 {
                     let mut state = self.state.borrow_mut();
                     let entry = state.match_results.get_mut(&match_id).unwrap();
-                    entry.status       = OracleResultStatus::Finalized;
+                    entry.status = OracleResultStatus::Finalized;
                     entry.final_result = Some(FinalResult {
-                        score:          c_score,
+                        score: c_score,
                         penalty_winner: c_pen,
-                        finalized_at:   exec::block_timestamp(),
+                        finalized_at: exec::block_timestamp(),
                     });
                 }
                 self.emit_event(OracleEvent::ConsensusReached(match_id, c_score, c_pen))
@@ -340,7 +440,8 @@ impl<'a> Service<'a> {
             }
         }
 
-        self.emit_event(OracleEvent::ResultSubmitted(match_id, feeder, score)).expect("event");
+        self.emit_event(OracleEvent::ResultSubmitted(match_id, feeder, score))
+            .expect("event");
         Ok(())
     }
 
@@ -349,10 +450,7 @@ impl<'a> Service<'a> {
     /// Authorized feeder pushes the current VARA/USD price on-chain.
     /// Range: [1, 100_000_000] micro-USD (= $0.000001 to $100 per VARA).
     #[export(unwrap_result)]
-    pub fn set_vara_usd_price(
-        &mut self,
-        price_usd_micro: u64,
-    ) -> Result<(), OracleError> {
+    pub fn set_vara_usd_price(&mut self, price_usd_micro: u64) -> Result<(), OracleError> {
         self.ensure_feeder()?;
         if !(1..=100_000_000).contains(&price_usd_micro) {
             return Err(OracleError::PriceOutOfRange);
@@ -360,9 +458,10 @@ impl<'a> Service<'a> {
         {
             let mut state = self.state.borrow_mut();
             state.vara_price_usd_micro = price_usd_micro;
-            state.price_updated_at     = exec::block_timestamp();
+            state.price_updated_at = exec::block_timestamp();
         }
-        self.emit_event(OracleEvent::VaraPriceSet(price_usd_micro)).expect("event");
+        self.emit_event(OracleEvent::VaraPriceSet(price_usd_micro))
+            .expect("event");
         Ok(())
     }
 
@@ -383,7 +482,8 @@ impl<'a> Service<'a> {
             }
             state.operators.push(new_operator);
         }
-        self.emit_event(OracleEvent::OperatorAdded(new_operator)).expect("event");
+        self.emit_event(OracleEvent::OperatorAdded(new_operator))
+            .expect("event");
         Ok(())
     }
 
@@ -400,7 +500,8 @@ impl<'a> Service<'a> {
                 .ok_or(OracleError::NotAnOperator)?;
             state.operators.remove(pos);
         }
-        self.emit_event(OracleEvent::OperatorRemoved(operator)).expect("event");
+        self.emit_event(OracleEvent::OperatorRemoved(operator))
+            .expect("event");
         Ok(())
     }
 
@@ -449,14 +550,14 @@ impl<'a> Service<'a> {
             .match_results
             .values()
             .map(|e| IoMatchResult {
-                match_id:     e.match_id,
-                phase:        e.phase.clone(),
-                home:         e.home.clone(),
-                away:         e.away.clone(),
-                kick_off:     e.kick_off,
-                status:       e.status.clone(),
+                match_id: e.match_id,
+                phase: e.phase.clone(),
+                home: e.home.clone(),
+                away: e.away.clone(),
+                kick_off: e.kick_off,
+                status: e.status.clone(),
                 final_result: e.final_result.clone(),
-                submissions:  e.submissions.len() as u32,
+                submissions: e.submissions.len() as u32,
             })
             .collect()
     }

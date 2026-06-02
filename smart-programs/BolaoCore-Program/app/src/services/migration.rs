@@ -1,5 +1,5 @@
+use super::types::{Bet, Match, PhaseConfig, PodiumPick, PodiumResult, UserBetRecord};
 use sails_rs::prelude::*;
-use super::types::{Match, PhaseConfig, Bet, UserBetRecord, PodiumPick, PodiumResult};
 
 /// Per-user payload bundling all user-keyed map entries for migration.
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
@@ -54,6 +54,7 @@ pub struct MigrationMetadata {
     pub price_cached_at: u64,
     pub price_staleness_limit_ms: u64,
     pub price_oracle_program_id: Option<ActorId>,
+    pub freebet_ledger_program_id: Option<ActorId>,
     /// Informational total of all pending_refunds; NOT persisted on import.
     pub pending_refunds_scalar: u128,
 }
@@ -71,6 +72,8 @@ pub fn slice<T: Clone>(v: &[T], page: u32, per_collection: usize) -> Vec<T> {
 
 /// Integer ceiling division.
 pub fn div_ceil(a: usize, b: usize) -> usize {
-    if b == 0 { return 0; }
+    if b == 0 {
+        return 0;
+    }
     (a + b - 1) / b
 }

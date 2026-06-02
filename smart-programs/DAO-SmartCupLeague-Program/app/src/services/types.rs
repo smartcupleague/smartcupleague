@@ -45,10 +45,7 @@ pub enum ProposalKind {
         kick_off: u64,
     },
     /// Grant or revoke oracle authority on BolaoCore.
-    SetOracleAuthorized {
-        oracle: ActorId,
-        authorized: bool,
-    },
+    SetOracleAuthorized { oracle: ActorId, authorized: bool },
     /// Finalise the tournament podium on BolaoCore.
     FinalizePodium {
         champion: String,
@@ -111,6 +108,7 @@ pub struct BolaoInstance {
 #[scale_info(crate = sails_rs::scale_info)]
 pub struct IoDaoState {
     pub owner: ActorId,
+    pub admins: Vec<ActorId>,
     /// Default BolaoCore program that governance proposals dispatch to.
     pub bolao_program: ActorId,
     pub kyc_contract: Option<ActorId>,

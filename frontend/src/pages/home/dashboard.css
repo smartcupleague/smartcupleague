@@ -141,9 +141,9 @@ body {
   align-items: stretch;
   justify-content: flex-start;
   gap: 0;
-  padding: 16px 18px 14px;
+  padding: 18px 20px 16px;
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: calc(var(--r) + 6px);
+  border-radius: calc(var(--r) + 2px);
   background:
     radial-gradient(700px 240px at 8% 0%, rgba(255, 46, 118, 0.14), transparent 58%),
     radial-gradient(500px 200px at 95% 100%, rgba(168, 5, 69, 0.12), transparent 60%),
@@ -182,7 +182,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 18px;
 }
 
 .h-title {
@@ -270,8 +270,11 @@ body {
 }
 
 .h-user {
+  flex: 0 1 700px;
+  width: min(100%, 700px);
+  max-width: 700px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
   min-width: 0;
 }

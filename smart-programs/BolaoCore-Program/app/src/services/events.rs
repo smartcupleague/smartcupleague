@@ -1,5 +1,5 @@
+use super::types::{PenaltyWinner, Score};
 use sails_rs::prelude::*;
-use super::types::{Score, PenaltyWinner};
 
 #[event]
 #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -29,14 +29,19 @@ pub enum SmartCupEvent {
     FinalPrizePoolFinalized(u128, u128),
     FinalPrizeClaimed(ActorId, u128),
     FinalPrizeRoundingDustWithdrawn(u128, ActorId),
+    SurplusVaraWithdrawn(u128, ActorId),
+    /// Admin emergency withdrawal that may bypass locked pools/liabilities: (amount, to).
+    ForceVaraWithdrawn(u128, ActorId),
     ResultProposalCancelled(u64, ActorId),
     MatchCancelled(u64, u128),
     RefundClaimed(ActorId, u128),
+    FreebetLedgerSet(Option<ActorId>),
+    FreebetBetAccepted(ActorId, u64, Score, Option<PenaltyWinner>, u128),
+    FreebetPrincipalReturned(ActorId, u64, u128),
     /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
     VaraPriceRefreshed(u64),
 
     // ── Migration events ──────────────────────────────────────────────────────
-
     /// Emitted by lock_for_migration() when the contract is locked for export.
     MigrationLocked,
 

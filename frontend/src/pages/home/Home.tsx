@@ -314,19 +314,19 @@ export default function Home() {
   }, [coreProgram]);
 
   const fetchUserBets = useCallback(async () => {
-    if (!coreProgram || !account) {
+    if (!coreProgram || !myWalletHex) {
       setUserBets([]);
       return;
     }
 
     try {
       const svc = new CoreService(coreProgram);
-      const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+      const bets = (await (svc as any).queryBetsByUser(myWalletHex)) as any[];
       setUserBets(Array.isArray(bets) ? bets : []);
     } catch {
       setUserBets([]);
     }
-  }, [coreProgram, account]);
+  }, [coreProgram, myWalletHex]);
 
   const fetchFinalPrizeClaimStatus = useCallback(async () => {
     if (!coreProgram || !account) {

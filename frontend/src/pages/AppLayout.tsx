@@ -4,10 +4,10 @@ import { AppFooter } from '@/components/layout/footer/AppFooter';
 
 export function AppLayout() {
   return (
-    <div className="app-layout">
+    <div className="scb-app-layout">
       <Sidebar />
-      <div className="app-content">
-        <main className="app-main">
+      <div className="scb-app-content">
+        <main className="scb-app-main">
           <Outlet />
         </main>
         <AppFooter />

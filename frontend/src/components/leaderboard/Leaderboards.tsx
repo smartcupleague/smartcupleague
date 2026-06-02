@@ -18,6 +18,7 @@ import {
 } from '@/utils';
 import { UserProfileModal } from './UserProfileModal';
 import { TeamFlag } from '@/components/common/TeamFlag';
+import { PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const MY_LB_KEY = 'scl_my_leaderboard_v1';
@@ -301,9 +302,9 @@ export default function Leaderboards() {
         chainState = (await (svc as any).queryState()) as QueryStateResponse;
       } catch { /* non-fatal; indexer path can still render leaderboard */ }
 
-      if (svc && account?.decodedAddress) {
+      if (svc && myWalletHex) {
         try {
-          const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+          const bets = (await (svc as any).queryBetsByUser(myWalletHex)) as any[];
           setPredictedMatchIds(new Set((bets ?? []).map((b) => String(b?.match_id ?? '')).filter(Boolean)));
         } catch {
           setPredictedMatchIds(new Set());
@@ -408,7 +409,7 @@ export default function Leaderboards() {
     } finally {
       setLoading(false);
     }
-  }, [account, api, isApiReady, toast]);
+  }, [api, isApiReady, myWalletHex, toast]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -532,9 +533,7 @@ export default function Leaderboards() {
 
           <div className="lbTop__right">
             <div className="lbSearch" role="search">
-              <span className="lbSearch__icon" aria-hidden="true">
-                ⌕
-              </span>
+              <PiMagnifyingGlassBold className="lbSearch__icon" aria-hidden="true" />
               <input
                 className="lbSearch__input"
                 value={query}

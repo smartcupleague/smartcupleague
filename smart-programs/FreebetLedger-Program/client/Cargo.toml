@@ -1,0 +1,15 @@
+[package]
+name = "smartcup-freebet-ledger-client"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.91"
+description = "Generated Rust client for the SmartCup freebet-ledger program"
+license = "MIT"
+
+[dependencies]
+sails-rs = "=0.10.2"
+
+[build-dependencies]
+smartcup-freebet-ledger-app = { path = "../app" }
+sails-rs = { version = "=0.10.2", features = ["build"] }
+sails-idl-gen = "=0.10.2"

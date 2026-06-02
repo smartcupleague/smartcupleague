@@ -13,6 +13,7 @@ type UserBetView = struct {
   score: Score,
   penalty_winner: opt PenaltyWinner,
   stake_in_match_pool: u128,
+  freebet_principal: u128,
   claimed: bool,
 };
 
@@ -238,4 +239,3 @@ service Service {
     };
   }
 };
-

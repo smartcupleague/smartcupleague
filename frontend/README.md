@@ -50,7 +50,7 @@ All variables are read at build time and must be prefixed with `VITE_`.
 
 | Variable | Required | Description |
 |---|---|---|
-| `VITE_NODE_ADDRESS` | yes | Vara Network WebSocket RPC (e.g. `wss://testnet.vara.network`) |
+| `VITE_NODE_ADDRESS` | yes | Vara Network WebSocket RPC (e.g. `wss://rpc.vara.network`) |
 | `VITE_BOLAOCOREPROGRAM` | yes | BolaoCore program address (hex) |
 | `VITE_DAOPROGRAM` | yes | DAO-SmartCupLeague program address (hex) |
 | `VITE_ORACLE_URL` | yes | Oracle server base URL (e.g. `http://localhost:3001`) |
@@ -60,7 +60,7 @@ All variables are read at build time and must be prefixed with `VITE_`.
 Example `.env`:
 
 ```env
-VITE_NODE_ADDRESS=wss://testnet.vara.network
+VITE_NODE_ADDRESS=wss://rpc.vara.network
 VITE_BOLAOCOREPROGRAM=0x...
 VITE_DAOPROGRAM=0x...
 VITE_ORACLE_URL=http://localhost:3001

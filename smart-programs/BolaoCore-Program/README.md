@@ -26,6 +26,7 @@ A Vara Network (Gear Protocol) smart contract that powers a prediction-market bo
 - **Knockout bonus** — penalty winner prediction required for drawn knockout matches.
 - **Podium picks** — pre-tournament champion/runner-up/third-place prediction earns bonus points (20/10/5).
 - **Final prize** — a pool that grows throughout the tournament, distributed to the top 5 leaderboard finishers at the end.
+- **Freebet predictions** — campaign rewards are non-withdrawable until spent; the FreebetLedger moves the backing VARA into the match pool, then winning claims return the freebet principal to the ledger and pay only net winnings as withdrawable VARA.
 - **No house edge** — 5% protocol fee covers operations; everything else goes to players.
 - **Match cancellation with refund** — admin can cancel a match that will not be played and bettors pull back the 85% match-pool portion of their stake via `claim_refund`.
 - **Multi-admin + operators** — admin set is a list (no single point of failure); operators have a narrower role for match registration only.
@@ -53,7 +54,7 @@ The contract uses Gear Protocol's static mutable state pattern (`static mut SMAR
 
 ## Fee Model
 
-Every bet is split into three portions at the moment it is placed:
+Every wallet-funded bet is split into three portions at the moment it is placed:
 
 | Destination      | Share | Constant           |
 |------------------|-------|--------------------|
@@ -62,6 +63,13 @@ Every bet is split into three portions at the moment it is placed:
 | Match prize pool | 85%   | (remainder)        |
 
 **Match prize pool** is distributed proportionally to winners based on their stake. Unclaimed remainder is swept to the final prize pool after all winners claim or after the 48-hour claim deadline expires.
+
+Freebet-funded predictions are different: the full freebet amount is moved from
+FreebetLedger into the match prize pool with no protocol or final-prize fee. If
+the match is finalized and the prediction wins, the original freebet principal is
+returned to FreebetLedger and only the net upside is paid to the wallet as
+withdrawable VARA. If the match is cancelled before settlement, the unused
+freebet stake is returned to FreebetLedger as freebet balance.
 
 **Final prize distribution** — top 5 by points at tournament end (ties share equally):
 
@@ -242,7 +250,7 @@ Cancellation is allowed only from `Unresolved` or `Proposed`; a `Finalized` matc
 | `PenaltyWinner` | `Home \| Away` — required only for knockout draws |
 | `ResultStatus` | `Unresolved \| Proposed { score, penalty_winner, oracle, proposed_at } \| Finalized { score, penalty_winner } \| Cancelled` |
 | `Match` | Full match record including `finalized_at: Option<u64>` for claim deadline tracking |
-| `Bet` | Per-user bet; `stake_in_match_pool` is the 85% slice |
+| `Bet` | Per-user bet; `stake_in_match_pool` is the wallet 85% slice or the full freebet stake; `freebet_principal` marks the non-withdrawable portion returned to FreebetLedger on cancellation or winning claim |
 | `PhaseConfig` | `{ name, start_time, end_time, points_weight }` — `points_weight > 1` means knockout |
 | `PodiumPick` | User's pre-tournament champion/runner_up/third_place prediction |
 | `PodiumResult` | Official final podium set by admin |
@@ -348,6 +356,7 @@ Cancellation is allowed only from `Unresolved` or `Proposed`; a `Finalized` matc
 | Function | Description |
 |----------|-------------|
 | `place_bet(match_id, score, pen)` | Places a bet; requires ≥ 3 VARA attached as `msg::value` |
+| `place_bet_from_freebet_ledger(user, match_id, score, pen)` | Accepts an authorized FreebetLedger prediction; full attached freebet VARA enters the match pool |
 | `submit_podium_pick(champion, runner_up, third)` | Submits a podium prediction before the R32 lock |
 | `claim_match_reward(match_id)` | Claims proportional share of the match prize pool |
 | `claim_final_prize()` | Claims allocated final prize share |

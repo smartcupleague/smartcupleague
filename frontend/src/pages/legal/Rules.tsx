@@ -48,13 +48,13 @@ export default function Rules() {
 
         <section className="legal-section">
           <h2>How the Match Pool Is Distributed</h2>
-          <p>For every prediction placed:</p>
+          <p>For every wallet-funded prediction placed:</p>
           <ul>
             <li><strong>85%</strong> goes to the Match Winner Pool</li>
             <li><strong>10%</strong> goes to the Season-Long Final Prize Pool</li>
             <li><strong>5%</strong> goes to the DAO treasury as a protocol fee</li>
           </ul>
-          <p>Only the 85% match pool is distributed among winners of that specific match.</p>
+          <p>For every freebet-funded prediction, <strong>100%</strong> of the freebet stake goes to the Match Winner Pool. On a winning claim, the original freebet principal returns to the Freebet balance and only net winnings are paid as withdrawable VARA.</p>
         </section>
 
         <section className="legal-section">

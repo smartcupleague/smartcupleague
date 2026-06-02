@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './match.css';
 import { MatchCard, BreakdownData } from './MatchCard';
-import { Layout } from './Layout';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable } from '@polkadot/extension-dapp';
@@ -266,13 +265,13 @@ function Match() {
   }, [account]);
 
   const fetchUserBets = useCallback(async () => {
-    if (!program || !account) return;
+    if (!program || !myWalletHex) return;
     try {
       const svc = new Service(program);
-      const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+      const bets = (await (svc as any).queryBetsByUser(myWalletHex)) as any[];
       setUserBets(Array.isArray(bets) ? bets : []);
     } catch { setUserBets([]); }
-  }, [program, account]);
+  }, [program, myWalletHex]);
 
   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
 
@@ -344,9 +343,8 @@ function Match() {
     Boolean(userBetForThisMatch);
 
   return (
-    <Layout>
-      <div>
-        <div className="arena__frame">
+    <div className="arena">
+      <div className="arena__frame">
           <header className="arena__topbar">
             <div className="arena__topbarLeft">
               <button
@@ -538,7 +536,7 @@ function Match() {
                   </p>
 
                   <div className="mcx__infoSection">
-                    <p className="mcx__infoSectionTitle">When you place a prediction stake:</p>
+                    <p className="mcx__infoSectionTitle">When you place a wallet-funded prediction:</p>
                     <ul className="mcx__infoList">
                       <li><span className="mcx__infoBadge mcx__infoBadge--match">85%</span> goes to the Match Winner Pool</li>
                       <li><span className="mcx__infoBadge mcx__infoBadge--final">10%</span> goes to the Final Prize Pool</li>
@@ -547,9 +545,18 @@ function Match() {
                   </div>
 
                   <div className="mcx__infoSection">
+                    <p className="mcx__infoSectionTitle">When you use freebet:</p>
+                    <ul className="mcx__infoList">
+                      <li><span className="mcx__infoBadge mcx__infoBadge--match">100%</span> goes to the Match Winner Pool</li>
+                      <li>Freebet cannot be withdrawn before a prediction</li>
+                      <li>If the prediction wins, principal returns to Freebet and net winnings become withdrawable VARA</li>
+                    </ul>
+                  </div>
+
+                  <div className="mcx__infoSection">
                     <p className="mcx__infoSectionTitle">After the match ends:</p>
                     <ul className="mcx__infoList">
-                      <li>The 85% match pool is split among all correct predictions</li>
+                      <li>The match pool is split among all correct predictions</li>
                       <li>Your reward depends on how many players predicted the same outcome</li>
                       <li>Rare correct predictions pay more; popular outcomes pay less</li>
                     </ul>
@@ -597,9 +604,8 @@ function Match() {
             <span className="match-footer__sep">·</span>
             <Link to="/dao-constitution" className="match-footer__link">DAO Constitution</Link>
           </footer>
-        </div>
       </div>
-    </Layout>
+    </div>
   );
 }
 

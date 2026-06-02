@@ -1,5 +1,5 @@
+use super::types::{PenaltyWinner, Score};
 use sails_rs::prelude::*;
-use super::types::{Score, PenaltyWinner};
 
 #[event]
 #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -36,6 +36,12 @@ pub enum OracleEvent {
     /// New admin accepted ownership: (old, new).
     AdminChanged(ActorId, ActorId),
 
+    /// An additional admin was added: (admin).
+    AdminAdded(ActorId),
+
+    /// An admin was removed: (admin).
+    AdminRemoved(ActorId),
+
     /// An operator was added by admin: (operator).
     OperatorAdded(ActorId),
 
@@ -44,4 +50,10 @@ pub enum OracleEvent {
 
     /// VARA/USD price updated by an authorized feeder: (price_usd_micro).
     VaraPriceSet(u64),
+
+    /// Admin withdrew VARA accidentally held by this oracle: (to, amount).
+    VaraWithdrawn(ActorId, u128),
+
+    /// Admin emergency withdrawal of any VARA held by this oracle: (to, amount).
+    ForceVaraWithdrawn(ActorId, u128),
 }

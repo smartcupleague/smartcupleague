@@ -94,6 +94,7 @@ pub struct Bet {
     pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
     pub stake_in_match_pool: u128,
+    pub freebet_principal: u128,
     pub claimed: bool,
 }
 
@@ -105,6 +106,7 @@ pub struct UserBetRecord {
     pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
     pub stake_in_match_pool: u128,
+    pub freebet_principal: u128,
 }
 
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, PartialEq, Eq)]
@@ -115,6 +117,7 @@ pub struct UserBetView {
     pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
     pub stake_in_match_pool: u128,
+    pub freebet_principal: u128,
     pub claimed: bool,
 }
 

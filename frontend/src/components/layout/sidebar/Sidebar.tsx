@@ -1,9 +1,16 @@
 import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { FaInstagram, FaTelegram, FaXTwitter } from 'react-icons/fa6';
+import {
+  PiCalendarDotsBold,
+  PiChartLineUpBold,
+  PiGiftBold,
+  PiRankingBold,
+  PiTargetBold,
+} from 'react-icons/pi';
 import './scb-dashboard.css';
 
-type SectionKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches' | 'admin-fixtures';
+type SectionKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches' | 'rewards' | 'admin-fixtures';
 
 interface NavItem {
   key: SectionKey;
@@ -36,25 +43,31 @@ const navItems: NavItem[] = [
     key: 'all-matches',
     label: 'All Matches',
     path: '/all-matches',
-    icon: <span className="scb-icon">⚽</span>,
+    icon: <PiCalendarDotsBold className="scb-icon" aria-hidden="true" />,
   },
   {
     key: 'my-predictions',
     label: 'My Predictions',
     path: '/my-predictions',
-    icon: <span className="scb-icon">🎯</span>,
+    icon: <PiTargetBold className="scb-icon" aria-hidden="true" />,
   },
   {
     key: 'leaderboard',
     label: 'Leaderboard',
     path: '/leaderboard',
-    icon: <span className="scb-icon">🏅</span>,
+    icon: <PiRankingBold className="scb-icon" aria-hidden="true" />,
+  },
+  {
+    key: 'rewards',
+    label: 'Rewards',
+    path: '/rewards',
+    icon: <PiGiftBold className="scb-icon" aria-hidden="true" />,
   },
   {
     key: 'progress',
     label: 'My Progress',
     path: '/progress',
-    icon: <span className="scb-icon">🏆</span>,
+    icon: <PiChartLineUpBold className="scb-icon" aria-hidden="true" />,
   },
 ];
 
@@ -72,6 +85,9 @@ export const Sidebar: React.FC = () => {
     }
     if (item.key === 'leaderboard') {
       return pathname.startsWith('/leaderboard');
+    }
+    if (item.key === 'rewards') {
+      return pathname.startsWith('/rewards');
     }
     return pathname.startsWith(item.path);
   }

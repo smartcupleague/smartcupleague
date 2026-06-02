@@ -30,6 +30,7 @@ function Component() {
     '/my-predictions',
     '/leaderboard',
     '/leaderboards',
+    '/rewards',
     '/championship-pick',
     '/simulator',
     '/terms-of-use',
@@ -68,9 +69,7 @@ function Component() {
     const trimmed = nickname.trim();
     if (trimmed) {
       const saved = await saveWalletProfile(trimmed);
-      if (!saved) {
-        throw new Error('Could not save your nickname. Please try again.');
-      }
+      if (!saved) console.warn('Could not save wallet nickname; continuing with local onboarding state.');
     }
 
     onboarding.accept(trimmed);

@@ -23,10 +23,10 @@ pub enum PenaltyWinner {
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
 pub struct ResultSubmission {
-    pub feeder:          ActorId,
-    pub score:           Score,
-    pub penalty_winner:  Option<PenaltyWinner>,
-    pub submitted_at:    u64,
+    pub feeder: ActorId,
+    pub score: Score,
+    pub penalty_winner: Option<PenaltyWinner>,
+    pub submitted_at: u64,
 }
 
 /// Lifecycle of an oracle match entry.
@@ -45,9 +45,9 @@ pub enum OracleResultStatus {
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
 pub struct FinalResult {
-    pub score:          Score,
+    pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
-    pub finalized_at:   u64,
+    pub finalized_at: u64,
 }
 
 /// Full oracle record for one match.
@@ -55,12 +55,12 @@ pub struct FinalResult {
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
 pub struct OracleMatchEntry {
-    pub match_id:     u64,
-    pub phase:        String,
-    pub home:         String,
-    pub away:         String,
-    pub kick_off:     u64,
-    pub submissions:  Vec<ResultSubmission>,
-    pub status:       OracleResultStatus,
+    pub match_id: u64,
+    pub phase: String,
+    pub home: String,
+    pub away: String,
+    pub kick_off: u64,
+    pub submissions: Vec<ResultSubmission>,
+    pub status: OracleResultStatus,
     pub final_result: Option<FinalResult>,
 }
