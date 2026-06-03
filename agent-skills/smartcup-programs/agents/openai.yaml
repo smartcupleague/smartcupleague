@@ -1,0 +1,4 @@
+interface:
+  display_name: "SmartCup Programs"
+  short_description: "Interact with SmartCup betting programs"
+  default_prompt: "Use $smartcup-programs to inspect matches, place predictions, and handle SmartCup claims safely."
