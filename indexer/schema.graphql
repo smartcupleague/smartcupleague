@@ -40,6 +40,7 @@ type UserStat @entity {
   totalPoints: Int!
   totalClaimedRaw: String!
   finalPrizeClaimedRaw: String!
+  totalRefundClaimedRaw: String!
   updatedAt: DateTime! @index
 }
 
@@ -54,6 +55,14 @@ type MatchReward @entity {
 }
 
 type FinalPrizeClaim @entity {
+  id: ID!
+  user: String! @index
+  amountRaw: String!
+  blockNumber: BigInt! @index
+  timestamp: DateTime! @index
+}
+
+type RefundClaim @entity {
   id: ID!
   user: String! @index
   amountRaw: String!

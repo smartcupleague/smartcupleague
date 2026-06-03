@@ -58,6 +58,14 @@ type PodiumBonusAwardedPayload = [string, number]; // user, bonus_points
 type MatchCancelledPayload = [bigint, bigint]; // match_id, total_refunded
 type RefundClaimedPayload = [string, bigint];  // user, amount
 
+function toBigInt(value: bigint | number | string): bigint {
+  return BigInt(value);
+}
+
+function toNumericString(value: bigint | number | string): string {
+  return toBigInt(value).toString();
+}
+
 // ---- Handler ----
 
 export class BolaoHandler extends BaseHandler {
@@ -153,19 +161,19 @@ export class BolaoHandler extends BaseHandler {
     switch (method) {
       case "BetAccepted": {
         const p = payload as BetAcceptedPayload;
-        matchIds.add(p[1].toString());
+        matchIds.add(toNumericString(p[1]));
         userIds.add(p[0]);
         break;
       }
       case "PointsAwarded": {
         const p = payload as PointsAwardedPayload;
-        matchIds.add(p[1].toString());
+        matchIds.add(toNumericString(p[1]));
         userIds.add(p[0]);
         break;
       }
       case "MatchRewardClaimed": {
         const p = payload as MatchRewardClaimedPayload;
-        matchIds.add(p[0].toString());
+        matchIds.add(toNumericString(p[0]));
         userIds.add(p[1]);
         break;
       }
@@ -178,12 +186,12 @@ export class BolaoHandler extends BaseHandler {
       case "ResultFinalized":
       case "SettlementPrepared": {
         const p = payload as [bigint, ...unknown[]];
-        matchIds.add(p[0].toString());
+        matchIds.add(toNumericString(p[0]));
         break;
       }
       case "MatchCancelled": {
         const p = payload as MatchCancelledPayload;
-        matchIds.add(p[0].toString());
+        matchIds.add(toNumericString(p[0]));
         break;
       }
       case "RefundClaimed": {
@@ -291,14 +299,14 @@ export class BolaoHandler extends BaseHandler {
     [matchId, phase, home, away, kickOff]: MatchRegisteredPayload,
     timestamp: Date
   ) {
-    const id = matchId.toString();
+    const id = toNumericString(matchId);
     const match = new BolaoMatch();
     match.id = id;
     match.matchId = id;
     match.phase = phase;
     match.home = home;
     match.away = away;
-    match.kickOff = kickOff.toString();
+    match.kickOff = toNumericString(kickOff);
     match.status = "UNRESOLVED";
     match.scoreHome = null;
     match.scoreAway = null;
@@ -316,7 +324,8 @@ export class BolaoHandler extends BaseHandler {
     blockNumber: string,
     timestamp: Date
   ) {
-    const mId = matchId.toString();
+    const mId = toNumericString(matchId);
+    const stakeRaw = toBigInt(stake);
 
     const bet = new Bet();
     bet.id = msgId;
@@ -326,7 +335,7 @@ export class BolaoHandler extends BaseHandler {
     bet.scoreHome = score.home;
     bet.scoreAway = score.away;
     bet.penaltyWinner = penaltyWinner;
-    bet.stakeRaw = stake.toString();
+    bet.stakeRaw = stakeRaw.toString();
     bet.blockNumber = blockNumber;
     bet.timestamp = timestamp;
     this.bets.set(msgId, bet);
@@ -335,21 +344,21 @@ export class BolaoHandler extends BaseHandler {
     const match = this.matches.get(mId);
     if (match) {
       match.betsCount += 1;
-      match.prizePoolRaw = (BigInt(match.prizePoolRaw) + stake).toString();
+      match.prizePoolRaw = (BigInt(match.prizePoolRaw) + stakeRaw).toString();
       match.updatedAt = timestamp;
     }
 
     // Update user stats
-    this.touchUser(user, timestamp, { addBet: true, addStake: stake });
+    this.touchUser(user, timestamp, { addBet: true, addStake: stakeRaw });
 
-    this.onActivity(msgId, "BET_ACCEPTED", user, mId, stake.toString(), null, null, blockNumber, timestamp);
+    this.onActivity(msgId, "BET_ACCEPTED", user, mId, stakeRaw.toString(), null, null, blockNumber, timestamp);
   }
 
   private onResultProposed(
     [matchId, score, penaltyWinner]: ResultProposedPayload,
     timestamp: Date
   ) {
-    const mId = matchId.toString();
+    const mId = toNumericString(matchId);
     const match = this.matches.get(mId);
     if (match) {
       match.status = "PROPOSED";
@@ -364,7 +373,7 @@ export class BolaoHandler extends BaseHandler {
     [matchId, score, penaltyWinner]: ResultFinalizedPayload,
     timestamp: Date
   ) {
-    const mId = matchId.toString();
+    const mId = toNumericString(matchId);
     const match = this.matches.get(mId);
     if (match) {
       match.status = "FINALIZED";
@@ -379,7 +388,7 @@ export class BolaoHandler extends BaseHandler {
     [matchId]: SettlementPreparedPayload,
     timestamp: Date
   ) {
-    const mId = matchId.toString();
+    const mId = toNumericString(matchId);
     const match = this.matches.get(mId);
     if (match) {
       match.status = "SETTLED";
@@ -394,7 +403,7 @@ export class BolaoHandler extends BaseHandler {
     timestamp: Date
   ) {
     this.touchUser(user, timestamp, { addPoints: points });
-    this.onActivity(msgId, "POINTS_AWARDED", user, matchId.toString(), null, points, null, blockNumber, timestamp);
+    this.onActivity(msgId, "POINTS_AWARDED", user, toNumericString(matchId), null, points, null, blockNumber, timestamp);
   }
 
   private onMatchRewardClaimed(
@@ -403,19 +412,20 @@ export class BolaoHandler extends BaseHandler {
     blockNumber: string,
     timestamp: Date
   ) {
-    const mId = matchId.toString();
+    const mId = toNumericString(matchId);
+    const amountRaw = toBigInt(amount);
     const reward = new MatchReward();
     reward.id = msgId;
     reward.matchId = mId;
     reward.matchRef = { id: mId } as BolaoMatch;
     reward.user = user;
-    reward.amountRaw = amount.toString();
+    reward.amountRaw = amountRaw.toString();
     reward.blockNumber = blockNumber;
     reward.timestamp = timestamp;
     this.rewards.set(msgId, reward);
 
-    this.touchUser(user, timestamp, { addClaimed: amount });
-    this.onActivity(msgId, "MATCH_REWARD_CLAIMED", user, mId, amount.toString(), null, null, blockNumber, timestamp);
+    this.touchUser(user, timestamp, { addClaimed: amountRaw });
+    this.onActivity(msgId, "MATCH_REWARD_CLAIMED", user, mId, amountRaw.toString(), null, null, blockNumber, timestamp);
   }
 
   private onFinalPrizeClaimed(
@@ -427,13 +437,14 @@ export class BolaoHandler extends BaseHandler {
     const claim = new FinalPrizeClaim();
     claim.id = msgId;
     claim.user = user;
-    claim.amountRaw = amount.toString();
+    const amountRaw = toBigInt(amount);
+    claim.amountRaw = amountRaw.toString();
     claim.blockNumber = blockNumber;
     claim.timestamp = timestamp;
     this.prizes.set(msgId, claim);
 
-    this.touchUser(user, timestamp, { addFinalPrize: amount });
-    this.onActivity(msgId, "FINAL_PRIZE_CLAIMED", user, null, amount.toString(), null, null, blockNumber, timestamp);
+    this.touchUser(user, timestamp, { addFinalPrize: amountRaw });
+    this.onActivity(msgId, "FINAL_PRIZE_CLAIMED", user, null, amountRaw.toString(), null, null, blockNumber, timestamp);
   }
 
   private onMatchCancelled(
@@ -442,7 +453,7 @@ export class BolaoHandler extends BaseHandler {
     blockNumber: string,
     timestamp: Date
   ) {
-    const mId = matchId.toString();
+    const mId = toNumericString(matchId);
     const match = this.matches.get(mId);
     if (match) {
       match.status = "CANCELLED";
@@ -455,7 +466,7 @@ export class BolaoHandler extends BaseHandler {
       "MATCH_CANCELLED",
       null,
       mId,
-      totalRefunded.toString(),
+      toNumericString(totalRefunded),
       null,
       null,
       blockNumber,
@@ -472,13 +483,14 @@ export class BolaoHandler extends BaseHandler {
     const refund = new RefundClaim();
     refund.id = msgId;
     refund.user = user;
-    refund.amountRaw = amount.toString();
+    const amountRaw = toBigInt(amount);
+    refund.amountRaw = amountRaw.toString();
     refund.blockNumber = blockNumber;
     refund.timestamp = timestamp;
     this.refunds.set(msgId, refund);
 
-    this.touchUser(user, timestamp, { addRefund: amount });
-    this.onActivity(msgId, "REFUND_CLAIMED", user, null, amount.toString(), null, null, blockNumber, timestamp);
+    this.touchUser(user, timestamp, { addRefund: amountRaw });
+    this.onActivity(msgId, "REFUND_CLAIMED", user, null, amountRaw.toString(), null, null, blockNumber, timestamp);
   }
 
   private onActivity(
