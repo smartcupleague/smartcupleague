@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApi, useAccount } from '@gear-js/react-hooks';
+import { useLocation } from 'react-router-dom';
 import { ApiLoader } from '@/components';
 import { withProviders } from '@/hocs';
 import { Routing } from '@/pages';
-import { useOnboarding } from '@/hooks/useOnboarding';
+import { ONBOARDING_CONNECT_EVENT, useOnboarding } from '@/hooks/useOnboarding';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import './app-layout.css';
@@ -11,6 +12,7 @@ import './app-layout.css';
 function Component() {
   const { isApiReady } = useApi();
   const { account } = useAccount();
+  const { pathname } = useLocation();
   const onboarding = useOnboarding(account?.decodedAddress);
   const {
     displayName,
@@ -18,6 +20,7 @@ function Component() {
     isSaving: isProfileSaving,
     save: saveWalletProfile,
   } = useWalletProfile();
+  const [onboardingRequested, setOnboardingRequested] = useState(false);
   const syncedProfileNicknameRef = useRef<string | null>(null);
 
   const isAppReady = isApiReady;
@@ -38,11 +41,32 @@ function Component() {
     '/admin/fixtures',
   ];
   const previewRoutePrefixes = ['/2026worldcup/match/', '/leagues/match/', '/match/', '/predictions/'];
-  const pathname = window.location.pathname;
   const isPreviewRoute = previewRoutes.includes(pathname) || previewRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
-  const onboardingExemptRoutes = ['/', '/terms-of-use', '/dao-constitution', '/rules'];
-  const isOnboardingExemptRoute = onboardingExemptRoutes.includes(pathname);
-  const showOnboarding = !!account && !onboarding.accepted && !isOnboardingExemptRoute;
+  const onboardingRoutes = [
+    '/all-matches',
+    '/all-predictions',
+    '/progress',
+    '/home',
+    '/my-predictions',
+    '/leaderboard',
+    '/leaderboards',
+    '/championship-pick',
+  ];
+  const onboardingRoutePrefixes = ['/2026worldcup/match/', '/leagues/match/', '/match/', '/predictions/'];
+  const isOnboardingRoute = onboardingRoutes.includes(pathname) || onboardingRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
+  const showOnboarding = !!account && onboardingRequested && !onboarding.accepted && isOnboardingRoute;
+
+  useEffect(() => {
+    const requestOnboarding = () => setOnboardingRequested(true);
+    window.addEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
+    return () => window.removeEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
+  }, []);
+
+  useEffect(() => {
+    if (!account || onboarding.accepted || !isOnboardingRoute) {
+      setOnboardingRequested(false);
+    }
+  }, [account, onboarding.accepted, isOnboardingRoute]);
 
   useEffect(() => {
     if (!account || !onboarding.accepted || !onboarding.nickname || displayName || isProfileLoading || isProfileSaving) {
@@ -74,6 +98,7 @@ function Component() {
     }
 
     onboarding.accept(trimmed);
+    setOnboardingRequested(false);
   };
 
   return isAppReady || isPreviewRoute ? (
@@ -81,8 +106,7 @@ function Component() {
       {showOnboarding && (
         <OnboardingModal
           onAccept={handleOnboardingAccept}
-          onClose={() => {}}
-          canClose={false}
+          onClose={() => setOnboardingRequested(false)}
         />
       )}
       <Routing />
