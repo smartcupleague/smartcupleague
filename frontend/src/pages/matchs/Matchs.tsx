@@ -7,6 +7,7 @@ import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { HexString } from '@gear-js/api';
+import { GetVaraModal } from '@/components/get-vara';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -597,6 +598,7 @@ function Match() {
             <span className="match-footer__sep">·</span>
             <Link to="/dao-constitution" className="match-footer__link">DAO Constitution</Link>
           </footer>
+          <GetVaraModal placement="floating" />
         </div>
       </div>
     </Layout>

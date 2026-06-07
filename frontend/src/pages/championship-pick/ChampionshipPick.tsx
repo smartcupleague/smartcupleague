@@ -5,6 +5,7 @@ import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { TransactionBuilder } from 'sails-js';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
+import { GetVaraModal } from '@/components/get-vara';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { useToast } from '@/hooks/useToast';
@@ -593,6 +594,7 @@ export function ChampionshipPick() {
           <span className="match-footer__sep">·</span>
           <Link to="/dao-constitution" className="match-footer__link">DAO Constitution</Link>
         </footer>
+        <GetVaraModal placement="floating" />
       </div>
     </div>
   );

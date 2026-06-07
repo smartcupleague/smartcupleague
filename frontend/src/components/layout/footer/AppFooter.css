@@ -1,14 +1,24 @@
 .app-footer {
   flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  min-height: 72px;
+  padding: 22px 1rem 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.app-footer__links {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px 12px;
-  padding: 18px 20px 6px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  min-width: 0;
 }
 
 .app-footer__sep {
@@ -24,4 +34,29 @@
 .app-footer__link:hover {
   color: #ff4f9c;
   text-decoration: underline;
+}
+
+.app-footer .getVara__trigger {
+  position: absolute;
+  right: 4rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.app-footer .getVara__trigger:hover,
+.app-footer .getVara__trigger:focus-visible {
+  transform: translateY(calc(-50% - 1px));
+}
+
+@media (max-width: 900px) {
+  .app-footer {
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .app-footer .getVara__trigger {
+    position: static;
+    transform: none;
+  }
 }

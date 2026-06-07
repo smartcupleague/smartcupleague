@@ -1,0 +1,1 @@
+export { GetVaraModal } from './GetVaraModal';
