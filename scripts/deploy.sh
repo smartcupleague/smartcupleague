@@ -210,6 +210,16 @@ if [[ -f "$ROOT/rewards-backend/.env" ]]; then
   echo "  rewards-backend/.env ← FREEBET_LEDGER_ID"
 fi
 
+# voucher-backend/.env → program IDs for gasless whitelist seed
+ensure_env "$ROOT/voucher-backend/.env.example" "$ROOT/voucher-backend/.env"
+if [[ -f "$ROOT/voucher-backend/.env" ]]; then
+  upsert_env "$ROOT/voucher-backend/.env" "BOLAO_PROGRAM_ID"   "$BOLAO_ID"
+  upsert_env "$ROOT/voucher-backend/.env" "ORACLE_PROGRAM_ID"  "$ORACLE_ID"
+  upsert_env "$ROOT/voucher-backend/.env" "DAO_PROGRAM_ID"     "$DAO_ID"
+  upsert_env "$ROOT/voucher-backend/.env" "FREEBET_LEDGER_ID"  "$FREEBET_LEDGER_ID"
+  echo "  voucher-backend/.env ← BOLAO_PROGRAM_ID, ORACLE_PROGRAM_ID, DAO_PROGRAM_ID, FREEBET_LEDGER_ID"
+fi
+
 # indexer/.env → VARA_PROGRAM_ID (= BolaoCore)
 ensure_env "$ROOT/indexer/.env.example" "$ROOT/indexer/.env"
 if [[ -f "$ROOT/indexer/.env" ]]; then

@@ -2,15 +2,15 @@
 
 ## Current Program IDs
 
-These IDs were provided as the current SmartCup mainnet deployment. Use `--network mainnet` unless the user explicitly provides a different deployment.
+These IDs are the current SmartCup testnet deployment (testnet-2026-06-08). Use `--network testnet` unless the user explicitly provides a different deployment.
 
 | Component | ID |
 | --- | --- |
-| Oracle | `0xe2b3216f2d1115f74c58786d2e9a5068c36a18c2005d24b78a6543609305a00e` |
-| BolaoCore | `0x2c80eb710d966c5a2ddc9273e4b5e249c4d22dabd8934c3031fdaeacda1e4a1b` |
-| FreebetLedger | `0x16ddfe734e0861dc45de0f87ca68fbb0e5b0c649b4b381f9af4e1949222bd443` |
-| DAO | `0x005b96df6e65675e81de9503294a1df5aedfd6c111968b7092836799e5008b99` |
-| BolaoCore code ID | `0x169788a862973a8f7d4fb4a333a1d48dbe35dbad14c8d1461b7ebc72db76a8df` |
+| Oracle | `0xf43a4a756ea89fb4627bb6b1f10d85e83f8d3e2999ca9d84cae8d6e8aaba302d` |
+| BolaoCore | `0x1f4e86dbbd05285a9046e11dc1330429891feef5ccaa437c85d7672009a66b7c` |
+| FreebetLedger | `0x68d6d9858b2eb1f6c7e606e51277d58f47dd17076e7e42ab6e43342fbc715d10` |
+| DAO | `0xa3ffa9bf9aa594c7676733f3c01766f30691fe8ec2027a9a3f92f70404f13cc7` |
+| BolaoCore code ID | `0xe3836d11c21425c56e48f92cb5ed01bd8891c90fca4f0fd4a37cf508e16f5372` |
 
 ## IDL Paths
 
@@ -53,12 +53,12 @@ After installing into `.agents`:
 Use these constants in command examples. If running outside the repository checkout, replace the IDL paths with the installed paths shown above.
 
 ```bash
-export SMARTCUP_NETWORK=mainnet
-export ORACLE_PROGRAM_ID=0xe2b3216f2d1115f74c58786d2e9a5068c36a18c2005d24b78a6543609305a00e
-export BOLAO_PROGRAM_ID=0x2c80eb710d966c5a2ddc9273e4b5e249c4d22dabd8934c3031fdaeacda1e4a1b
-export FREEBET_LEDGER_ID=0x16ddfe734e0861dc45de0f87ca68fbb0e5b0c649b4b381f9af4e1949222bd443
-export DAO_PROGRAM_ID=0x005b96df6e65675e81de9503294a1df5aedfd6c111968b7092836799e5008b99
-export BOLAO_CODE_ID=0x169788a862973a8f7d4fb4a333a1d48dbe35dbad14c8d1461b7ebc72db76a8df
+export SMARTCUP_NETWORK=testnet
+export ORACLE_PROGRAM_ID=0xf43a4a756ea89fb4627bb6b1f10d85e83f8d3e2999ca9d84cae8d6e8aaba302d
+export BOLAO_PROGRAM_ID=0x1f4e86dbbd05285a9046e11dc1330429891feef5ccaa437c85d7672009a66b7c
+export FREEBET_LEDGER_ID=0x68d6d9858b2eb1f6c7e606e51277d58f47dd17076e7e42ab6e43342fbc715d10
+export DAO_PROGRAM_ID=0xa3ffa9bf9aa594c7676733f3c01766f30691fe8ec2027a9a3f92f70404f13cc7
+export BOLAO_CODE_ID=0xe3836d11c21425c56e48f92cb5ed01bd8891c90fca4f0fd4a37cf508e16f5372
 export BOLAO_IDL=agent-skills/smartcup-programs/references/idl/bolao_program.idl
 export FREEBET_LEDGER_IDL=agent-skills/smartcup-programs/references/idl/freebet-ledger.idl
 export ORACLE_IDL=agent-skills/smartcup-programs/references/idl/oracle_program.idl
