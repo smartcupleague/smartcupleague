@@ -511,7 +511,7 @@ export default function Home() {
           wallet,
           displayName: apiRow?.display_name ?? null,
           points: pointsMap.get(wallet) ?? 0,
-          matches: apiRow?.matches_count ?? matchCountMap.get(wallet) ?? 0,
+          matches: activeMatches.length ? matchCountMap.get(wallet) ?? 0 : apiRow?.matches_count ?? 0,
           exact: apiRow?.exact_count ?? 0,
           outcomes: apiRow?.outcome_count ?? 0,
         };
