@@ -5,14 +5,19 @@ import { useDynamicMinimumBet } from '@/hooks/useDynamicMinimumBet';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
+import { FreebetLedgerProgram } from '@/hocs/freebetLedger';
 import { TransactionBuilder } from 'sails-js';
 import { useToast } from '@/hooks/useToast';
+import { FREEBET_BALANCE_CHANGED_EVENT, useFreebetBalance } from '@/hooks/useFreebetBalance';
 import './matchcard.css';
 import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { reportBet, reportClaim } from '@/utils/statsReporter';
+import { dispatchPredictionPlaced } from '@/utils/predictionEvents';
+import { toHexAddress } from '@/utils/address';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
+const FREEBET_LEDGER_ID = import.meta.env.VITE_FREEBET_LEDGER_ID as string | undefined;
 const IS_DEV_PREVIEW = import.meta.env.DEV;
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
@@ -67,7 +72,7 @@ export interface MatchCardProps {
   onBreakdownChange?: (data: BreakdownData) => void;
 }
 
-type BetCurrency = 'VARA' | 'wUSDC' | 'wUSDT';
+type BetCurrency = 'VARA' | 'FREEBET' | 'wUSDC' | 'wUSDT';
 
 const VARA_DECIMALS = 12n;
 const VARA_PLANCK = 10n ** VARA_DECIMALS;
@@ -302,6 +307,15 @@ function formatVaraFromPlanckFixed(planck: bigint, fractionDigits = 2) {
   });
 }
 
+function formatVaraInputFromPlanck(planck: bigint, fractionDigits = 4) {
+  const value = planckToVaraHuman(planck);
+  if (!Number.isFinite(value)) return '';
+  return value
+    .toFixed(fractionDigits)
+    .replace(/0+$/, '')
+    .replace(/\.$/, '');
+}
+
 function normalizeAmountInput(v: string) {
   const s = String(v ?? '')
     .replace(',', '.')
@@ -383,6 +397,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const toast = useToast();
   const { api, isApiReady } = useApi();
   const { rate: varaUsdRate, varaToUsd } = useVaraPrice();
+  const {
+    balance: freebetBalance,
+    isConfigured: isFreebetConfigured,
+    refetch: refetchFreebetBalance,
+  } = useFreebetBalance();
+  const accountHex = useMemo(
+    () => toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? null),
+    [account],
+  );
 
   const [state, setState] = useState<IoBolaoState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -424,15 +447,22 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [betAmount]);
 
   const betValuePlanck = useMemo(() => toPlanck(betAmountNumber), [betAmountNumber]);
+  const freebetBalanceBn = useMemo(() => toBnSafe(freebetBalance), [freebetBalance]);
+  const isFreebetBet = betCurrency === 'FREEBET';
   const liveUsdMinimumPlanck = useMemo(() => {
     if (!Number.isFinite(varaUsdRate) || varaUsdRate <= 0) return 0n;
     const priceMicro = BigInt(Math.max(1, Math.floor(varaUsdRate * 1_000_000)));
     return ceilDivBn(USD_MINIMUM_MICRO * VARA_PLANCK, priceMicro);
   }, [varaUsdRate]);
+  const minStakePlaceholder = useMemo(() => {
+    if (liveUsdMinimumPlanck <= 0n) return '';
+    return `Min ${formatVaraInputFromPlanck(liveUsdMinimumPlanck)}`;
+  }, [liveUsdMinimumPlanck]);
   const isConversionAvailable = liveUsdMinimumPlanck > 0n;
   const isOnChainPriceFresh = IS_DEV_PREVIEW || onChainMinimumBet.isBettingAvailable;
   const isPredictionPricingAvailable = isConversionAvailable && isOnChainPriceFresh;
   const betDisabledByAmount = isConversionAvailable && betValuePlanck < liveUsdMinimumPlanck;
+  const betDisabledByFreebet = isFreebetBet && (!isFreebetConfigured || freebetBalanceBn < betValuePlanck);
   const convertedStakeLabel = useMemo(() => {
     if (betAmountNumber <= 0) return '';
     const liveLabel = varaToUsd(betAmountNumber);
@@ -589,13 +619,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [match?.result]);
 
   const fetchUserBetForMatch = useCallback(async () => {
-    if (!api || !isApiReady || !account || !matchId) return;
+    if (!api || !isApiReady || !accountHex || !matchId) return;
 
     setLoadingUserBet(true);
 
     try {
       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+      const bets = (await (svc as any).queryBetsByUser(accountHex)) as any[];
 
       const b = Array.isArray(bets)
         ? bets.find((x) => String(x?.match_id) === String(matchId))
@@ -631,7 +661,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     } finally {
       setLoadingUserBet(false);
     }
-  }, [api, isApiReady, account, matchId]);
+  }, [api, isApiReady, accountHex, matchId]);
 
   useEffect(() => {
     void fetchUserBetForMatch();
@@ -673,6 +703,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     if (!isBeforeKickoff) return false;
     if (!isPredictionPricingAvailable) return false;
     if (betDisabledByAmount) return false;
+    if (betDisabledByFreebet) return false;
     if (hasExistingBet) return false;
     if (isDraw && isKnockout && predictedPenaltyWinnerArg === null) return false;
     return true;
@@ -682,6 +713,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     isBeforeKickoff,
     isPredictionPricingAvailable,
     betDisabledByAmount,
+    betDisabledByFreebet,
     hasExistingBet,
     isDraw,
     isKnockout,
@@ -745,23 +777,24 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     return claimableBn > 0n;
   }, [account, match, isFinalized, settlementPrepared, loadingUserBet, claimableBn]);
 
-  const betValueBn = betCurrency === 'VARA' ? betValuePlanck : 0n;
+  const betValueBn = betCurrency === 'VARA' || betCurrency === 'FREEBET' ? betValuePlanck : 0n;
 
   const feeProtocolBn = useMemo(
-    () => (betValueBn * PROTOCOL_FEE_BPS) / BPS_DEN,
-    [betValueBn],
+    () => (betCurrency === 'VARA' ? (betValueBn * PROTOCOL_FEE_BPS) / BPS_DEN : 0n),
+    [betCurrency, betValueBn],
   );
 
   const feeFinalBn = useMemo(
-    () => (betValueBn * FINAL_PRIZE_BPS) / BPS_DEN,
-    [betValueBn],
+    () => (betCurrency === 'VARA' ? (betValueBn * FINAL_PRIZE_BPS) / BPS_DEN : 0n),
+    [betCurrency, betValueBn],
   );
 
   const stakeInMatchPoolBn = useMemo(() => {
     if (betValueBn <= 0n) return 0n;
+    if (betCurrency === 'FREEBET') return betValueBn;
     const cut = betValueBn - feeProtocolBn - feeFinalBn;
     return cut > 0n ? cut : 0n;
-  }, [betValueBn, feeProtocolBn, feeFinalBn]);
+  }, [betCurrency, betValueBn, feeProtocolBn, feeFinalBn]);
 
   const poolAfterBn = useMemo(
     () => matchPrizePoolBn + stakeInMatchPoolBn,
@@ -771,7 +804,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const maxPayoutBn = poolAfterBn;
   const maxProfitBn = maxPayoutBn > betValueBn ? maxPayoutBn - betValueBn : 0n;
   const showToWin = useMemo(
-    () => betCurrency === 'VARA' && betValueBn > 0n,
+    () => (betCurrency === 'VARA' || betCurrency === 'FREEBET') && betValueBn > 0n,
     [betCurrency, betValueBn],
   );
 
@@ -817,6 +850,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return;
     }
 
+    if (isFreebetBet) {
+      if (!isFreebetConfigured || !FREEBET_LEDGER_ID) {
+        toast.error('Freebet ledger is not configured');
+        return;
+      }
+      if (freebetBalanceBn < betValuePlanck) {
+        toast.error(`Freebet balance is too low. Available: ${formatVaraFromPlanck(freebetBalanceBn)} VARA.`);
+        return;
+      }
+    }
+
     if (hasExistingBet) {
       toast.error('You already have a prediction on this match. Only one prediction per match is allowed.');
       return;
@@ -844,12 +888,19 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     try {
       setTxLoadingBet(true);
 
-      const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const tx: TransactionBuilder<unknown> = (svc as any).placeBet(
-        BigInt(match.match_id),
-        { home: h, away: a },
-        penaltyWinnerToSend,
-      );
+      const tx: TransactionBuilder<unknown> = isFreebetBet
+        ? new FreebetLedgerProgram(api, FREEBET_LEDGER_ID as HexString).service.spendFreebet(
+            PROGRAM_ID as HexString,
+            BigInt(match.match_id),
+            betValuePlanck,
+            { home: h, away: a },
+            penaltyWinnerToSend,
+          )
+        : (new Service(new Program(api, PROGRAM_ID as HexString)) as any).placeBet(
+            BigInt(match.match_id),
+            { home: h, away: a },
+            penaltyWinnerToSend,
+          );
 
       const extensions = await web3Enable('SmartCup League');
       if (!extensions.length) throw new Error('Wallet extension access was not granted');
@@ -857,18 +908,26 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
       if (betCurrency === 'VARA') {
         tx.withAccount(account.decodedAddress, { signer }).withValue(betValuePlanck);
+      } else if (isFreebetBet) {
+        tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
       } else {
         tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
         toast.info(`Selected ${betCurrency}. You may need an ERC20-like approve/transfer flow.`);
       }
 
-      await tx.calculateGas();
+      await tx.calculateGas(false, 50);
       const { blockHash, response } = await tx.signAndSend();
 
       toast.info(`Prediction included in block ${blockHash}`);
       await response();
       toast.success('Prediction placed successfully ✅');
       setBetSucceeded(true);
+      setUserStakeBn(stakeInMatchPoolBn);
+      setUserClaimed(false);
+      setUserBetScore({ home: h, away: a });
+      setUserBetPenaltyWinner(penaltyWinnerToSend);
+      dispatchPredictionPlaced(match.match_id);
+      window.dispatchEvent(new Event(FREEBET_BALANCE_CHANGED_EVENT));
 
       // Report bet to stats backend (fire-and-forget, non-fatal)
       const outcome = h > a ? 'home' : h < a ? 'away' : 'draw';
@@ -884,7 +943,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         void fetchState();
         void fetchPoolStats();
         void fetchUserBetForMatch();
+        void refetchFreebetBalance();
+        dispatchPredictionPlaced(match.match_id);
       }, 900);
+      setTimeout(() => {
+        void fetchUserBetForMatch();
+        dispatchPredictionPlaced(match.match_id);
+      }, 2200);
     } catch (e) {
       console.error(e);
       toast.error('Prediction failed');
@@ -902,6 +967,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     isBeforeKickoff,
     isPredictionPricingAvailable,
     betDisabledByAmount,
+    isFreebetBet,
+    isFreebetConfigured,
+    freebetBalanceBn,
     betValuePlanck,
     stakeInMatchPoolBn,
     betCurrency,
@@ -914,6 +982,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     fetchState,
     fetchPoolStats,
     fetchUserBetForMatch,
+    refetchFreebetBalance,
     isKnockout,
     hasExistingBet,
   ]);
@@ -1004,28 +1073,35 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const sincePredictedTop = useMemo(() => {
     if (!match) return 'Your prediction: —';
-    return `Your prediction: ${match.home.toUpperCase()} ${selectedScore.home} - ${selectedScore.away} ${match.away.toUpperCase()}`;
-  }, [match, selectedScore.home, selectedScore.away]);
+    const score = hasExistingBet && userBetScore ? userBetScore : selectedScore;
+    return `Your prediction: ${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()}`;
+  }, [match, hasExistingBet, userBetScore, selectedScore]);
 
   const resultLine = useMemo(() => {
     if (!match) return '—';
-    if (!isDraw) {
-      return `${match.home.toUpperCase()} ${selectedScore.home} - ${selectedScore.away} ${match.away.toUpperCase()}`;
+    const score = hasExistingBet && userBetScore ? userBetScore : selectedScore;
+    const penaltyWinner = hasExistingBet ? userBetPenaltyWinner : predictedPenaltyWinnerArg;
+    const draw = score.home === score.away;
+
+    if (!draw) {
+      return `${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()}`;
     }
 
     if (isKnockout) {
-      const arg = predictedPenaltyWinnerArg;
+      const arg = penaltyWinner;
       const winner = arg && 'Home' in arg ? match.home : arg && 'Away' in arg ? match.away : '—';
 
       if (winner !== '—') {
-        return `${match.home.toUpperCase()} ${selectedScore.home} - ${selectedScore.away} ${match.away.toUpperCase()} (${winner} wins on penalties)`;
+        return `${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()} (${winner} wins on penalties)`;
       }
 
-      return `${match.home.toUpperCase()} ${selectedScore.home} - ${selectedScore.away} ${match.away.toUpperCase()} (select penalties winner)`;
+      return hasExistingBet
+        ? `${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()}`
+        : `${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()} (select penalties winner)`;
     }
 
-    return `${match.home.toUpperCase()} ${selectedScore.home} - ${selectedScore.away} ${match.away.toUpperCase()}`;
-  }, [match, isDraw, selectedScore.home, selectedScore.away, isKnockout, predictedPenaltyWinnerArg]);
+    return `${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()}`;
+  }, [match, hasExistingBet, userBetScore, selectedScore, userBetPenaltyWinner, isKnockout, predictedPenaltyWinnerArg]);
 
   const finalizedMessage = useMemo(() => {
     if (!match || !isFinalized) return '';
@@ -1071,11 +1147,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     const outcomePoolAfter = outcomePoolBn + stakeInMatchPoolBn;
     if (outcomePoolAfter <= 0n) return null;
 
-    return (stakeInMatchPoolBn * poolAfterBn) / outcomePoolAfter;
+    const grossEstimate = (stakeInMatchPoolBn * poolAfterBn) / outcomePoolAfter;
+    if (betCurrency !== 'FREEBET') return grossEstimate;
+    return grossEstimate > stakeInMatchPoolBn ? grossEstimate - stakeInMatchPoolBn : 0n;
   }, [
     match,
     showToWin,
     stakeInMatchPoolBn,
+    betCurrency,
     selectedScore.home,
     selectedScore.away,
     poolStats,
@@ -1126,6 +1205,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const poolVara = planckToVaraHuman(totalPoolPlanck(match));
   const topScoreHome = isFinalized ? chainResult.home : shownScore.home;
   const topScoreAway = isFinalized ? chainResult.away : shownScore.away;
+  const displayedPredictionScore = hasExistingBet && userBetScore ? userBetScore : selectedScore;
 
   return (
     <section className="mcx">
@@ -1161,11 +1241,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       <div className="mcx__miniBadge">
         <div className="mcx__miniTeam">
           <TeamFlag className="mcx__flagSm" team={match.home} alt="" />
-          <div className="mcx__miniN">{selectedScore.home}</div>
+          <div className="mcx__miniN">{displayedPredictionScore.home}</div>
         </div>
         <div className="mcx__miniVS">vs</div>
         <div className="mcx__miniTeam">
-          <div className="mcx__miniN">{selectedScore.away}</div>
+          <div className="mcx__miniN">{displayedPredictionScore.away}</div>
           <TeamFlag className="mcx__flagSm" team={match.away} alt="" />
         </div>
       </div>
@@ -1197,7 +1277,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       <div className="mcx__predSection">
-        <div className="mcx__predTitle">Place Prediction</div>
+        <div className="mcx__predTitle">{hasExistingBet ? 'Your Prediction' : 'Place Prediction'}</div>
 
         {hasExistingBet && !isFinalized && (
           <div className="mcx__warn mcx__warn--info" role="alert">
@@ -1215,6 +1295,37 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             </div>
           </div>
         ) : (
+          hasExistingBet ? (
+            <div className="mcx__existingPrediction" aria-label="Existing prediction">
+              <div className="mcx__existingPredictionGrid">
+                <div>
+                  <div className="mcx__label dim">Score pick</div>
+                  <div className="mcx__existingPredictionValue">
+                    {match.home} {displayedPredictionScore.home} - {displayedPredictionScore.away} {match.away}
+                  </div>
+                </div>
+                <div>
+                  <div className="mcx__label dim">Prediction Stake</div>
+                  <div className="mcx__existingPredictionValue">
+                    {formatVaraFromPlanck(userStakeBn)} VARA
+                  </div>
+                </div>
+                <div>
+                  <div className="mcx__label dim">Status</div>
+                  <div className="mcx__existingPredictionValue">
+                    {userClaimed ? 'Claimed' : 'Pending'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mcx__meta dim">
+                This prediction is already recorded on-chain. One prediction per match is allowed.
+                <br />
+                KICK-OFF: <b>{formatKickoffMs(match.kick_off)}</b> · Status:{' '}
+                <b>{statusLabel(match.result)}</b>
+              </div>
+            </div>
+          ) : (
           <>
             <div className="mcx__formGrid">
               <div className="mcx__formCol">
@@ -1367,7 +1478,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     inputMode="decimal"
                     value={betAmount}
                     onChange={(e) => setBetAmount(normalizeAmountInput(e.target.value))}
-                    placeholder="3"
+                    placeholder={minStakePlaceholder}
                   />
                 </div>
 
@@ -1381,6 +1492,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   onChange={(e) => setBetCurrency(e.target.value as BetCurrency)}
                 >
                   <option value="VARA">VARA</option>
+                  <option value="FREEBET">Freebet</option>
                 </select>
               </div>
 
@@ -1392,7 +1504,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       className="mcx__qBtn"
                       type="button"
                       disabled={!isPredictionPricingAvailable}
-                      onClick={() => setBetAmount(formatVaraFromPlanckFixed(liveUsdMinimumPlanck + VARA_PLANCK, 2).replace(/,/g, ''))}
+                      onClick={() => setBetAmount(formatVaraInputFromPlanck(liveUsdMinimumPlanck))}
                     >
                       Min
                     </button>
@@ -1423,6 +1535,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <div className="mcx__stakeMinimumWarn" role="alert">
                     <span>{belowUsdMinimumMessage}</span>
                     <span>Minimum required: 3 USD converted in VARA.</span>
+                  </div>
+                )}
+                {isFreebetBet && (
+                  <div className={(betDisabledByFreebet ? 'mcx__stakeMinimumWarn' : 'mcx__stakeUsd') + ' mcx__freebetHint'} role={betDisabledByFreebet ? 'alert' : undefined}>
+                    <span>Freebet balance: {formatVaraFromPlanck(freebetBalanceBn)} VARA</span>
+                    <span>{isFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
                   </div>
                 )}
               </div>
@@ -1458,7 +1576,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     ? 'Sending Prediction…'
                     : !isPredictionPricingAvailable
                       ? 'Predictions paused'
-                      : `Send Prediction (${betAmountNumber || 0} ${betCurrency})`}
+                      : isFreebetBet
+                        ? betAmountNumber > 0 ? `Use Freebet (${formatVaraInputFromPlanck(betValuePlanck)} VARA)` : 'Enter stake'
+                        : betAmountNumber > 0 ? `Send Prediction (${formatVaraInputFromPlanck(betValuePlanck)} ${betCurrency})` : 'Enter stake'}
                 </button>
 
                 {prizeEstimate !== null && (
@@ -1484,6 +1604,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     <div className="mcx__prizeEst__note dim">
                       Your match-pool stake: {formatVaraFromPlanck(stakeInMatchPoolBn)} VARA on {selectedOutcomeLabel}
                     </div>
+                    {isFreebetBet && (
+                      <div className="mcx__prizeEst__note dim">
+                        If this prediction wins, the freebet principal returns and only net winnings are withdrawable.
+                      </div>
+                    )}
                     <div className="mcx__prizeEst__note dim">Updates as more predictions join</div>
                   </div>
                 )}
@@ -1508,7 +1633,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </p>
 
                   <div className="mcx__infoSection">
-                    <p className="mcx__infoSectionTitle">When you place a prediction stake:</p>
+                    <p className="mcx__infoSectionTitle">When you place a wallet-funded prediction:</p>
                     <ul className="mcx__infoList">
                       <li><span className="mcx__infoBadge mcx__infoBadge--match">85%</span> goes to the Match Winner Pool</li>
                       <li><span className="mcx__infoBadge mcx__infoBadge--final">10%</span> goes to the Final Prize Pool</li>
@@ -1517,9 +1642,18 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
 
                   <div className="mcx__infoSection">
+                    <p className="mcx__infoSectionTitle">When you use freebet:</p>
+                    <ul className="mcx__infoList">
+                      <li><span className="mcx__infoBadge mcx__infoBadge--match">100%</span> goes to the Match Winner Pool</li>
+                      <li>Freebet cannot be withdrawn before a prediction</li>
+                      <li>If the prediction wins, principal returns to Freebet and net winnings become withdrawable VARA</li>
+                    </ul>
+                  </div>
+
+                  <div className="mcx__infoSection">
                     <p className="mcx__infoSectionTitle">After the match ends:</p>
                     <ul className="mcx__infoList">
-                      <li>The 85% match pool is split among all correct predictions</li>
+                      <li>The match pool is split among all correct predictions</li>
                       <li>Your reward depends on how many players predicted the same outcome</li>
                       <li>Rare correct predictions pay more; popular outcomes pay less</li>
                     </ul>
@@ -1539,6 +1673,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </div>
             )}
           </>
+          )
         )}
       </div>
 

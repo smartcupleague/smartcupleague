@@ -12,7 +12,10 @@ import { StyledWallet } from '@/components/wallet/Wallet';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { reportClaim } from '@/utils/statsReporter';
+import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
+import { toHexAddress } from '@/utils/address';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
+import { PiCaretDownBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
@@ -164,7 +167,7 @@ function parsePlanckAmount(val: unknown): bigint | null {
   }
   if (typeof val === 'string') {
     const cleaned = val.trim().replace(/,/g, '');
-    if (!/^\d+$/.test(cleaned)) return null;
+    if (!/^(?:\d+|0x[0-9a-fA-F]+)$/.test(cleaned)) return null;
     return BigInt(cleaned);
   }
   return null;
@@ -270,6 +273,18 @@ function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
   return previewBets;
 }
 
+function mergeBetsByMatchId(lists: any[][]): any[] {
+  const byMatchId = new Map<string, any>();
+  for (const list of lists) {
+    for (const bet of list ?? []) {
+      const matchId = String(bet?.match_id ?? '');
+      if (!matchId) continue;
+      byMatchId.set(matchId, bet);
+    }
+  }
+  return Array.from(byMatchId.values());
+}
+
 type SortField = 'match_id_asc' | 'match_id_desc' | 'date_asc' | 'date_desc';
 type StatusFilter = '' | 'predicted' | 'not_predicted';
 export const MatchesTableComponent: React.FC = () => {
@@ -294,6 +309,10 @@ export const MatchesTableComponent: React.FC = () => {
   const { planckToUsd } = useVaraPrice();
   const [userBetsByMatchId, setUserBetsByMatchId] = useState<Map<string, UserBetView>>(new Map());
   const [poolStatsByMatchId, setPoolStatsByMatchId] = useState<Map<string, MatchPoolStats>>(new Map());
+  const accountHex = useMemo(
+    () => toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? null),
+    [account],
+  );
 
   useEffect(() => {
     void web3Enable('Bolao Matches UI');
@@ -369,13 +388,28 @@ export const MatchesTableComponent: React.FC = () => {
 
   const fetchUserBets = useCallback(async () => {
     const previewBets = isLocalPredictedPreview() ? buildPreviewBets(matches ?? []) : null;
-    if (!api || !isApiReady || !account) {
+    if (!api || !isApiReady || !accountHex) {
       if (previewBets?.size) setUserBetsByMatchId(previewBets);
       return;
     }
     try {
       const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const bets = (await (svc as any).queryBetsByUser(account.decodedAddress)) as any[];
+      const candidates = Array.from(new Set([
+        accountHex,
+        typeof account?.decodedAddress === 'string' ? account.decodedAddress : null,
+        typeof (account as any)?.address === 'string' ? (account as any).address : null,
+      ].filter(Boolean))) as string[];
+      const results = await Promise.all(
+        candidates.map(async (candidate) => {
+          try {
+            const value = await (svc as any).queryBetsByUser(candidate);
+            return Array.isArray(value) ? value : [];
+          } catch {
+            return [];
+          }
+        }),
+      );
+      const bets = mergeBetsByMatchId(results);
       const byMatchId = new Map<string, UserBetView>();
       for (const b of bets ?? []) {
         const matchId = String(b?.match_id ?? '');
@@ -391,9 +425,29 @@ export const MatchesTableComponent: React.FC = () => {
       }
       setUserBetsByMatchId(byMatchId.size ? byMatchId : previewBets ?? new Map());
     } catch { setUserBetsByMatchId(previewBets ?? new Map()); }
-  }, [api, isApiReady, account, matches]);
+  }, [api, isApiReady, account, accountHex, matches]);
 
   useEffect(() => { void fetchUserBets(); }, [fetchUserBets]);
+
+  useEffect(() => {
+    const onPredictionPlaced = () => {
+      void fetchMatches();
+      void fetchPoolStats();
+      void fetchUserBets();
+      window.setTimeout(() => {
+        void fetchMatches();
+        void fetchPoolStats();
+        void fetchUserBets();
+      }, 1200);
+    };
+
+    window.addEventListener(PREDICTION_PLACED_EVENT, onPredictionPlaced);
+    window.addEventListener('focus', onPredictionPlaced);
+    return () => {
+      window.removeEventListener(PREDICTION_PLACED_EVENT, onPredictionPlaced);
+      window.removeEventListener('focus', onPredictionPlaced);
+    };
+  }, [fetchMatches, fetchPoolStats, fetchUserBets]);
 
   const tabCounts = useMemo(() => {
     const all = matches ?? [];
@@ -521,7 +575,7 @@ export const MatchesTableComponent: React.FC = () => {
           balanceBefore = BigInt(raw.toString());
         } catch { /* non-fatal */ }
 
-        await tx.calculateGas();
+        await tx.calculateGas(false, 50);
         const { blockHash, response } = await tx.signAndSend();
         toast.info(`Claim included in block ${blockHash}`);
         await response();
@@ -558,9 +612,7 @@ export const MatchesTableComponent: React.FC = () => {
 
           <div className="mxTop__right">
             <div className="mxSearch" role="search">
-              <span className="mxSearch__icon" aria-hidden="true">
-                ⌕
-              </span>
+              <PiMagnifyingGlassBold className="mxSearch__icon" aria-hidden="true" />
               <input
                 value={headerSearch}
                 onChange={(e) => setHeaderSearch(e.target.value)}
@@ -593,59 +645,77 @@ export const MatchesTableComponent: React.FC = () => {
           </div>
         ) : null}
 
+        <div className="mxInfoGrid" aria-label="Match rules summary">
+          <div className="mxInfoCard">
+            <span>Prediction window</span>
+            <strong>Locks 10 min before kickoff</strong>
+          </div>
+          <div className="mxInfoCard">
+            <span>Prize split</span>
+            <strong>Wallet: 85% pool; freebet: 100% pool</strong>
+          </div>
+          <div className="mxInfoCard">
+            <span>Market data</span>
+            <strong>Live pools from the contract</strong>
+          </div>
+          <div className="mxInfoCard mxInfoCard--live">
+            <span>Status</span>
+            <strong>Open matches update automatically</strong>
+          </div>
+        </div>
+
         {/* Filters row */}
         <div className="mxFilters">
-          <div className="mxFilters__left">
-            <span className="mxPill">Prediction closes 10m before kickoff</span>
-            <span className="mxPill">85% Match / 10% Final / 5% DAO</span>
-            <span className="mxPill">On-chain pools</span>
-            <span className="mxPill mxPill--live">LIVE</span>
-          </div>
           <div className="mxFilters__right">
-            {/* Sort */}
-            <select
-              className="mxFilterSelect"
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value as SortField)}
-              aria-label="Sort by">
-              <option value="match_id_asc">Match #: First → Last</option>
-              <option value="match_id_desc">Match #: Last → First</option>
-              <option value="date_asc">Date: Oldest First</option>
-              <option value="date_desc">Date: Newest First</option>
-            </select>
+            <label className="mxFilterField">
+              <span>Sort</span>
+              <span className="mxSelectWrap">
+                <select
+                  className="mxFilterSelect"
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value as SortField)}
+                  aria-label="Sort by">
+                  <option value="match_id_asc">Match number: first to last</option>
+                  <option value="match_id_desc">Match number: last to first</option>
+                  <option value="date_asc">Kickoff: soonest first</option>
+                  <option value="date_desc">Kickoff: latest first</option>
+                </select>
+                <PiCaretDownBold className="mxSelectChevron" aria-hidden="true" />
+              </span>
+            </label>
 
-            {/* Status filter */}
-            <select
-              className="mxFilterSelect"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as StatusFilter)}
-              aria-label="Filter by prediction status">
-              <option value="">All Statuses</option>
-              <option value="predicted">Predicted</option>
-              <option value="not_predicted">Not Predicted</option>
-            </select>
+            <label className="mxFilterField">
+              <span>Prediction</span>
+              <span className="mxSelectWrap">
+                <select
+                  className="mxFilterSelect"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as StatusFilter)}
+                  aria-label="Filter by prediction status">
+                  <option value="">All matches</option>
+                  <option value="predicted">Already predicted</option>
+                  <option value="not_predicted">Needs prediction</option>
+                </select>
+                <PiCaretDownBold className="mxSelectChevron" aria-hidden="true" />
+              </span>
+            </label>
 
-            {/* Stage filter */}
-            <select
-              className="mxFilterSelect"
-              value={filterStage}
-              onChange={(e) => setFilterStage(e.target.value)}
-              aria-label="Filter by stage">
-              <option value="">All Stages</option>
-              {phases.map((p) => (
-                <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
-              ))}
-            </select>
-
-            {/* Date filter */}
-            <input
-              className="mxFilterDate"
-              type="date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              aria-label="Filter by date"
-              title="Filter by date"
-            />
+            <label className="mxFilterField">
+              <span>Stage</span>
+              <span className="mxSelectWrap">
+                <select
+                  className="mxFilterSelect"
+                  value={filterStage}
+                  onChange={(e) => setFilterStage(e.target.value)}
+                  aria-label="Filter by stage">
+                  <option value="">All stages</option>
+                  {phases.map((p) => (
+                    <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+                <PiCaretDownBold className="mxSelectChevron" aria-hidden="true" />
+              </span>
+            </label>
 
             {/* Clear filters */}
             {(filterStage || filterDate || filterSearch || headerSearch || filterStatus) && (
@@ -662,10 +732,6 @@ export const MatchesTableComponent: React.FC = () => {
                 Clear
               </button>
             )}
-
-            <button className="mxBtn mxBtn--ghost" type="button" onClick={fetchMatches}>
-              Refresh
-            </button>
           </div>
         </div>
       </header>

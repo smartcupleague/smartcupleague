@@ -72,3 +72,97 @@ services:
         value: 15000
       - key: ALLOWED_ORIGINS
         sync: false
+
+  - type: web
+    name: smartcupleague-voucher
+    env: node
+    region: oregon
+    plan: free
+    rootDir: voucher-backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NODE_URL
+        value: wss://testnet.vara.network
+      - key: VOUCHER_ACCOUNT
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: smartcup_vouchers
+      - key: HOURLY_TRANCHE_VARA
+        value: 500
+      - key: TRANCHE_INTERVAL_SEC
+        value: 3600
+      - key: TRANCHE_DURATION_SEC
+        value: 86400
+      - key: PER_IP_TRANCHES_PER_DAY
+        value: 40
+      - key: INFO_API_KEY
+        sync: false
+      - key: SMARTCUP_GASLESS_PROGRAMS
+        sync: false
+      - key: BOLAO_PROGRAM_ID
+        sync: false
+      - key: ORACLE_PROGRAM_ID
+        sync: false
+      - key: DAO_PROGRAM_ID
+        sync: false
+      - key: FREEBET_LEDGER_ID
+        sync: false
+
+  - type: web
+    name: smartcupleague-rewards
+    env: node
+    region: oregon
+    plan: free
+    rootDir: rewards-backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: PORT
+        value: 3002
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: smartcup_rewards
+      - key: DB_SYNCHRONIZE
+        value: false
+      - key: NODE_URL
+        value: wss://testnet.vara.network
+      - key: FREEBET_LEDGER_ID
+        sync: false
+      - key: REWARDS_ACCOUNT
+        sync: false
+      - key: X_BEARER_TOKEN
+        sync: false
+      - key: SMARTCUP_X_USERNAME
+        value: SmartCupLeague
+      - key: SMARTCUP_APP_URL
+        value: https://app.smartcupleague.com/
+      - key: ADMIN_API_KEY
+        sync: false

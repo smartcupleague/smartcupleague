@@ -1,11 +1,11 @@
+use dao_program::{
+    client::{DaoCtors, DaoProgram},
+    WASM_BINARY,
+};
 use sails_rs::{
     client::{Actor, GearEnv, GtestEnv},
     gtest::System,
     prelude::*,
-};
-use dao_program::{
-    client::{DaoCtors, DaoProgram},
-    WASM_BINARY,
 };
 
 // ── Actor IDs ─────────────────────────────────────────────────────────────────
@@ -25,8 +25,6 @@ pub fn actor(id: u64) -> ActorId {
 pub struct Fixture {
     pub env: GtestEnv,
     pub program: Actor<DaoProgram, GtestEnv>,
-    /// Shared System handle — required for spend_blocks().
-    pub system: System,
 }
 
 impl Fixture {
@@ -34,12 +32,12 @@ impl Fixture {
         let system = System::new();
         system.init_logger();
 
-        for id in [OWNER, NEW_OWNER, STRANGER, VOTER_A, VOTER_B, VOTER_C, MOCK_BOLAO] {
-            system.mint_to(id, 100_000_000_000_000);
+        for id in [
+            OWNER, NEW_OWNER, STRANGER, VOTER_A, VOTER_B, VOTER_C, MOCK_BOLAO,
+        ] {
+            system.mint_to(id, 10_000_000_000_000_000);
         }
 
-        // Clone before moving into GtestEnv — both handles share the same Rc<RefCell<…>>.
-        let system_ref = system.clone();
         let code_id = system.submit_code(WASM_BINARY);
         let env = GtestEnv::new(system, actor(OWNER));
 
@@ -49,7 +47,7 @@ impl Fixture {
             .await
             .unwrap();
 
-        Fixture { env, program, system: system_ref }
+        Fixture { env, program }
     }
 
     /// Returns an Actor whose signing key is `id`.
@@ -61,6 +59,6 @@ impl Fixture {
     /// Advance the simulated block clock.
     /// 1 block = 1 000 ms in gtest. 24 h = 86 400 blocks.
     pub fn spend_blocks(&self, blocks: u32) {
-        self.system.spend_blocks(blocks);
+        self.env.system().run_scheduled_tasks(blocks);
     }
 }

@@ -1,4 +1,5 @@
 pub const ONE_VARA: u128 = 1_000_000_000_000;
+#[allow(dead_code)]
 pub const MIN_BET: u128 = 3 * ONE_VARA; // mirrors MIN_BET_PLANCK in constants.rs
 pub const BET_5_VARA: u128 = 5 * ONE_VARA;
 pub const BET_10_VARA: u128 = 10 * ONE_VARA;
@@ -8,6 +9,7 @@ pub const BET_10_VARA: u128 = 10 * ONE_VARA;
 pub const KICK_OFF: u64 = 9_999_999_999_999;
 
 pub const GROUP_PHASE: &str = "Group Stage";
+#[allow(dead_code)]
 pub const KNOCKOUT_PHASE: &str = "Round of 16";
 pub const HOME_TEAM: &str = "Brazil";
 pub const AWAY_TEAM: &str = "Germany";

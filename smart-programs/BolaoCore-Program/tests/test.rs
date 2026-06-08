@@ -1,17 +1,23 @@
 use bolao_program::client::{
     service::Service as BolaoSvc, // trait — needed for method dispatch
-    BolaoCtors,
-    MigrationMetadata, MigrationPage,
-    ResultStatus, Score,
+    MigrationPage,
+    ResultStatus,
+    Score,
 };
 use sails_rs::prelude::*;
+use smartcup_freebet_ledger_client::{
+    freebet_ledger::FreebetLedger as FreebetLedgerSvc, FreebetLedger as FreebetLedgerRoot,
+    Score as LedgerScore,
+};
 
 mod fixture;
 mod utils;
 
-use fixture::{actor, Fixture, ADMIN, NEW_ADMIN, OPERATOR, TREASURY, ORACLE, STRANGER, USER1, USER2};
+use fixture::{
+    actor, Fixture, ADMIN, NEW_ADMIN, OPERATOR, ORACLE, STRANGER, TREASURY, USER1, USER2,
+};
 use utils::{
-    AWAY_TEAM, BET_5_VARA, BET_10_VARA, CHALLENGE_WINDOW_BLOCKS, CLAIM_DEADLINE_BLOCKS,
+    AWAY_TEAM, BET_10_VARA, BET_5_VARA, CHALLENGE_WINDOW_BLOCKS, CLAIM_DEADLINE_BLOCKS,
     GROUP_PHASE, HOME_TEAM, KICK_OFF, ONE_VARA,
 };
 
@@ -61,6 +67,87 @@ async fn propose_and_finalize(f: &Fixture, match_id: u64, score: Score) {
         .finalize_result(match_id)
         .await
         .unwrap();
+}
+
+async fn configure_freebet_ledger(
+    f: &Fixture,
+) -> sails_rs::client::Actor<
+    smartcup_freebet_ledger_client::FreebetLedgerProgram,
+    sails_rs::client::GtestEnv,
+> {
+    let ledger = f.deploy_freebet_ledger().await;
+    f.program
+        .service("Service")
+        .set_freebet_ledger(Some(ledger.id()))
+        .await
+        .unwrap();
+    ledger
+        .freebet_ledger()
+        .authorize_bet_program(f.program.id())
+        .with_actor_id(actor(ADMIN))
+        .await
+        .unwrap();
+    ledger
+}
+
+async fn grant_freebet(
+    ledger: &sails_rs::client::Actor<
+        smartcup_freebet_ledger_client::FreebetLedgerProgram,
+        sails_rs::client::GtestEnv,
+    >,
+    user: u64,
+    grant_id: &str,
+    amount: u128,
+) {
+    ledger
+        .freebet_ledger()
+        .grant(actor(user), grant_id.into(), "campaign reward".into())
+        .with_actor_id(actor(ADMIN))
+        .with_value(amount)
+        .await
+        .unwrap();
+}
+
+async fn spend_freebet(
+    ledger: &sails_rs::client::Actor<
+        smartcup_freebet_ledger_client::FreebetLedgerProgram,
+        sails_rs::client::GtestEnv,
+    >,
+    user: u64,
+    bolao_program: ActorId,
+    match_id: u64,
+    amount: u128,
+    score: Score,
+) -> u128 {
+    ledger
+        .freebet_ledger()
+        .spend_freebet(
+            bolao_program,
+            match_id,
+            amount,
+            LedgerScore {
+                home: score.home,
+                away: score.away,
+            },
+            None,
+        )
+        .with_actor_id(actor(user))
+        .await
+        .unwrap()
+}
+
+fn freebet_balance(
+    ledger: &sails_rs::client::Actor<
+        smartcup_freebet_ledger_client::FreebetLedgerProgram,
+        sails_rs::client::GtestEnv,
+    >,
+    user: u64,
+) -> u128 {
+    ledger
+        .freebet_ledger()
+        .balance_of(actor(user))
+        .query()
+        .unwrap()
 }
 
 // ── Test 1: deploy ────────────────────────────────────────────────────────────
@@ -362,7 +449,10 @@ async fn full_match_flow_with_winner() {
         .query()
         .unwrap()
         .unwrap();
-    assert!(m.settlement_prepared, "settlement must be prepared by finalize_result");
+    assert!(
+        m.settlement_prepared,
+        "settlement must be prepared by finalize_result"
+    );
     assert!(m.finalized_at.is_some(), "finalized_at must be set");
 
     // USER1 claims reward immediately.
@@ -454,8 +544,14 @@ async fn no_winner_settlement() {
         .query()
         .unwrap()
         .unwrap();
-    assert!(m.dust_swept, "no-winner match should be dust_swept immediately");
-    assert_eq!(m.match_prize_pool, 0, "no-winner pool should be redirected to final prize");
+    assert!(
+        m.dust_swept,
+        "no-winner match should be dust_swept immediately"
+    );
+    assert_eq!(
+        m.match_prize_pool, 0,
+        "no-winner pool should be redirected to final prize"
+    );
 
     // USER1 (non-winner) cannot claim.
     let err = f
@@ -473,21 +569,18 @@ async fn admin_management() {
     let f = Fixture::new().await;
 
     // Zero address rejected.
-    let err = f.program.service("Service").add_admin(ActorId::zero()).await;
+    let mut svc = f.program.service("Service");
+    let err = BolaoSvc::add_admin(&mut svc, ActorId::zero()).await;
     assert!(err.is_err(), "add_admin(zero) should be rejected");
 
     // Stranger cannot add admin.
-    let err = f
-        .as_actor(STRANGER)
-        .service("Service")
-        .add_admin(actor(NEW_ADMIN))
-        .await;
+    let mut svc = f.as_actor(STRANGER).service("Service");
+    let err = BolaoSvc::add_admin(&mut svc, actor(NEW_ADMIN)).await;
     assert!(err.is_err(), "non-admin should not add admin");
 
     // Admin adds NEW_ADMIN.
-    f.program
-        .service("Service")
-        .add_admin(actor(NEW_ADMIN))
+    let mut svc = f.program.service("Service");
+    BolaoSvc::add_admin(&mut svc, actor(NEW_ADMIN))
         .await
         .expect("add_admin should succeed");
 
@@ -497,13 +590,13 @@ async fn admin_management() {
     assert_eq!(state.admins.len(), 2);
 
     // Duplicate add rejected.
-    let err = f.program.service("Service").add_admin(actor(NEW_ADMIN)).await;
+    let mut svc = f.program.service("Service");
+    let err = BolaoSvc::add_admin(&mut svc, actor(NEW_ADMIN)).await;
     assert!(err.is_err(), "duplicate add_admin should be rejected");
 
     // Admin removes original admin (ADMIN removes itself while NEW_ADMIN remains).
-    f.program
-        .service("Service")
-        .remove_admin(actor(ADMIN))
+    let mut svc = f.program.service("Service");
+    BolaoSvc::remove_admin(&mut svc, actor(ADMIN))
         .await
         .expect("remove_admin should succeed");
 
@@ -513,19 +606,13 @@ async fn admin_management() {
     assert_eq!(state.admins.len(), 1);
 
     // Cannot remove the last admin.
-    let err = f
-        .as_actor(NEW_ADMIN)
-        .service("Service")
-        .remove_admin(actor(NEW_ADMIN))
-        .await;
+    let mut svc = f.as_actor(NEW_ADMIN).service("Service");
+    let err = BolaoSvc::remove_admin(&mut svc, actor(NEW_ADMIN)).await;
     assert!(err.is_err(), "should not remove last admin");
 
     // Removing a non-admin address fails.
-    let err = f
-        .as_actor(NEW_ADMIN)
-        .service("Service")
-        .remove_admin(actor(STRANGER))
-        .await;
+    let mut svc = f.as_actor(NEW_ADMIN).service("Service");
+    let err = BolaoSvc::remove_admin(&mut svc, actor(STRANGER)).await;
     assert!(err.is_err(), "should not remove non-admin address");
 }
 
@@ -685,11 +772,7 @@ async fn finalize_before_challenge_window_fails() {
     propose(&f, match_id, Score { home: 1, away: 0 }).await;
 
     // Try to finalize immediately — window has not expired.
-    let err = f
-        .program
-        .service("Service")
-        .finalize_result(match_id)
-        .await;
+    let err = f.program.service("Service").finalize_result(match_id).await;
     assert!(
         err.is_err(),
         "finalize_result before 24h challenge window should fail"
@@ -773,7 +856,10 @@ async fn settlement_is_automatic_after_finalize() {
         .unwrap();
 
     // Settlement is prepared in the same transaction as finalize — no extra call.
-    assert!(m.settlement_prepared, "settlement_prepared should be true after finalize");
+    assert!(
+        m.settlement_prepared,
+        "settlement_prepared should be true after finalize"
+    );
     assert!(m.total_winner_stake > 0, "total_winner_stake should be set");
     assert!(m.finalized_at.is_some(), "finalized_at must be recorded");
 
@@ -860,7 +946,10 @@ async fn sweep_permissionless_by_stranger_after_claim_deadline() {
         .unwrap()
         .unwrap();
     assert!(m.dust_swept, "match should be dust_swept after deadline");
-    assert_eq!(m.match_prize_pool, 0, "match pool should be zeroed after sweep");
+    assert_eq!(
+        m.match_prize_pool, 0,
+        "match pool should be zeroed after sweep"
+    );
 }
 
 // ── Test 21: cancel_match from Unresolved refunds bettors ───────────────────
@@ -896,10 +985,19 @@ async fn cancel_match_unresolved_refunds_bettors() {
         .query()
         .unwrap()
         .unwrap();
-    assert!(matches!(m.result, ResultStatus::Cancelled), "match should be Cancelled");
+    assert!(
+        matches!(m.result, ResultStatus::Cancelled),
+        "match should be Cancelled"
+    );
     assert_eq!(m.match_prize_pool, 0, "pool zeroed");
-    assert!(m.settlement_prepared, "settlement_prepared so finalize_final_prize_pool passes");
-    assert!(m.dust_swept, "dust_swept so finalize_final_prize_pool passes");
+    assert!(
+        m.settlement_prepared,
+        "settlement_prepared so finalize_final_prize_pool passes"
+    );
+    assert!(
+        m.dust_swept,
+        "dust_swept so finalize_final_prize_pool passes"
+    );
     assert!(m.finalized_at.is_some(), "finalized_at recorded");
 
     // Each user has 85% of their bet in pending_refunds.
@@ -984,24 +1082,33 @@ async fn migration_lock_blocks_writes() {
         .place_bet(match_id, Score { home: 1, away: 0 }, None)
         .with_value(BET_5_VARA)
         .await;
-    assert!(err.is_err(), "place_bet should be blocked during migration lock");
+    assert!(
+        err.is_err(),
+        "place_bet should be blocked during migration lock"
+    );
 
     // claim_refund should fail
-    let err = f
-        .as_actor(USER1)
-        .service("Service")
-        .claim_refund()
-        .await;
-    assert!(err.is_err(), "claim_refund should be blocked during migration lock");
+    let err = f.as_actor(USER1).service("Service").claim_refund().await;
+    assert!(
+        err.is_err(),
+        "claim_refund should be blocked during migration lock"
+    );
 
     // submit_podium_pick should fail
     let err = f
         .as_actor(USER1)
         .service("Service")
-        .submit_podium_pick("Brazil".to_string(), "Argentina".to_string(), "France".to_string())
+        .submit_podium_pick(
+            "Brazil".to_string(),
+            "Argentina".to_string(),
+            "France".to_string(),
+        )
         .with_value(BET_5_VARA)
         .await;
-    assert!(err.is_err(), "submit_podium_pick should be blocked during migration lock");
+    assert!(
+        err.is_err(),
+        "submit_podium_pick should be blocked during migration lock"
+    );
 }
 
 // T23 — export_determinism
@@ -1117,7 +1224,10 @@ async fn export_import_roundtrip() {
         .query_pending_refund(actor(USER1))
         .query()
         .unwrap();
-    assert!(user1_refund_source > 0, "USER1 should have a pending refund");
+    assert!(
+        user1_refund_source > 0,
+        "USER1 should have a pending refund"
+    );
 
     // ── Deploy sink and run migration ─────────────────────────────────────────
     let sink = source.deploy_importer_on_same_system().await;
@@ -1141,7 +1251,9 @@ async fn export_import_roundtrip() {
             .unwrap();
         let is_last = page.is_last_page;
         pages.push(page);
-        if is_last { break; }
+        if is_last {
+            break;
+        }
         page_num += 1;
     }
 
@@ -1174,15 +1286,22 @@ async fn export_import_roundtrip() {
         .unwrap();
     assert_eq!(user1_bets.len(), 2, "USER1 has 2 bets in sink");
 
-    let u1_m1 = user1_bets.iter().find(|b| b.match_id == match_1)
+    let u1_m1 = user1_bets
+        .iter()
+        .find(|b| b.match_id == match_1)
         .expect("USER1 match_1 bet missing in sink");
     assert_eq!(u1_m1.score.home, 2, "USER1 predicted home=2 on match_1");
     assert_eq!(u1_m1.score.away, 1, "USER1 predicted away=1 on match_1");
     // stake = BET_5_VARA × 85% (5% fee + 10% final prize deducted)
     let stake_5: u128 = BET_5_VARA * 8_500 / 10_000;
-    assert_eq!(u1_m1.stake_in_match_pool, stake_5, "USER1 match_1 stake correct");
+    assert_eq!(
+        u1_m1.stake_in_match_pool, stake_5,
+        "USER1 match_1 stake correct"
+    );
 
-    let u1_m2 = user1_bets.iter().find(|b| b.match_id == match_2)
+    let u1_m2 = user1_bets
+        .iter()
+        .find(|b| b.match_id == match_2)
         .expect("USER1 match_2 bet missing in sink");
     assert_eq!(u1_m2.score.home, 1, "USER1 predicted home=1 on match_2");
     assert_eq!(u1_m2.score.away, 0, "USER1 predicted away=0 on match_2");
@@ -1198,7 +1317,10 @@ async fn export_import_roundtrip() {
     assert_eq!(user2_bets[0].score.home, 0, "USER2 predicted home=0");
     assert_eq!(user2_bets[0].score.away, 0, "USER2 predicted away=0");
     let stake_10: u128 = BET_10_VARA * 8_500 / 10_000;
-    assert_eq!(user2_bets[0].stake_in_match_pool, stake_10, "USER2 stake correct");
+    assert_eq!(
+        user2_bets[0].stake_in_match_pool, stake_10,
+        "USER2 stake correct"
+    );
 
     // ── Verify: user points ───────────────────────────────────────────────────
     let u1_pts = sink
@@ -1221,7 +1343,10 @@ async fn export_import_roundtrip() {
         .query_pending_refund(actor(USER1))
         .query()
         .unwrap();
-    assert_eq!(u1_refund_sink, user1_refund_source, "USER1 pending refund migrated");
+    assert_eq!(
+        u1_refund_sink, user1_refund_source,
+        "USER1 pending refund migrated"
+    );
 
     // ── Verify: fee accumulators ──────────────────────────────────────────────
     // 3 bets total (5+10+5 VARA), 5% protocol fee each
@@ -1262,7 +1387,10 @@ async fn drain_vara_to_transfers_balance() {
         .query_locked_vara()
         .query()
         .unwrap();
-    assert_eq!(locked, BET_5_VARA, "locked VARA should equal the bet amount");
+    assert_eq!(
+        locked, BET_5_VARA,
+        "locked VARA should equal the bet amount"
+    );
 
     // Lock for migration
     f.program
@@ -1287,7 +1415,52 @@ async fn drain_vara_to_transfers_balance() {
         .service("Service")
         .drain_vara_to(actor(TREASURY))
         .await;
-    assert!(err.is_err(), "second drain should fail with nothing to drain");
+    assert!(
+        err.is_err(),
+        "second drain should fail with nothing to drain"
+    );
+}
+
+#[tokio::test]
+async fn force_withdraw_vara_bypasses_locked_pool() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+
+    f.as_actor(USER1)
+        .service("Service")
+        .place_bet(match_id, Score { home: 1, away: 0 }, None)
+        .with_value(BET_5_VARA)
+        .await
+        .unwrap();
+
+    let locked = f
+        .program
+        .service("Service")
+        .query_locked_vara()
+        .query()
+        .unwrap();
+    assert_eq!(locked, BET_5_VARA);
+
+    let mut service = f.program.service("Service");
+    let surplus_attempt =
+        BolaoSvc::withdraw_surplus_vara(&mut service, actor(TREASURY), BET_5_VARA).await;
+    assert!(surplus_attempt.is_err(), "locked pool is not surplus");
+
+    let contract_before = f.env.system().balance_of(f.program.id());
+    assert!(
+        contract_before >= BET_5_VARA,
+        "contract should hold the locked bet"
+    );
+    let mut service = f.program.service("Service");
+    BolaoSvc::force_withdraw_vara(&mut service, actor(TREASURY), BET_5_VARA)
+        .await
+        .expect("admin can force-withdraw locked pool VARA");
+    let contract_after = f.env.system().balance_of(f.program.id());
+    assert_eq!(contract_after, contract_before - BET_5_VARA);
+
+    let mut service = f.as_actor(STRANGER).service("Service");
+    let non_admin = BolaoSvc::force_withdraw_vara(&mut service, actor(TREASURY), ONE_VARA).await;
+    assert!(non_admin.is_err(), "non-admin must not force-withdraw");
 }
 
 // T27 — double_seal_rejected
@@ -1302,11 +1475,7 @@ async fn double_seal_rejected() {
         .await
         .expect("first seal should succeed");
 
-    let err = f
-        .program
-        .service("Service")
-        .seal_migration()
-        .await;
+    let err = f.program.service("Service").seal_migration().await;
     assert!(err.is_err(), "second seal should be rejected");
 }
 
@@ -1379,7 +1548,11 @@ async fn snapshot_stability() {
         page_before, page_after,
         "snapshot must be stable across repeated export calls"
     );
-    assert_eq!(page_before.bets.len(), 1, "bet snapshot captures exactly 1 bet");
+    assert_eq!(
+        page_before.bets.len(),
+        1,
+        "bet snapshot captures exactly 1 bet"
+    );
 }
 
 // T30 — importer_mode_blocks_user_writes
@@ -1447,11 +1620,8 @@ async fn admin_handlers_blocked_during_export_lock() {
         .unwrap();
 
     // Admin handlers that use check_not_locked_for_export must be blocked
-    let err = f
-        .program
-        .service("Service")
-        .add_admin(actor(NEW_ADMIN))
-        .await;
+    let mut svc = f.program.service("Service");
+    let err = BolaoSvc::add_admin(&mut svc, actor(NEW_ADMIN)).await;
     assert!(err.is_err(), "add_admin must be blocked during export lock");
 
     let err = f
@@ -1459,7 +1629,10 @@ async fn admin_handlers_blocked_during_export_lock() {
         .service("Service")
         .register_phase(GROUP_PHASE.to_string(), 0, u64::MAX, 1)
         .await;
-    assert!(err.is_err(), "register_phase must be blocked during export lock");
+    assert!(
+        err.is_err(),
+        "register_phase must be blocked during export lock"
+    );
 
     // Migration-specific handler (export_state_page) still works during lock
     f.program
@@ -1508,7 +1681,10 @@ async fn admin_push_refund_cei() {
         .query_pending_refund(actor(USER1))
         .query()
         .unwrap();
-    assert!(refund_before > 0, "USER1 should have a pending refund after cancel");
+    assert!(
+        refund_before > 0,
+        "USER1 should have a pending refund after cancel"
+    );
 
     // Admin pushes the refund
     f.program
@@ -1524,7 +1700,10 @@ async fn admin_push_refund_cei() {
         .query_pending_refund(actor(USER1))
         .query()
         .unwrap();
-    assert_eq!(refund_after, 0, "pending refund should be cleared after admin_push_refund");
+    assert_eq!(
+        refund_after, 0,
+        "pending refund should be cleared after admin_push_refund"
+    );
 
     // Calling again should fail — no refund remains
     let err = f
@@ -1532,7 +1711,10 @@ async fn admin_push_refund_cei() {
         .service("Service")
         .admin_push_refund(actor(USER1))
         .await;
-    assert!(err.is_err(), "second admin_push_refund should fail — no refund");
+    assert!(
+        err.is_err(),
+        "second admin_push_refund should fail — no refund"
+    );
 }
 
 // T32 — page_size_cap_applied_silently
@@ -1611,11 +1793,7 @@ async fn cancel_match_after_finalized_fails() {
 
     propose_and_finalize(&f, match_id, Score { home: 2, away: 1 }).await;
 
-    let err = f
-        .program
-        .service("Service")
-        .cancel_match(match_id)
-        .await;
+    let err = f.program.service("Service").cancel_match(match_id).await;
     assert!(err.is_err(), "cannot cancel a finalized match");
 }
 
@@ -1631,11 +1809,7 @@ async fn cancel_match_double_fails() {
         .cancel_match(match_id)
         .await
         .unwrap();
-    let err = f
-        .program
-        .service("Service")
-        .cancel_match(match_id)
-        .await;
+    let err = f.program.service("Service").cancel_match(match_id).await;
     assert!(err.is_err(), "cannot cancel twice");
 }
 
@@ -1688,12 +1862,11 @@ async fn claim_refund_happy_path() {
 async fn claim_refund_without_pending_fails() {
     let f = Fixture::new().await;
 
-    let err = f
-        .as_actor(USER1)
-        .service("Service")
-        .claim_refund()
-        .await;
-    assert!(err.is_err(), "claim_refund with no pending refund should fail");
+    let err = f.as_actor(USER1).service("Service").claim_refund().await;
+    assert!(
+        err.is_err(),
+        "claim_refund with no pending refund should fail"
+    );
 }
 
 // ── Test 28: claim_refund double-claim fails ────────────────────────────────
@@ -1722,11 +1895,7 @@ async fn claim_refund_double_fails() {
         .await
         .unwrap();
 
-    let err = f
-        .as_actor(USER1)
-        .service("Service")
-        .claim_refund()
-        .await;
+    let err = f.as_actor(USER1).service("Service").claim_refund().await;
     assert!(err.is_err(), "double claim_refund should fail");
 }
 
@@ -1774,12 +1943,11 @@ async fn cancelled_match_blocks_finalize_result() {
         .await
         .unwrap();
 
-    let err = f
-        .program
-        .service("Service")
-        .finalize_result(match_id)
-        .await;
-    assert!(err.is_err(), "finalize_result should fail on cancelled match");
+    let err = f.program.service("Service").finalize_result(match_id).await;
+    assert!(
+        err.is_err(),
+        "finalize_result should fail on cancelled match"
+    );
 }
 
 // ── Test 31: refunds accumulate across multiple cancelled matches ──────────
@@ -1848,7 +2016,10 @@ async fn cancel_match_accumulates_refund_across_matches() {
         .query()
         .unwrap();
     let expected = (BET_5_VARA + BET_10_VARA) * 8_500 / 10_000;
-    assert_eq!(refund, expected, "refunds should accumulate across cancelled matches");
+    assert_eq!(
+        refund, expected,
+        "refunds should accumulate across cancelled matches"
+    );
 }
 
 // ── Test 32: finalize_final_prize_pool requires settlement on cancelled too ─
@@ -1891,30 +2062,311 @@ async fn cancelled_match_passes_finalize_prize_pool_checks() {
 
 // ── Price oracle tests (cross-contract, gtest) ────────────────────────────────
 //
+// ── Freebet ledger integration ───────────────────────────────────────────────
+
+#[tokio::test]
+async fn freebet_ledger_can_place_smartcup_prediction() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+    let ledger = configure_freebet_ledger(&f).await;
+
+    grant_freebet(&ledger, USER1, "x:repost:user1:week1", BET_10_VARA).await;
+    let spent = spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        BET_10_VARA,
+        Score { home: 2, away: 1 },
+    )
+    .await;
+
+    assert_eq!(spent, BET_10_VARA);
+    assert_eq!(freebet_balance(&ledger, USER1), 0);
+
+    let bets = f
+        .program
+        .service("Service")
+        .query_bets_by_user(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(bets.len(), 1);
+    assert_eq!(bets[0].match_id, match_id);
+    assert_eq!(bets[0].stake_in_match_pool, BET_10_VARA);
+    assert_eq!(bets[0].freebet_principal, BET_10_VARA);
+}
+
+#[tokio::test]
+async fn freebet_claim_returns_principal_and_pays_only_net_winnings() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+    let ledger = configure_freebet_ledger(&f).await;
+
+    grant_freebet(&ledger, USER1, "x:quote:user1:week1", BET_10_VARA).await;
+    spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        BET_10_VARA,
+        Score { home: 2, away: 1 },
+    )
+    .await;
+
+    f.as_actor(USER2)
+        .service("Service")
+        .place_bet(match_id, Score { home: 0, away: 0 }, None)
+        .with_value(BET_10_VARA)
+        .await
+        .unwrap();
+
+    propose_and_finalize(&f, match_id, Score { home: 2, away: 1 }).await;
+
+    let claim_status = f
+        .program
+        .service("Service")
+        .query_wallet_claim_status(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(claim_status.amount_claimable, BET_10_VARA * 85 / 100);
+    assert!(!claim_status.already_claimed);
+
+    f.as_actor(USER1)
+        .service("Service")
+        .claim_match_reward(match_id)
+        .await
+        .unwrap();
+
+    assert_eq!(freebet_balance(&ledger, USER1), BET_10_VARA);
+
+    let claim_status = f
+        .program
+        .service("Service")
+        .query_wallet_claim_status(actor(USER1))
+        .query()
+        .unwrap();
+    assert!(claim_status.already_claimed);
+    assert_eq!(claim_status.amount_claimable, 0);
+}
+
+#[tokio::test]
+async fn cancelled_freebet_prediction_returns_principal_to_ledger() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+    let ledger = configure_freebet_ledger(&f).await;
+
+    grant_freebet(&ledger, USER1, "x:repost:user1:week2", BET_10_VARA).await;
+    spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        BET_10_VARA,
+        Score { home: 1, away: 0 },
+    )
+    .await;
+
+    f.program
+        .service("Service")
+        .cancel_match(match_id)
+        .await
+        .unwrap();
+
+    assert_eq!(freebet_balance(&ledger, USER1), BET_10_VARA);
+}
+
+#[tokio::test]
+async fn set_freebet_ledger_is_admin_only_and_can_be_cleared() {
+    let f = Fixture::new().await;
+    let ledger = f.deploy_freebet_ledger().await;
+
+    let non_admin = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .set_freebet_ledger(Some(ledger.id()))
+        .await;
+    assert!(non_admin.is_err(), "non-admin must not set freebet ledger");
+
+    let zero = f
+        .program
+        .service("Service")
+        .set_freebet_ledger(Some(ActorId::zero()))
+        .await;
+    assert!(zero.is_err(), "zero ActorId must not be accepted as ledger");
+
+    f.program
+        .service("Service")
+        .set_freebet_ledger(Some(ledger.id()))
+        .await
+        .unwrap();
+    let state = f.program.service("Service").query_state().query().unwrap();
+    assert_eq!(state.freebet_ledger_program_id, Some(ledger.id()));
+
+    f.program
+        .service("Service")
+        .set_freebet_ledger(None)
+        .await
+        .unwrap();
+    let state = f.program.service("Service").query_state().query().unwrap();
+    assert_eq!(state.freebet_ledger_program_id, None);
+}
+
+#[tokio::test]
+async fn freebet_prediction_requires_configured_ledger_caller() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+    let ledger = f.deploy_freebet_ledger().await;
+
+    let unconfigured = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .place_bet_from_freebet_ledger(actor(USER1), match_id, Score { home: 2, away: 1 }, None)
+        .with_value(BET_10_VARA)
+        .await;
+    assert!(
+        unconfigured.is_err(),
+        "freebet ledger must be configured first"
+    );
+
+    f.program
+        .service("Service")
+        .set_freebet_ledger(Some(ledger.id()))
+        .await
+        .unwrap();
+
+    let wrong_caller = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .place_bet_from_freebet_ledger(actor(USER1), match_id, Score { home: 2, away: 1 }, None)
+        .with_value(BET_10_VARA)
+        .await;
+    assert!(
+        wrong_caller.is_err(),
+        "only configured ledger can place freebet bets"
+    );
+}
+
+#[tokio::test]
+async fn failed_freebet_prediction_restores_ledger_balance() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+    let ledger = configure_freebet_ledger(&f).await;
+
+    grant_freebet(&ledger, USER1, "x:repost:user1:below-min", BET_10_VARA).await;
+    let below_min = spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        ONE_VARA,
+        Score { home: 2, away: 1 },
+    )
+    .await;
+    assert_eq!(below_min, 0);
+    assert_eq!(freebet_balance(&ledger, USER1), BET_10_VARA);
+
+    let spent = spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        BET_10_VARA,
+        Score { home: 2, away: 1 },
+    )
+    .await;
+    assert_eq!(spent, BET_10_VARA);
+    assert_eq!(freebet_balance(&ledger, USER1), 0);
+
+    grant_freebet(&ledger, USER1, "x:quote:user1:duplicate", BET_10_VARA).await;
+    let duplicate = spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        BET_10_VARA,
+        Score { home: 1, away: 0 },
+    )
+    .await;
+    assert_eq!(duplicate, 0);
+    assert_eq!(freebet_balance(&ledger, USER1), BET_10_VARA);
+}
+
+#[tokio::test]
+async fn freebet_only_winner_returns_principal_without_wallet_payout() {
+    let f = Fixture::new().await;
+    let match_id = setup_phase_and_match(&f).await;
+    let ledger = configure_freebet_ledger(&f).await;
+
+    grant_freebet(&ledger, USER1, "x:post:user1:solo-winner", BET_10_VARA).await;
+    let spent = spend_freebet(
+        &ledger,
+        USER1,
+        f.program.id(),
+        match_id,
+        BET_10_VARA,
+        Score { home: 2, away: 1 },
+    )
+    .await;
+    assert_eq!(spent, BET_10_VARA);
+    assert_eq!(freebet_balance(&ledger, USER1), 0);
+
+    propose_and_finalize(&f, match_id, Score { home: 2, away: 1 }).await;
+
+    let claim_status = f
+        .program
+        .service("Service")
+        .query_wallet_claim_status(actor(USER1))
+        .query()
+        .unwrap();
+    assert_eq!(claim_status.amount_claimable, 0);
+    assert!(!claim_status.already_claimed);
+
+    f.as_actor(USER1)
+        .service("Service")
+        .claim_match_reward(match_id)
+        .await
+        .unwrap();
+
+    assert_eq!(freebet_balance(&ledger, USER1), BET_10_VARA);
+    let claim_status = f
+        .program
+        .service("Service")
+        .query_wallet_claim_status(actor(USER1))
+        .query()
+        .unwrap();
+    assert!(claim_status.already_claimed);
+    assert_eq!(claim_status.amount_claimable, 0);
+}
+
 // These tests deploy both Oracle-Program and BolaoCore-Program in the same
 // gtest System so that cross-program messages (refresh_vara_price, propose_from_oracle)
 // are handled by the simulated runtime.
 
 mod price_oracle {
     use super::*;
-    use sails_rs::{client::{GearEnv, GtestEnv}, gtest::System};
     use bolao_program::{
-        client::{BolaoCtors, BolaoProgram},
         client::service::ServiceImpl as BolaoImpl,
+        client::{BolaoCtors, BolaoProgram},
         WASM_BINARY as BOLAO_WASM,
     };
     use oracle_program::{
-        client::{OracleCtors, OracleProgram},
         client::service::Service as OracleSvc,
+        client::{OracleCtors, OracleProgram},
         WASM_BINARY as ORACLE_WASM,
     };
+    use sails_rs::{
+        client::{GearEnv, GtestEnv},
+        gtest::System,
+    };
 
-    const ADMIN_ID:    u64 = 100;
+    const ADMIN_ID: u64 = 100;
     const TREASURY_ID: u64 = 103;
-    const FEEDER_ID:   u64 = 200;
-    const USER_ID:     u64 = 201;
+    const FEEDER_ID: u64 = 200;
+    const USER_ID: u64 = 201;
 
-    fn actor(id: u64) -> ActorId { id.into() }
+    fn actor(id: u64) -> ActorId {
+        id.into()
+    }
 
     /// Deploys Oracle + BolaoCore in the same System, wires set_price_oracle and
     /// set_oracle_authorized, authorizes FEEDER_ID as an Oracle feeder, and returns
@@ -1931,7 +2383,7 @@ mod price_oracle {
         }
 
         let oracle_code = system.submit_code(ORACLE_WASM);
-        let bolao_code  = system.submit_code(BOLAO_WASM);
+        let bolao_code = system.submit_code(BOLAO_WASM);
         let env = GtestEnv::new(system, actor(ADMIN_ID));
 
         let oracle = env
@@ -1947,9 +2399,17 @@ mod price_oracle {
             .unwrap();
 
         // Wire price oracle address
-        bolao.service("Service").set_price_oracle(oracle.id()).await.unwrap();
+        bolao
+            .service("Service")
+            .set_price_oracle(oracle.id())
+            .await
+            .unwrap();
         // Authorize the Oracle program to be used in propose_from_oracle
-        bolao.service("Service").set_oracle_authorized(oracle.id(), true).await.unwrap();
+        bolao
+            .service("Service")
+            .set_oracle_authorized(oracle.id(), true)
+            .await
+            .unwrap();
 
         // Authorize FEEDER_ID in Oracle
         OracleSvc::set_feeder_authorized(
@@ -1971,11 +2431,11 @@ mod price_oracle {
 
         // Feeder pushes price to Oracle
         let feeder_env = env.clone().with_actor_id(actor(FEEDER_ID));
-        let oracle_as_feeder = sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(
-            feeder_env, oracle.id(),
-        );
+        let oracle_as_feeder =
+            sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(feeder_env, oracle.id());
         OracleSvc::set_vara_usd_price(
-            &mut oracle_as_feeder.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            &mut oracle_as_feeder
+                .service::<oracle_program::client::service::ServiceImpl>("Service"),
             749,
         )
         .await
@@ -1991,7 +2451,10 @@ mod price_oracle {
         let state = BolaoSvc::query_state(&bolao.service("Service"))
             .query()
             .unwrap();
-        assert_eq!(state.vara_price_usd_micro, 749, "BolaoCore should cache the Oracle price");
+        assert_eq!(
+            state.vara_price_usd_micro, 749,
+            "BolaoCore should cache the Oracle price"
+        );
         assert_ne!(state.price_cached_at, 0, "price_cached_at should be set");
     }
 
@@ -2003,24 +2466,30 @@ mod price_oracle {
 
         // Push and cache price: 749 micro-USD per VARA
         let feeder_env = env.clone().with_actor_id(actor(FEEDER_ID));
-        let oracle_as_feeder = sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(
-            feeder_env, oracle.id(),
-        );
+        let oracle_as_feeder =
+            sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(feeder_env, oracle.id());
         OracleSvc::set_vara_usd_price(
-            &mut oracle_as_feeder.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            &mut oracle_as_feeder
+                .service::<oracle_program::client::service::ServiceImpl>("Service"),
             749,
         )
         .await
         .unwrap();
-        bolao.service("Service").refresh_vara_price(oracle.id()).await.unwrap();
+        bolao
+            .service("Service")
+            .refresh_vara_price(oracle.id())
+            .await
+            .unwrap();
 
         // Register a match
         let kick_off = utils::KICK_OFF;
-        bolao.service("Service")
+        bolao
+            .service("Service")
             .register_phase(utils::GROUP_PHASE.to_string(), 0, u64::MAX, 1)
             .await
             .unwrap();
-        bolao.service::<BolaoImpl>("Service")
+        bolao
+            .service::<BolaoImpl>("Service")
             .register_match(
                 utils::GROUP_PHASE.to_string(),
                 utils::HOME_TEAM.to_string(),
@@ -2036,9 +2505,8 @@ mod price_oracle {
         let min_bet: u128 = (BET_TARGET * PLANCK + 749 - 1) / 749;
 
         let user_env = env.clone().with_actor_id(actor(USER_ID));
-        let bolao_as_user = sails_rs::client::Actor::<BolaoProgram, GtestEnv>::new(
-            user_env, bolao.id(),
-        );
+        let bolao_as_user =
+            sails_rs::client::Actor::<BolaoProgram, GtestEnv>::new(user_env, bolao.id());
 
         // One planck below minimum → rejected
         let err = bolao_as_user
@@ -2065,26 +2533,32 @@ mod price_oracle {
 
         // Push and cache the price, then advance past the staleness limit.
         let feeder_env = env.clone().with_actor_id(actor(FEEDER_ID));
-        let oracle_as_feeder = sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(
-            feeder_env, oracle.id(),
-        );
+        let oracle_as_feeder =
+            sails_rs::client::Actor::<OracleProgram, GtestEnv>::new(feeder_env, oracle.id());
         OracleSvc::set_vara_usd_price(
-            &mut oracle_as_feeder.service::<oracle_program::client::service::ServiceImpl>("Service"),
+            &mut oracle_as_feeder
+                .service::<oracle_program::client::service::ServiceImpl>("Service"),
             749,
         )
         .await
         .unwrap();
-        bolao.service("Service").refresh_vara_price(oracle.id()).await.unwrap();
+        bolao
+            .service("Service")
+            .refresh_vara_price(oracle.id())
+            .await
+            .unwrap();
 
         // DEFAULT_PRICE_STALENESS_LIMIT_MS = 3_600_000 ms = 3 600 blocks in gtest (1 block = 1 000 ms)
         // Advance 3 601 blocks so the cached price expires.
         env.system().run_scheduled_tasks(3_601);
 
-        bolao.service("Service")
+        bolao
+            .service("Service")
             .register_phase(utils::GROUP_PHASE.to_string(), 0, u64::MAX, 1)
             .await
             .unwrap();
-        bolao.service::<BolaoImpl>("Service")
+        bolao
+            .service::<BolaoImpl>("Service")
             .register_match(
                 utils::GROUP_PHASE.to_string(),
                 utils::HOME_TEAM.to_string(),
@@ -2095,9 +2569,8 @@ mod price_oracle {
             .unwrap();
 
         let user_env = env.clone().with_actor_id(actor(USER_ID));
-        let bolao_as_user = sails_rs::client::Actor::<BolaoProgram, GtestEnv>::new(
-            user_env, bolao.id(),
-        );
+        let bolao_as_user =
+            sails_rs::client::Actor::<BolaoProgram, GtestEnv>::new(user_env, bolao.id());
 
         // With stale price the fallback is MIN_BET_PLANCK = 3 VARA.
         // 2 VARA → rejected.
@@ -2106,7 +2579,10 @@ mod price_oracle {
             .place_bet(1, Score { home: 1, away: 0 }, None)
             .with_value(2 * utils::ONE_VARA)
             .await;
-        assert!(err.is_err(), "bet below fallback (stale price) should be rejected");
+        assert!(
+            err.is_err(),
+            "bet below fallback (stale price) should be rejected"
+        );
 
         // 3 VARA → accepted (fallback minimum).
         bolao_as_user
@@ -2116,7 +2592,4 @@ mod price_oracle {
             .await
             .expect("bet at fallback minimum should be accepted when price is stale");
     }
-
-
 }
-

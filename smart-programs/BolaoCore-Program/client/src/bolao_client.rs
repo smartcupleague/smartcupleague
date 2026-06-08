@@ -80,11 +80,15 @@ pub mod service {
         /// Marks a match as Cancelled and accumulates per-bettor refunds in
         /// pending_refunds. Use when a match cannot or will not produce a real
         /// result (suspension, abandonment, FIFA voiding, registration error).
-        /// Bettors then call claim_refund() to pull their stake out.
+        /// Cash bettors then call claim_refund() to pull their stake out. Freebet
+        /// principal is returned to FreebetLedger immediately during cancellation
+        /// because no finalized match payout exists.
         ///
-        /// Refund amount per bettor = stake_in_match_pool (the 85% post-fee share).
-        /// The 5% protocol fee and 10% final-prize cut already left this match's
-        /// pool at place_bet time and are not returned.
+        /// Cash refund amount per bettor = stake_in_match_pool (the 85% post-fee
+        /// share). Freebet refund amount = stake_in_match_pool, because freebet
+        /// entries do not pay protocol/final-prize fees. Once a match is finalized,
+        /// winning freebet claims return the principal to FreebetLedger and send
+        /// only net winnings to the user's wallet.
         ///
         /// Cancelling a match is terminal — no transition out of Cancelled.
         /// Cannot cancel a match already Finalized (claims may have happened).
@@ -123,6 +127,11 @@ pub mod service {
             &mut self,
             match_id: u64,
         ) -> sails_rs::client::PendingCall<io::FinalizeResult, Self::Env>;
+        fn force_withdraw_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::ForceWithdrawVara, Self::Env>;
         /// T19 — Imports scalar metadata.
         /// Requires migration_sealed == false and admin caller.
         /// Does NOT emit an event (REQ-8.5).
@@ -149,6 +158,13 @@ pub mod service {
             predicted_score: Score,
             predicted_penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::PlaceBet, Self::Env>;
+        fn place_bet_from_freebet_ledger(
+            &mut self,
+            user: ActorId,
+            match_id: u64,
+            predicted_score: Score,
+            predicted_penalty_winner: Option<PenaltyWinner>,
+        ) -> sails_rs::client::PendingCall<io::PlaceBetFromFreebetLedger, Self::Env>;
         fn propose_from_oracle(
             &mut self,
             match_id: u64,
@@ -196,6 +212,10 @@ pub mod service {
         /// Flips migration_sealed to true, re-enables all writes, clears index Vecs.
         fn seal_migration(&mut self)
         -> sails_rs::client::PendingCall<io::SealMigration, Self::Env>;
+        fn set_freebet_ledger(
+            &mut self,
+            ledger_program_id: Option<ActorId>,
+        ) -> sails_rs::client::PendingCall<io::SetFreebetLedger, Self::Env>;
         fn set_oracle_authorized(
             &mut self,
             oracle: ActorId,
@@ -231,6 +251,11 @@ pub mod service {
         fn withdraw_protocol_fees(
             &mut self,
         ) -> sails_rs::client::PendingCall<io::WithdrawProtocolFees, Self::Env>;
+        fn withdraw_surplus_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::WithdrawSurplusVara, Self::Env>;
         fn contract_version_4(
             &self,
         ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env>;
@@ -351,6 +376,13 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::FinalizeResult, Self::Env> {
             self.pending_call((match_id,))
         }
+        fn force_withdraw_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::ForceWithdrawVara, Self::Env> {
+            self.pending_call((to, amount))
+        }
         fn import_metadata(
             &mut self,
             meta: MigrationMetadata,
@@ -375,6 +407,15 @@ pub mod service {
             predicted_penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::PlaceBet, Self::Env> {
             self.pending_call((match_id, predicted_score, predicted_penalty_winner))
+        }
+        fn place_bet_from_freebet_ledger(
+            &mut self,
+            user: ActorId,
+            match_id: u64,
+            predicted_score: Score,
+            predicted_penalty_winner: Option<PenaltyWinner>,
+        ) -> sails_rs::client::PendingCall<io::PlaceBetFromFreebetLedger, Self::Env> {
+            self.pending_call((user, match_id, predicted_score, predicted_penalty_winner))
         }
         fn propose_from_oracle(
             &mut self,
@@ -432,6 +473,12 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::SealMigration, Self::Env> {
             self.pending_call(())
         }
+        fn set_freebet_ledger(
+            &mut self,
+            ledger_program_id: Option<ActorId>,
+        ) -> sails_rs::client::PendingCall<io::SetFreebetLedger, Self::Env> {
+            self.pending_call((ledger_program_id,))
+        }
         fn set_oracle_authorized(
             &mut self,
             oracle: ActorId,
@@ -480,6 +527,13 @@ pub mod service {
             &mut self,
         ) -> sails_rs::client::PendingCall<io::WithdrawProtocolFees, Self::Env> {
             self.pending_call(())
+        }
+        fn withdraw_surplus_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::WithdrawSurplusVara, Self::Env> {
+            self.pending_call((to, amount))
         }
         fn contract_version_4(
             &self,
@@ -562,10 +616,12 @@ pub mod service {
         sails_rs::io_struct_impl!(FinalizeFinalPrizePool () -> ());
         sails_rs::io_struct_impl!(FinalizePodium (champion: String, runner_up: String, third_place: String) -> ());
         sails_rs::io_struct_impl!(FinalizeResult (match_id: u64) -> ());
+        sails_rs::io_struct_impl!(ForceWithdrawVara (to: ActorId, amount: u128) -> ());
         sails_rs::io_struct_impl!(ImportMetadata (meta: super::MigrationMetadata) -> ());
         sails_rs::io_struct_impl!(ImportStatePage (page: super::MigrationPage) -> ());
         sails_rs::io_struct_impl!(LockForMigration () -> ());
         sails_rs::io_struct_impl!(PlaceBet (match_id: u64, predicted_score: super::Score, predicted_penalty_winner: Option<super::PenaltyWinner>) -> ());
+        sails_rs::io_struct_impl!(PlaceBetFromFreebetLedger (user: ActorId, match_id: u64, predicted_score: super::Score, predicted_penalty_winner: Option<super::PenaltyWinner>) -> u128);
         sails_rs::io_struct_impl!(ProposeFromOracle (match_id: u64, oracle_program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(ProposeResult (match_id: u64, final_score: super::Score, penalty_winner: Option<super::PenaltyWinner>) -> ());
         sails_rs::io_struct_impl!(RefreshVaraPrice (oracle_program_id: ActorId) -> ());
@@ -574,6 +630,7 @@ pub mod service {
         sails_rs::io_struct_impl!(RemoveAdmin (admin_to_remove: ActorId) -> ());
         sails_rs::io_struct_impl!(RemoveOperator (operator_to_remove: ActorId) -> ());
         sails_rs::io_struct_impl!(SealMigration () -> ());
+        sails_rs::io_struct_impl!(SetFreebetLedger (ledger_program_id: Option<ActorId>) -> ());
         sails_rs::io_struct_impl!(SetOracleAuthorized (oracle: ActorId, authorized: bool) -> ());
         sails_rs::io_struct_impl!(SetPriceOracle (oracle_program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(SetPriceStalenessLimit (staleness_limit_ms: u64) -> ());
@@ -582,6 +639,7 @@ pub mod service {
         sails_rs::io_struct_impl!(SweepMatchDustToFinalPrize (match_id: u64) -> ());
         sails_rs::io_struct_impl!(WithdrawFinalPrizeRoundingDust () -> ());
         sails_rs::io_struct_impl!(WithdrawProtocolFees () -> ());
+        sails_rs::io_struct_impl!(WithdrawSurplusVara (to: ActorId, amount: u128) -> ());
         sails_rs::io_struct_impl!(ContractVersion4 () -> u32);
         sails_rs::io_struct_impl!(ExportMetadata () -> super::MigrationMetadata);
         sails_rs::io_struct_impl!(ExportStatePage (page: u32, page_size: u32) -> super::MigrationPage);
@@ -625,9 +683,15 @@ pub mod service {
             FinalPrizePoolFinalized((u128, u128)),
             FinalPrizeClaimed((ActorId, u128)),
             FinalPrizeRoundingDustWithdrawn((u128, ActorId)),
+            SurplusVaraWithdrawn((u128, ActorId)),
+            /// Admin emergency withdrawal that may bypass locked pools/liabilities: (amount, to).
+            ForceVaraWithdrawn((u128, ActorId)),
             ResultProposalCancelled((u64, ActorId)),
             MatchCancelled((u64, u128)),
             RefundClaimed((ActorId, u128)),
+            FreebetLedgerSet(Option<ActorId>),
+            FreebetBetAccepted((ActorId, u64, Score, Option<PenaltyWinner>, u128)),
+            FreebetPrincipalReturned((ActorId, u64, u128)),
             /// VARA/USD price refreshed from Oracle-Program: (price_usd_micro).
             VaraPriceRefreshed(u64),
             MigrationLocked,
@@ -668,9 +732,14 @@ pub mod service {
                 "FinalPrizePoolFinalized",
                 "FinalPrizeClaimed",
                 "FinalPrizeRoundingDustWithdrawn",
+                "SurplusVaraWithdrawn",
+                "ForceVaraWithdrawn",
                 "ResultProposalCancelled",
                 "MatchCancelled",
                 "RefundClaimed",
+                "FreebetLedgerSet",
+                "FreebetBetAccepted",
+                "FreebetPrincipalReturned",
                 "VaraPriceRefreshed",
                 "MigrationLocked",
                 "MigrationPageExported",
@@ -710,6 +779,7 @@ pub struct MigrationMetadata {
     pub price_cached_at: u64,
     pub price_staleness_limit_ms: u64,
     pub price_oracle_program_id: Option<ActorId>,
+    pub freebet_ledger_program_id: Option<ActorId>,
     /// Informational total of all pending_refunds; NOT persisted on import.
     pub pending_refunds_scalar: u128,
 }
@@ -804,6 +874,7 @@ pub struct Bet {
     pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
     pub stake_in_match_pool: u128,
+    pub freebet_principal: u128,
     pub claimed: bool,
 }
 /// Per-user payload bundling all user-keyed map entries for migration.
@@ -827,6 +898,7 @@ pub struct UserBetRecord {
     pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
     pub stake_in_match_pool: u128,
+    pub freebet_principal: u128,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]
@@ -844,6 +916,7 @@ pub struct UserBetView {
     pub score: Score,
     pub penalty_winner: Option<PenaltyWinner>,
     pub stake_in_match_pool: u128,
+    pub freebet_principal: u128,
     pub claimed: bool,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
@@ -877,6 +950,7 @@ pub struct IoSmartCupState {
     pub vara_price_usd_micro: u64,
     pub price_cached_at: u64,
     pub price_staleness_limit_ms: u64,
+    pub freebet_ledger_program_id: Option<ActorId>,
 }
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]

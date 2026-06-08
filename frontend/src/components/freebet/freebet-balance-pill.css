@@ -1,0 +1,77 @@
+.fb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 54px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.94);
+  text-decoration: none;
+  background:
+    radial-gradient(320px 90px at 22% 15%, rgba(255, 197, 66, 0.16), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.16));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+  transition: border-color 0.16s ease, transform 0.16s ease, filter 0.16s ease;
+}
+
+.fb-pill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 211, 106, 0.34);
+  filter: brightness(1.04);
+}
+
+.fb-pill__icon {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 211, 106, 0.12);
+  color: #ffd36a;
+}
+
+.fb-pill__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fb-pill__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1;
+}
+
+.fb-pill__label {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.fb-pill__value {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(255, 245, 196, 0.98);
+}
+
+.fb-pill--compact {
+  width: 100%;
+  height: 46px;
+  justify-content: flex-start;
+}
+
+@media (max-width: 720px) {
+  .fb-pill {
+    width: 100%;
+  }
+}

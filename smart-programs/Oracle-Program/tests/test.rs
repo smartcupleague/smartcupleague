@@ -1,7 +1,8 @@
 use oracle_program::{
     client::{
         service::Service as OracleSvc, // trait — needed for method dispatch
-        OracleCtors, OracleProgram,
+        OracleCtors,
+        OracleProgram,
         PenaltyWinner,
     },
     WASM_BINARY,
@@ -20,6 +21,74 @@ use fixture::{actor, Fixture, ADMIN, FEEDER_BASE, NEW_ADMIN, OPERATOR, STRANGER}
 use utils::KICK_OFF;
 
 // ── Test 1 ────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn multiple_admins_can_manage_and_withdraw_vara() {
+    let f = Fixture::new().await;
+
+    assert_eq!(
+        f.oracle
+            .service("Service")
+            .query_state()
+            .query()
+            .unwrap()
+            .admins,
+        vec![actor(ADMIN)]
+    );
+
+    let stranger_add = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .add_admin(actor(NEW_ADMIN))
+        .await;
+    assert!(stranger_add.is_err(), "stranger should not add admins");
+
+    f.oracle
+        .service("Service")
+        .add_admin(actor(NEW_ADMIN))
+        .await
+        .expect("admin should add another admin");
+
+    f.as_actor(NEW_ADMIN)
+        .service("Service")
+        .set_consensus_threshold(1)
+        .with_value(2_000)
+        .await
+        .expect("new admin should manage oracle and fund contract");
+
+    let program_balance = f.env.system().balance_of(f.oracle.id());
+    assert!(program_balance >= 2_000);
+
+    f.as_actor(NEW_ADMIN)
+        .service("Service")
+        .withdraw_vara(actor(STRANGER), 700)
+        .await
+        .expect("admin should withdraw oracle surplus");
+
+    assert_eq!(
+        f.env.system().balance_of(f.oracle.id()),
+        program_balance - 700
+    );
+
+    f.as_actor(NEW_ADMIN)
+        .service("Service")
+        .remove_admin(actor(ADMIN))
+        .await
+        .expect("new admin should remove original admin");
+
+    let removed_admin_call = f.oracle.service("Service").set_consensus_threshold(2).await;
+    assert!(
+        removed_admin_call.is_err(),
+        "removed admin should lose access"
+    );
+
+    let remove_last = f
+        .as_actor(NEW_ADMIN)
+        .service("Service")
+        .remove_admin(actor(NEW_ADMIN))
+        .await;
+    assert!(remove_last.is_err(), "last admin cannot be removed");
+}
 
 #[tokio::test]
 async fn deploy_and_query_state() {
@@ -41,17 +110,38 @@ async fn register_match_only_admin() {
     let f = Fixture::new().await;
 
     // Stranger cannot register a match.
-    let err = f.as_actor(STRANGER).service("Service")
-        .register_match(1, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
+    let err = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .register_match(
+            1,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
         .await;
     assert!(err.is_err(), "non-admin should not register a match");
 
     // Admin can register.
-    f.oracle.service("Service")
-        .register_match(1, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
-        .await.unwrap();
+    f.oracle
+        .service("Service")
+        .register_match(
+            1,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
 
-    let pending = f.oracle.service("Service").query_pending_matches().query().unwrap();
+    let pending = f
+        .oracle
+        .service("Service")
+        .query_pending_matches()
+        .query()
+        .unwrap();
     assert_eq!(pending, vec![1u64]);
 }
 
@@ -85,21 +175,50 @@ async fn consensus_happy_path() {
     let f1 = FEEDER_BASE + 1;
     let f2 = FEEDER_BASE + 2;
 
-    f.oracle.service("Service")
-        .register_match(1, "GROUP_STAGE".to_string(), "Brazil".to_string(), "France".to_string(), KICK_OFF)
-        .await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f1), true).await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f2), true).await.unwrap();
+    f.oracle
+        .service("Service")
+        .register_match(
+            1,
+            "GROUP_STAGE".to_string(),
+            "Brazil".to_string(),
+            "France".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f1), true)
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f2), true)
+        .await
+        .unwrap();
 
     // First feeder submits: 2-1, no penalty.
-    f.as_actor(f1).service("Service").submit_result(1, 2, 1, None).await.unwrap();
+    f.as_actor(f1)
+        .service("Service")
+        .submit_result(1, 2, 1, None)
+        .await
+        .unwrap();
 
     // Still pending (only 1 vote).
-    let result = f.oracle.service("Service").query_match_result(1).query().unwrap();
+    let result = f
+        .oracle
+        .service("Service")
+        .query_match_result(1)
+        .query()
+        .unwrap();
     assert!(result.is_none(), "should still be pending after 1 vote");
 
     // Second feeder agrees → consensus reached.
-    f.as_actor(f2).service("Service").submit_result(1, 2, 1, None).await.unwrap();
+    f.as_actor(f2)
+        .service("Service")
+        .submit_result(1, 2, 1, None)
+        .await
+        .unwrap();
 
     let result = f
         .oracle
@@ -124,32 +243,101 @@ async fn revoked_feeder_excluded_from_consensus() {
     let f2 = FEEDER_BASE + 2;
     let f3 = FEEDER_BASE + 3;
 
-    f.oracle.service("Service").set_feeder_authorized(actor(f1), true).await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f2), true).await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f3), true).await.unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f1), true)
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f2), true)
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f3), true)
+        .await
+        .unwrap();
 
     // Part 1 (match 1): normal 2-vote consensus finalizes with default threshold=2.
-    f.oracle.service("Service")
-        .register_match(1, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
-        .await.unwrap();
-    f.as_actor(f1).service("Service").submit_result(1, 1, 0, None).await.unwrap();
-    f.as_actor(f2).service("Service").submit_result(1, 1, 0, None).await.unwrap();
+    f.oracle
+        .service("Service")
+        .register_match(
+            1,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    f.as_actor(f1)
+        .service("Service")
+        .submit_result(1, 1, 0, None)
+        .await
+        .unwrap();
+    f.as_actor(f2)
+        .service("Service")
+        .submit_result(1, 1, 0, None)
+        .await
+        .unwrap();
 
-    let r = f.oracle.service("Service").query_match_result(1).query().unwrap();
-    assert!(r.is_some(), "consensus should finalize after 2 matching votes");
+    let r = f
+        .oracle
+        .service("Service")
+        .query_match_result(1)
+        .query()
+        .unwrap();
+    assert!(
+        r.is_some(),
+        "consensus should finalize after 2 matching votes"
+    );
 
     // Part 2 (match 2): raise threshold to 3, revoke f2 after they vote.
     // Active votes: f1(2-0) + f3(2-0) = 2 < threshold 3 → still pending.
-    f.oracle.service("Service").set_consensus_threshold(3).await.unwrap();
-    f.oracle.service("Service")
-        .register_match(2, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
-        .await.unwrap();
-    f.as_actor(f1).service("Service").submit_result(2, 2, 0, None).await.unwrap();
-    f.as_actor(f2).service("Service").submit_result(2, 2, 0, None).await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f2), false).await.unwrap();
-    f.as_actor(f3).service("Service").submit_result(2, 2, 0, None).await.unwrap();
+    f.oracle
+        .service("Service")
+        .set_consensus_threshold(3)
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .register_match(
+            2,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    f.as_actor(f1)
+        .service("Service")
+        .submit_result(2, 2, 0, None)
+        .await
+        .unwrap();
+    f.as_actor(f2)
+        .service("Service")
+        .submit_result(2, 2, 0, None)
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f2), false)
+        .await
+        .unwrap();
+    f.as_actor(f3)
+        .service("Service")
+        .submit_result(2, 2, 0, None)
+        .await
+        .unwrap();
 
-    let r = f.oracle.service("Service").query_match_result(2).query().unwrap();
+    let r = f
+        .oracle
+        .service("Service")
+        .query_match_result(2)
+        .query()
+        .unwrap();
     assert!(
         r.is_none(),
         "revoked feeder's vote should not count — result must stay pending"
@@ -164,23 +352,62 @@ async fn cancel_result_blocks_finalized() {
     let f1 = FEEDER_BASE + 1;
     let f2 = FEEDER_BASE + 2;
 
-    f.oracle.service("Service")
-        .register_match(1, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
-        .await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f1), true).await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f2), true).await.unwrap();
-    f.as_actor(f1).service("Service").submit_result(1, 0, 0, None).await.unwrap();
-    f.as_actor(f2).service("Service").submit_result(1, 0, 0, None).await.unwrap();
+    f.oracle
+        .service("Service")
+        .register_match(
+            1,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f1), true)
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f2), true)
+        .await
+        .unwrap();
+    f.as_actor(f1)
+        .service("Service")
+        .submit_result(1, 0, 0, None)
+        .await
+        .unwrap();
+    f.as_actor(f2)
+        .service("Service")
+        .submit_result(1, 0, 0, None)
+        .await
+        .unwrap();
 
     // Result is now Finalized — admin cannot cancel it.
     let err = f.oracle.service("Service").cancel_result(1).await;
-    assert!(err.is_err(), "cancel_result on Finalized should return error");
+    assert!(
+        err.is_err(),
+        "cancel_result on Finalized should return error"
+    );
 
     // But can cancel a Pending match.
-    f.oracle.service("Service")
-        .register_match(2, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
-        .await.unwrap();
-    f.oracle.service("Service").cancel_result(2).await.expect("cancel_result on Pending should succeed");
+    f.oracle
+        .service("Service")
+        .register_match(
+            2,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .cancel_result(2)
+        .await
+        .expect("cancel_result on Pending should succeed");
 }
 
 // ── Test 7 ────────────────────────────────────────────────────────────────────
@@ -194,14 +421,29 @@ async fn threshold_bounds() {
     assert!(err.is_err(), "threshold 0 should be rejected");
 
     // threshold > MAX_FEEDERS (20) → error.
-    let err = f.oracle.service("Service").set_consensus_threshold(21).await;
-    assert!(err.is_err(), "threshold above MAX_FEEDERS should be rejected");
+    let err = f
+        .oracle
+        .service("Service")
+        .set_consensus_threshold(21)
+        .await;
+    assert!(
+        err.is_err(),
+        "threshold above MAX_FEEDERS should be rejected"
+    );
 
     // threshold = 1 → ok.
-    f.oracle.service("Service").set_consensus_threshold(1).await.expect("threshold 1 should be valid");
+    f.oracle
+        .service("Service")
+        .set_consensus_threshold(1)
+        .await
+        .expect("threshold 1 should be valid");
 
     // threshold = MAX_FEEDERS (20) → ok.
-    f.oracle.service("Service").set_consensus_threshold(20).await.expect("threshold MAX_FEEDERS should be valid");
+    f.oracle
+        .service("Service")
+        .set_consensus_threshold(20)
+        .await
+        .expect("threshold MAX_FEEDERS should be valid");
 }
 
 // ── Test 8 ────────────────────────────────────────────────────────────────────
@@ -210,7 +452,11 @@ async fn threshold_bounds() {
 async fn propose_admin_rejects_zero() {
     let f = Fixture::new().await;
 
-    let err = f.oracle.service("Service").propose_admin(ActorId::zero()).await;
+    let err = f
+        .oracle
+        .service("Service")
+        .propose_admin(ActorId::zero())
+        .await;
     assert!(err.is_err(), "propose_admin(zero) should be rejected");
 }
 
@@ -221,14 +467,22 @@ async fn admin_two_step_transfer() {
     let f = Fixture::new().await;
 
     // Step 1: current admin proposes new admin.
-    f.oracle.service("Service").propose_admin(actor(NEW_ADMIN)).await.expect("propose_admin failed");
+    f.oracle
+        .service("Service")
+        .propose_admin(actor(NEW_ADMIN))
+        .await
+        .expect("propose_admin failed");
 
     // A stranger cannot accept.
     let err = f.as_actor(STRANGER).service("Service").accept_admin().await;
     assert!(err.is_err(), "stranger should not be able to accept admin");
 
     // Step 2: proposed admin accepts.
-    f.as_actor(NEW_ADMIN).service("Service").accept_admin().await.expect("accept_admin failed");
+    f.as_actor(NEW_ADMIN)
+        .service("Service")
+        .accept_admin()
+        .await
+        .expect("accept_admin failed");
 
     let state = f.oracle.service("Service").query_state().query().unwrap();
     assert_eq!(state.admin, actor(NEW_ADMIN));
@@ -268,16 +522,36 @@ async fn feeder_cannot_double_submit() {
     let f = Fixture::new().await;
     let f1 = FEEDER_BASE + 1;
 
-    f.oracle.service("Service")
-        .register_match(1, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
-        .await.unwrap();
-    f.oracle.service("Service").set_feeder_authorized(actor(f1), true).await.unwrap();
+    f.oracle
+        .service("Service")
+        .register_match(
+            1,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
+        .await
+        .unwrap();
+    f.oracle
+        .service("Service")
+        .set_feeder_authorized(actor(f1), true)
+        .await
+        .unwrap();
 
     // First submit: ok.
-    f.as_actor(f1).service("Service").submit_result(1, 1, 0, None).await.expect("first submit should succeed");
+    f.as_actor(f1)
+        .service("Service")
+        .submit_result(1, 1, 0, None)
+        .await
+        .expect("first submit should succeed");
 
     // Second submit by same feeder for same match: error.
-    let err = f.as_actor(f1).service("Service").submit_result(1, 1, 0, None).await;
+    let err = f
+        .as_actor(f1)
+        .service("Service")
+        .submit_result(1, 1, 0, None)
+        .await;
     assert!(err.is_err(), "feeder double-submit should be rejected");
 }
 
@@ -297,7 +571,11 @@ async fn max_feeders_limit() {
     }
 
     // The 21st feeder must be rejected.
-    let err = f.oracle.service("Service").set_feeder_authorized(actor(FEEDER_BASE + 21), true).await;
+    let err = f
+        .oracle
+        .service("Service")
+        .set_feeder_authorized(actor(FEEDER_BASE + 21), true)
+        .await;
     assert!(err.is_err(), "feeder #21 should exceed MAX_FEEDERS");
 
     // Revoking one frees a slot.
@@ -325,11 +603,19 @@ async fn operator_management_and_permissions() {
     assert!(state.operators.is_empty());
 
     // Zero address rejected.
-    let err = f.oracle.service("Service").add_operator(ActorId::zero()).await;
+    let err = f
+        .oracle
+        .service("Service")
+        .add_operator(ActorId::zero())
+        .await;
     assert!(err.is_err(), "add_operator(zero) should be rejected");
 
     // Stranger cannot add operator.
-    let err = f.as_actor(STRANGER).service("Service").add_operator(actor(OPERATOR)).await;
+    let err = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .add_operator(actor(OPERATOR))
+        .await;
     assert!(err.is_err(), "non-admin should not add operator");
 
     // Admin adds OPERATOR.
@@ -344,18 +630,36 @@ async fn operator_management_and_permissions() {
     assert_eq!(state.operators.len(), 1);
 
     // Duplicate add rejected.
-    let err = f.oracle.service("Service").add_operator(actor(OPERATOR)).await;
+    let err = f
+        .oracle
+        .service("Service")
+        .add_operator(actor(OPERATOR))
+        .await;
     assert!(err.is_err(), "duplicate add_operator should be rejected");
 
     // Operator can register a match.
     f.as_actor(OPERATOR)
         .service("Service")
-        .register_match(10, "QUARTER_FINALS".to_string(), "Spain".to_string(), "Germany".to_string(), KICK_OFF)
+        .register_match(
+            10,
+            "QUARTER_FINALS".to_string(),
+            "Spain".to_string(),
+            "Germany".to_string(),
+            KICK_OFF,
+        )
         .await
         .expect("operator should register match");
 
-    let pending = f.oracle.service("Service").query_pending_matches().query().unwrap();
-    assert!(pending.contains(&10u64), "match 10 should be pending after operator registration");
+    let pending = f
+        .oracle
+        .service("Service")
+        .query_pending_matches()
+        .query()
+        .unwrap();
+    assert!(
+        pending.contains(&10u64),
+        "match 10 should be pending after operator registration"
+    );
 
     // Operator can force-finalize a result.
     f.as_actor(OPERATOR)
@@ -387,7 +691,10 @@ async fn operator_management_and_permissions() {
         .service("Service")
         .set_consensus_threshold(1)
         .await;
-    assert!(err.is_err(), "operator should not change consensus threshold");
+    assert!(
+        err.is_err(),
+        "operator should not change consensus threshold"
+    );
 
     let err = f
         .as_actor(OPERATOR)
@@ -397,8 +704,16 @@ async fn operator_management_and_permissions() {
     assert!(err.is_err(), "operator should not add other operators");
 
     // Stranger still cannot register even after operator is added.
-    let err = f.as_actor(STRANGER).service("Service")
-        .register_match(99, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
+    let err = f
+        .as_actor(STRANGER)
+        .service("Service")
+        .register_match(
+            99,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
         .await;
     assert!(err.is_err(), "stranger should not register match");
 
@@ -414,8 +729,16 @@ async fn operator_management_and_permissions() {
     assert_eq!(state.operators.len(), 0);
 
     // Removed operator can no longer register.
-    let err = f.as_actor(OPERATOR).service("Service")
-        .register_match(20, "GROUP_STAGE".to_string(), "Home".to_string(), "Away".to_string(), KICK_OFF)
+    let err = f
+        .as_actor(OPERATOR)
+        .service("Service")
+        .register_match(
+            20,
+            "GROUP_STAGE".to_string(),
+            "Home".to_string(),
+            "Away".to_string(),
+            KICK_OFF,
+        )
         .await;
     assert!(err.is_err(), "removed operator should not register match");
 }
@@ -500,7 +823,11 @@ async fn price_feed_rejects_out_of_range() {
         .unwrap();
 
     // Zero is below the [1, 100_000_000] range.
-    let err = f.as_actor(feeder).service("Service").set_vara_usd_price(0).await;
+    let err = f
+        .as_actor(feeder)
+        .service("Service")
+        .set_vara_usd_price(0)
+        .await;
     assert!(err.is_err(), "price=0 should be rejected (below range)");
 
     // 100_000_001 is above $100 per VARA.
@@ -547,7 +874,12 @@ async fn price_feed_boundary_values_accepted() {
         .await
         .expect("price=1 (lower boundary) should be accepted");
 
-    let (price, _) = f.oracle.service("Service").query_vara_usd_price().query().unwrap();
+    let (price, _) = f
+        .oracle
+        .service("Service")
+        .query_vara_usd_price()
+        .query()
+        .unwrap();
     assert_eq!(price, 1);
 
     // Upper bound: $100 per VARA = 100_000_000 micro-USD
@@ -557,6 +889,11 @@ async fn price_feed_boundary_values_accepted() {
         .await
         .expect("price=100_000_000 (upper boundary) should be accepted");
 
-    let (price, _) = f.oracle.service("Service").query_vara_usd_price().query().unwrap();
+    let (price, _) = f
+        .oracle
+        .service("Service")
+        .query_vara_usd_price()
+        .query()
+        .unwrap();
     assert_eq!(price, 100_000_000);
 }

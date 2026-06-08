@@ -17,6 +17,7 @@ export interface UserBetView {
   score: Score;
   penalty_winner: PenaltyWinner | null;
   stake_in_match_pool: string | number | bigint;
+  freebet_principal: string | number | bigint;
   claimed: boolean;
 }
 
@@ -115,6 +116,7 @@ const types = {
     score: 'Score',
     penalty_winner: 'Option<PenaltyWinner>',
     stake_in_match_pool: 'u128',
+    freebet_principal: 'u128',
     claimed: 'bool',
   },
   FinalPrizeClaimStatus: {

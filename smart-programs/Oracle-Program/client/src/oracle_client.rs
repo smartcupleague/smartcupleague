@@ -43,6 +43,10 @@ pub mod service {
         type Env: sails_rs::client::GearEnv;
         /// Step 2: new admin accepts. Caller must be the pending admin.
         fn accept_admin(&mut self) -> sails_rs::client::PendingCall<io::AcceptAdmin, Self::Env>;
+        fn add_admin(
+            &mut self,
+            new_admin: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AddAdmin, Self::Env>;
         /// Adds an operator. Only admin can call this.
         /// Operators can call register_match and force_finalize_result.
         fn add_operator(
@@ -65,6 +69,11 @@ pub mod service {
             away: u8,
             penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::ForceFinalizeResult, Self::Env>;
+        fn force_withdraw_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::ForceWithdrawVara, Self::Env>;
         /// Step 1: propose a new admin. Cannot be the zero address (Fix #3).
         fn propose_admin(
             &mut self,
@@ -81,6 +90,10 @@ pub mod service {
             away: String,
             kick_off: u64,
         ) -> sails_rs::client::PendingCall<io::RegisterMatch, Self::Env>;
+        fn remove_admin(
+            &mut self,
+            admin: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RemoveAdmin, Self::Env>;
         /// Removes an operator. Only admin can call this.
         fn remove_operator(
             &mut self,
@@ -126,6 +139,11 @@ pub mod service {
             away: u8,
             penalty_winner: Option<PenaltyWinner>,
         ) -> sails_rs::client::PendingCall<io::SubmitResult, Self::Env>;
+        fn withdraw_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::WithdrawVara, Self::Env>;
         fn contract_version_4(
             &self,
         ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env>;
@@ -160,6 +178,12 @@ pub mod service {
         fn accept_admin(&mut self) -> sails_rs::client::PendingCall<io::AcceptAdmin, Self::Env> {
             self.pending_call(())
         }
+        fn add_admin(
+            &mut self,
+            new_admin: ActorId,
+        ) -> sails_rs::client::PendingCall<io::AddAdmin, Self::Env> {
+            self.pending_call((new_admin,))
+        }
         fn add_operator(
             &mut self,
             new_operator: ActorId,
@@ -181,6 +205,13 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::ForceFinalizeResult, Self::Env> {
             self.pending_call((match_id, home, away, penalty_winner))
         }
+        fn force_withdraw_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::ForceWithdrawVara, Self::Env> {
+            self.pending_call((to, amount))
+        }
         fn propose_admin(
             &mut self,
             new_admin: ActorId,
@@ -196,6 +227,12 @@ pub mod service {
             kick_off: u64,
         ) -> sails_rs::client::PendingCall<io::RegisterMatch, Self::Env> {
             self.pending_call((match_id, phase, home, away, kick_off))
+        }
+        fn remove_admin(
+            &mut self,
+            admin: ActorId,
+        ) -> sails_rs::client::PendingCall<io::RemoveAdmin, Self::Env> {
+            self.pending_call((admin,))
         }
         fn remove_operator(
             &mut self,
@@ -237,6 +274,13 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::SubmitResult, Self::Env> {
             self.pending_call((match_id, home, away, penalty_winner))
         }
+        fn withdraw_vara(
+            &mut self,
+            to: ActorId,
+            amount: u128,
+        ) -> sails_rs::client::PendingCall<io::WithdrawVara, Self::Env> {
+            self.pending_call((to, amount))
+        }
         fn contract_version_4(
             &self,
         ) -> sails_rs::client::PendingCall<io::ContractVersion4, Self::Env> {
@@ -277,17 +321,21 @@ pub mod service {
     pub mod io {
         use super::*;
         sails_rs::io_struct_impl!(AcceptAdmin () -> ());
+        sails_rs::io_struct_impl!(AddAdmin (new_admin: ActorId) -> ());
         sails_rs::io_struct_impl!(AddOperator (new_operator: ActorId) -> ());
         sails_rs::io_struct_impl!(CancelResult (match_id: u64) -> ());
         sails_rs::io_struct_impl!(ForceFinalizeResult (match_id: u64, home: u8, away: u8, penalty_winner: Option<super::PenaltyWinner>) -> ());
+        sails_rs::io_struct_impl!(ForceWithdrawVara (to: ActorId, amount: u128) -> ());
         sails_rs::io_struct_impl!(ProposeAdmin (new_admin: ActorId) -> ());
         sails_rs::io_struct_impl!(RegisterMatch (match_id: u64, phase: String, home: String, away: String, kick_off: u64) -> ());
+        sails_rs::io_struct_impl!(RemoveAdmin (admin: ActorId) -> ());
         sails_rs::io_struct_impl!(RemoveOperator (operator: ActorId) -> ());
         sails_rs::io_struct_impl!(SetBolaoProgram (program_id: ActorId) -> ());
         sails_rs::io_struct_impl!(SetConsensusThreshold (threshold: u8) -> ());
         sails_rs::io_struct_impl!(SetFeederAuthorized (feeder: ActorId, authorized: bool) -> ());
         sails_rs::io_struct_impl!(SetVaraUsdPrice (price_usd_micro: u64) -> ());
         sails_rs::io_struct_impl!(SubmitResult (match_id: u64, home: u8, away: u8, penalty_winner: Option<super::PenaltyWinner>) -> ());
+        sails_rs::io_struct_impl!(WithdrawVara (to: ActorId, amount: u128) -> ());
         sails_rs::io_struct_impl!(ContractVersion4 () -> u32);
         sails_rs::io_struct_impl!(QueryAllResults () -> Vec<super::IoMatchResult>);
         sails_rs::io_struct_impl!(QueryFeederSubmissions (feeder: ActorId) -> Vec<(u64,super::Score,Option<super::PenaltyWinner>,)>);
@@ -323,12 +371,20 @@ pub mod service {
             AdminProposed((ActorId, ActorId)),
             /// New admin accepted ownership: (old, new).
             AdminChanged((ActorId, ActorId)),
+            /// An additional admin was added: (admin).
+            AdminAdded(ActorId),
+            /// An admin was removed: (admin).
+            AdminRemoved(ActorId),
             /// An operator was added by admin: (operator).
             OperatorAdded(ActorId),
             /// An operator was removed by admin: (operator).
             OperatorRemoved(ActorId),
             /// VARA/USD price updated by an authorized feeder: (price_usd_micro).
             VaraPriceSet(u64),
+            /// Admin withdrew VARA accidentally held by this oracle: (to, amount).
+            VaraWithdrawn((ActorId, u128)),
+            /// Admin emergency withdrawal of any VARA held by this oracle: (to, amount).
+            ForceVaraWithdrawn((ActorId, u128)),
         }
         impl sails_rs::client::Event for ServiceEvents {
             const EVENT_NAMES: &'static [Route] = &[
@@ -342,9 +398,13 @@ pub mod service {
                 "ResultCancelled",
                 "AdminProposed",
                 "AdminChanged",
+                "AdminAdded",
+                "AdminRemoved",
                 "OperatorAdded",
                 "OperatorRemoved",
                 "VaraPriceSet",
+                "VaraWithdrawn",
+                "ForceVaraWithdrawn",
             ];
         }
         impl sails_rs::client::ServiceWithEvents for ServiceImpl {
@@ -407,6 +467,7 @@ pub struct Score {
 #[scale_info(crate = sails_rs::scale_info)]
 pub struct IoOracleState {
     pub admin: ActorId,
+    pub admins: Vec<ActorId>,
     pub operators: Vec<ActorId>,
     pub consensus_threshold: u8,
     pub bolao_program_id: Option<ActorId>,

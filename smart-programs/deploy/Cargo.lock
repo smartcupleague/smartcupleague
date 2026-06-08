@@ -66,6 +66,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "android_system_properties"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "819e7219dbd41043ac279b19830f2efc897156490d7fd6ea916720117ee66311"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -641,6 +650,65 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
+name = "camino"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e629a66d692cb9ff1a1c664e41771b3dcaf961985a9774c0eb0bd1b51cf60a48"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "cargo-platform"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84982c6c0ae343635a3a4ee6dedef965513735c8b183caa7289fa6e27399ebd4"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "cargo-util-schemas"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e63d2780ac94487eb9f1fea7b0d56300abc9eb488800854ca217f102f5caccca"
+dependencies = [
+ "semver",
+ "serde",
+ "serde-untagged",
+ "serde-value",
+ "thiserror 1.0.69",
+ "toml",
+ "unicode-xid",
+ "url",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f7835cfc6135093070e95eb2b53e5d9b5c403dc3a6be6040ee026270aa82502"
+dependencies = [
+ "camino",
+ "cargo-platform",
+ "cargo-util-schemas",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "cargo_toml"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fbd1fe9db3ebf71b89060adaf7b0504c2d6a425cf061313099547e382c2e472"
+dependencies = [
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -671,6 +739,19 @@ dependencies = [
  "cfg-if",
  "cipher",
  "cpufeatures",
+]
+
+[[package]]
+name = "chrono"
+version = "0.4.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
+dependencies = [
+ "iana-time-zone",
+ "js-sys",
+ "num-traits",
+ "wasm-bindgen",
+ "windows-link",
 ]
 
 [[package]]
@@ -882,6 +963,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "dao-app"
+version = "0.1.0"
+dependencies = [
+ "gstd",
+ "sails-rs",
+]
+
+[[package]]
+name = "dao-client"
+version = "0.1.0"
+dependencies = [
+ "dao-app",
+ "sails-client-gen",
+ "sails-idl-gen",
+ "sails-rs",
+]
+
+[[package]]
 name = "darling"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -922,11 +1021,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bolao-client",
+ "dao-client",
  "dotenvy",
  "gclient",
  "hex",
  "oracle-client",
  "sails-rs",
+ "smartcup-freebet-ledger-client",
  "tokio",
 ]
 
@@ -1266,6 +1367,17 @@ name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "erased-serde"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2add8a07dd6a8d93ff627029c51de145e12686fbc36ecb298ac22e74cf02dec"
+dependencies = [
+ "serde",
+ "serde_core",
+ "typeid",
+]
 
 [[package]]
 name = "errno"
@@ -1693,6 +1805,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "gear-wasm-builder"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bed5dd34648a27e7dc217dc3b00eea4282bd451f4cf76bf627a05c5dbcc84f9"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "cargo_toml",
+ "chrono",
+ "gear-core",
+ "gear-wasm-instrument",
+ "gear-wasm-optimizer",
+ "itertools 0.13.0",
+ "log",
+ "pathdiff",
+ "regex",
+ "thiserror 2.0.18",
+ "toml",
+]
+
+[[package]]
 name = "gear-wasm-instrument"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1703,6 +1836,22 @@ dependencies = [
  "log",
  "wasm-encoder",
  "wasmparser 0.230.0",
+]
+
+[[package]]
+name = "gear-wasm-optimizer"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed336b47eecdcee1c91dbedb8e6f6f702734f405afae68fdca3f1ddea4c3669d"
+dependencies = [
+ "anyhow",
+ "colored",
+ "gear-wasm-instrument",
+ "log",
+ "regex",
+ "rustc_version",
+ "wasmparser 0.230.0",
+ "which",
 ]
 
 [[package]]
@@ -2151,6 +2300,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "iana-time-zone"
+version = "0.1.65"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
+dependencies = [
+ "android_system_properties",
+ "core-foundation-sys",
+ "iana-time-zone-haiku",
+ "js-sys",
+ "log",
+ "wasm-bindgen",
+ "windows-core",
+]
+
+[[package]]
+name = "iana-time-zone-haiku"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "icu_collections"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2348,6 +2521,15 @@ name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -2991,6 +3173,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "2.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f19d67e5a2795c94e73e0bb1cc1a7edeb2e28efd39e2e1c9b7a40c1108b11c"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "page_size"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3093,6 +3284,12 @@ name = "path-clean"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17359afc20d7ab31fdb42bb844c8b3bb1dabd7dcf7e68428492da7f16966fcef"
+
+[[package]]
+name = "pathdiff"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pbkdf2"
@@ -3717,9 +3914,9 @@ checksum = "a7c1c839d570d835527c9a5e4db7cb2198683a988cb9d7293fc8674e6bd58fc8"
 
 [[package]]
 name = "sails-client-gen"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6cb372783341d71c151cd77797cf9c19c4b4db834079fc60662c61f5948f348"
+checksum = "dddd93868445aa99aa3fe50342ada5ba1264f5fe7b6d5b43130f4f45c2ebf0b2"
 dependencies = [
  "anyhow",
  "convert_case 0.7.1",
@@ -3730,9 +3927,9 @@ dependencies = [
 
 [[package]]
 name = "sails-idl-gen"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66adda09ec69160e523815e5e168870f1580531f1a3758a6e6915cc45c4c6801"
+checksum = "ea7b9ced73a79650df1d8c1bfa506f4e08cd77a4cef264258e5f0b04d910a835"
 dependencies = [
  "convert_case 0.7.1",
  "gprimitives",
@@ -3746,18 +3943,18 @@ dependencies = [
 
 [[package]]
 name = "sails-idl-meta"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c95f45c1067065ebc1cb06cf4e04c3188d80811be775f9e1943783545037395"
+checksum = "f4a22a7f17abed84627afdb89ef58a55e07ecf34e54665dab3157189b86f3a9c"
 dependencies = [
  "scale-info",
 ]
 
 [[package]]
 name = "sails-idl-parser"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d48e590bb99b43606fc3c6fc9c1eec677bfda69cd07dcf001574379d5219db88"
+checksum = "b9c0dd7750fbc0e29c888a03c22d057c7ce046077d9a574e875c5aaa83aecb00"
 dependencies = [
  "lalrpop",
  "lalrpop-util",
@@ -3767,9 +3964,9 @@ dependencies = [
 
 [[package]]
 name = "sails-macros"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc0f1ae95217acfa3de0272060d17fee0e28efba8eac9e133ab2bc69e8d85435"
+checksum = "9bdd89a1e06800a39c9ec894862579d9698080fcc259cbae0aa5a9f1c5ab532c"
 dependencies = [
  "proc-macro-error",
  "sails-macros-core",
@@ -3777,9 +3974,9 @@ dependencies = [
 
 [[package]]
 name = "sails-macros-core"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "759250abb4c070c798f159c9fda3ea2c8b6ffe0fe5d096fdf1f5aa2b8b619041"
+checksum = "0108a50192e715db43ba94d3fcffaf0904c255e9f2b045950cec4325d2970b7e"
 dependencies = [
  "convert_case 0.7.1",
  "parity-scale-codec",
@@ -3791,15 +3988,17 @@ dependencies = [
 
 [[package]]
 name = "sails-rs"
-version = "0.10.4"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3666ba4b6b3d2ca138007d1a22b194ee6422c89aff3fe33a2230c898b843ab2"
+checksum = "9e3f3db39d829e94899ade845992761597ca504e87db9b7f57141886f0117077"
 dependencies = [
+ "convert_case 0.7.1",
  "futures",
  "gclient",
  "gcore",
  "gear-core",
  "gear-core-errors",
+ "gear-wasm-builder",
  "gprimitives",
  "gstd",
  "hashbrown 0.15.5",
@@ -3807,6 +4006,8 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "pin-project-lite",
+ "sails-client-gen",
+ "sails-idl-gen",
  "sails-idl-meta",
  "sails-macros",
  "scale-info",
@@ -4074,6 +4275,10 @@ name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
+dependencies = [
+ "serde",
+ "serde_core",
+]
 
 [[package]]
 name = "serde"
@@ -4083,6 +4288,28 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-untagged"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9faf48a4a2d2693be24c6289dbe26552776eb7737074e6722891fadbe6c5058"
+dependencies = [
+ "erased-serde",
+ "serde",
+ "serde_core",
+ "typeid",
+]
+
+[[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float",
+ "serde",
 ]
 
 [[package]]
@@ -4250,6 +4477,26 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "smartcup-freebet-ledger-app"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sails-idl-gen",
+ "sails-rs",
+ "scale-info",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "smartcup-freebet-ledger-client"
+version = "0.1.0"
+dependencies = [
+ "sails-idl-gen",
+ "sails-rs",
+ "smartcup-freebet-ledger-app",
+]
 
 [[package]]
 name = "smol"
@@ -5404,6 +5651,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
 
 [[package]]
+name = "typeid"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
+
+[[package]]
 name = "typenum"
 version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5771,10 +6024,63 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
+name = "windows-core"
+version = "0.62.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8e83a14d34d0623b51dce9581199302a221863196a1dde71a7663a4c2be9deb"
+dependencies = [
+ "windows-implement",
+ "windows-interface",
+ "windows-link",
+ "windows-result",
+ "windows-strings",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.60.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.59.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f316c4a2570ba26bbec722032c4099d8c8bc095efccdc15688708623367e358"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+
+[[package]]
+name = "windows-result"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7781fa89eaf60850ac3d2da7af8e5242a5ea78d1a11c49bf2910bb5a73853eb5"
+dependencies = [
+ "windows-link",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7837d08f69c77cf6b07689544538e017c1bfcf57e34b4c0ff58e6c2cd3b37091"
+dependencies = [
+ "windows-link",
+]
 
 [[package]]
 name = "windows-sys"

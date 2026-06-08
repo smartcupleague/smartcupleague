@@ -1,11 +1,11 @@
+use oracle_program::{
+    client::{OracleCtors, OracleProgram},
+    WASM_BINARY,
+};
 use sails_rs::{
     client::{Actor, GearEnv, GtestEnv},
     gtest::System,
     prelude::*,
-};
-use oracle_program::{
-    client::{OracleCtors, OracleProgram},
-    WASM_BINARY,
 };
 
 pub const ADMIN: u64 = 100;

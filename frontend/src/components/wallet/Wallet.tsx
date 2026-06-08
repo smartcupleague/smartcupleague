@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { useAccount, useBalance } from '@gear-js/react-hooks';
 import { Wallet as GearWallet } from '@gear-js/wallet-connect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { ONBOARDING_CONNECT_EVENT } from '@/hooks/useOnboarding';
+import { useFreebetBalance } from '@/hooks/useFreebetBalance';
 
 const shimmer = keyframes`
   0%   { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
@@ -72,7 +74,8 @@ const Row = styled.div`
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 12px;
 
   &,
   & * {
@@ -86,11 +89,12 @@ const Row = styled.div`
 `;
 
 const Left = styled.div`
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: min(100%, 460px);
+  max-width: min(100%, 500px);
   display: flex;
   align-items: center;
+  justify-content: flex-end;
 
   @media (max-width: 720px) {
     flex: 1 1 auto;
@@ -99,11 +103,29 @@ const Left = styled.div`
   }
 `;
 
+const BalanceCluster = styled.div`
+  display: inline-flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  justify-content: flex-end;
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
+
+  @media (max-width: 520px) {
+    flex-direction: column;
+  }
+`;
+
 
 const WalletSlot = styled.div`
-  flex: 0 1 clamp(136px, 16vw, 220px);
-  min-width: 136px;
-  max-width: 220px;
+  flex: 0 0 190px;
+  min-width: 170px;
+  max-width: 210px;
 
   @media (max-width: 720px) {
     flex: 1 1 auto;
@@ -215,17 +237,17 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
 
 /** ===== Balance pill — columna: label arriba, cantidad + usd abajo ===== */
 const BalancePill = styled.div`
-  flex: 0 0 auto;
-  width: max-content;
-  min-width: 0;
-  max-width: min(100%, 460px);
+  flex: 1 1 260px;
+  width: auto;
+  min-width: 172px;
+  max-width: 300px;
 
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
 
-  padding: 9px 14px;
+  padding: 9px 12px;
   border-radius: 13px;
 
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -264,7 +286,7 @@ const DisplayName = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: clamp(150px, 15vw, 205px);
+  max-width: clamp(96px, 12vw, 170px);
 `;
 
 /** Fila inferior: cantidad + símbolo + badge USD, todos centrados verticalmente */
@@ -272,7 +294,7 @@ const BalanceRow = styled.div`
   display: flex;
   align-items: center;
   gap: 7px;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 `;
@@ -284,7 +306,7 @@ const AmountGold = styled.span`
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  font-size: clamp(15px, 1.8vw, 18px);
+  font-size: clamp(15px, 1.45vw, 18px);
   font-weight: 1000;
   letter-spacing: 0.2px;
   line-height: 1;
@@ -330,6 +352,74 @@ const UsdValue = styled.span`
   background: rgba(52, 211, 153, 0.10);
   color: rgba(110, 255, 190, 0.95);
   text-shadow: 0 0 8px rgba(52, 211, 153, 0.30);
+
+  @media (max-width: 1380px) {
+    display: none;
+  }
+`;
+
+const FreebetPill = styled(Link)`
+  flex: 0 0 158px;
+  min-width: 138px;
+  max-width: 170px;
+  min-height: 54px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 9px 10px;
+  border-radius: 13px;
+  text-decoration: none;
+  border: 1px solid rgba(255, 211, 106, 0.20);
+  background:
+    radial-gradient(420px 120px at 18% 20%, rgba(255, 211, 106, 0.16), transparent 56%),
+    radial-gradient(420px 120px at 88% 55%, rgba(255, 46, 118, 0.10), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.14));
+  box-shadow:
+    0 14px 44px rgba(0,0,0,.28),
+    0 0 0 1px rgba(255,255,255,.035) inset;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    filter 0.16s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 211, 106, 0.36);
+    filter: brightness(1.04);
+  }
+
+  @media (max-width: 720px) {
+    flex: 1 1 150px;
+    max-width: none;
+  }
+`;
+
+const FreebetValue = styled.span`
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(13px, 1.1vw, 15px);
+  font-weight: 1000;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 236, 162, 0.98);
+`;
+
+const FreebetHint = styled.span`
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.52);
+
+  @media (max-width: 1380px) {
+    display: none;
+  }
 `;
 
 const Status = styled.div<{ $connected?: boolean }>`
@@ -363,8 +453,14 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
 
   const address = connected ? account!.decodedAddress : undefined;
   const { balance, isBalanceReady } = useBalance(address);
-  const { planckToUsd } = useVaraPrice();
+  const { planckToUsd, source: priceSource, updatedAt: priceUpdatedAt } = useVaraPrice();
   const { displayName } = useWalletProfile();
+  const {
+    balance: freebetBalance,
+    error: freebetError,
+    isConfigured: isFreebetConfigured,
+    isLoading: isFreebetLoading,
+  } = useFreebetBalance();
 
   const amount = useMemo(() => {
     if (!connected || !isBalanceReady) return null;
@@ -380,24 +476,43 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
     window.dispatchEvent(new Event(ONBOARDING_CONNECT_EVENT));
   };
 
+  const freebetLabel = useMemo(() => {
+    if (!connected) return 'Connect wallet';
+    if (!isFreebetConfigured) return 'Not configured';
+    if (isFreebetLoading) return 'Loading';
+    if (freebetError) return 'Unavailable';
+    return `${formatPlak(freebetBalance, 2, 'es-MX') ?? '0'} VARA`;
+  }, [connected, freebetBalance, freebetError, isFreebetConfigured, isFreebetLoading]);
+
   return (
     <Row>
       {showHeader ? (
         <Left>
           {connected ? (
-            <BalancePill>
-              <NameRow>
-                <DisplayName title={displayName ?? address}>
-                  {displayName ?? <BalanceLabel>BALANCE</BalanceLabel>}
-                </DisplayName>
-              </NameRow>
-              <BalanceRow>
-                <AmountGold title={`${amount ?? '0'} ${tokenSymbol}`}>{amount ?? '0'}</AmountGold>
-                <TokenSymbol>{tokenSymbol}</TokenSymbol>
-                {usdLabel ? <UsdValue>{usdLabel}</UsdValue> : null}
-                {showStatus ? <Status $connected={connected}>●</Status> : null}
-              </BalanceRow>
-            </BalancePill>
+            <BalanceCluster>
+              <BalancePill>
+                <NameRow>
+                  <DisplayName title={displayName ?? address}>
+                    {displayName ?? <BalanceLabel>BALANCE</BalanceLabel>}
+                  </DisplayName>
+                </NameRow>
+                <BalanceRow>
+                  <AmountGold title={`${amount ?? '0'} ${tokenSymbol}`}>{amount ?? '0'}</AmountGold>
+                  <TokenSymbol>{tokenSymbol}</TokenSymbol>
+                  {usdLabel ? (
+                    <UsdValue title={priceUpdatedAt ? `${priceSource || 'VARA/USD'} updated ${priceUpdatedAt.toLocaleString()}` : priceSource || undefined}>
+                      {usdLabel}
+                    </UsdValue>
+                  ) : null}
+                  {showStatus ? <Status $connected={connected}>●</Status> : null}
+                </BalanceRow>
+              </BalancePill>
+              <FreebetPill to="/rewards" aria-label="Open rewards freebet balance">
+                <BalanceLabel>FREEBET</BalanceLabel>
+                <FreebetValue title={freebetLabel}>{freebetLabel}</FreebetValue>
+                <FreebetHint>prediction credits</FreebetHint>
+              </FreebetPill>
+            </BalanceCluster>
           ) : (
             <></>
           )}

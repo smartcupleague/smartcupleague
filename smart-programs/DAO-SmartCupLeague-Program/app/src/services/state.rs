@@ -1,8 +1,8 @@
 #![allow(static_mut_refs)]
 
-use sails_rs::{collections::HashMap as SailsHashMap, prelude::*, gstd::msg};
 use super::constants::{DEFAULT_QUORUM_BPS, DEFAULT_VOTING_PERIOD_MS};
 use super::types::{BolaoInstance, Proposal, VoteChoice};
+use sails_rs::{collections::HashMap as SailsHashMap, gstd::msg, prelude::*};
 
 pub static mut DAO_STATE: Option<DaoState> = None;
 
@@ -10,6 +10,8 @@ pub static mut DAO_STATE: Option<DaoState> = None;
 pub struct DaoState {
     /// Current contract owner. Has authority over all admin-only methods.
     pub owner: ActorId,
+    /// Additional admins with the same operational permissions as owner.
+    pub admins: Vec<ActorId>,
     /// Default BolaoCore program that accepted proposals are dispatched to.
     pub bolao_program: ActorId,
     /// Optional KYC contract (reserved for future voter gating).
@@ -35,6 +37,7 @@ impl DaoState {
         unsafe {
             DAO_STATE = Some(Self {
                 owner,
+                admins: vec![owner],
                 bolao_program,
                 kyc_contract: None,
                 quorum_bps: DEFAULT_QUORUM_BPS,
@@ -62,7 +65,7 @@ impl DaoState {
 
     /// Panics if the caller is not the current owner.
     pub fn only_owner() {
-        if msg::source() != DaoState::state_ref().owner {
+        if !DaoState::state_ref().admins.contains(&msg::source()) {
             panic!("Only owner");
         }
     }

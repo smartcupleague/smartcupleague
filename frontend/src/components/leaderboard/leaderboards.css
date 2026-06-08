@@ -157,8 +157,8 @@
   gap: 0;
   width: 100%;
   margin: 0 0 14px;
-  padding: 16px 18px 14px;
-  border-radius: calc(var(--r) + 6px);
+  padding: 18px 20px 16px;
+  border-radius: calc(var(--r) + 2px);
   border: 1px solid var(--border);
   background:
     radial-gradient(700px 220px at 10% 0%,  rgba(255,46,118,0.13), transparent 60%),
@@ -193,10 +193,11 @@
 }
 
 .lbTop__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 700px);
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 18px;
 }
 
 .lbTitle {
@@ -238,16 +239,12 @@
 }
 
 .lbTop__right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 0;
+  display: contents;
 }
 
 @media (max-width: 980px) {
   .lbTop__row {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .lbTop__right {
@@ -268,6 +265,11 @@
 
 .lbWallet,
 .lbWalletWrap {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  width: min(100%, 700px);
+  max-width: 700px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -413,27 +415,38 @@
 /* ─── Search ─────────────────────────────────────────────────────── */
 
 .lbSearch {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  min-width: 420px;
-  max-width: 100%;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.20);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.28);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 12px;
+  height: 48px;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 760px;
+  margin-top: 14px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)),
+    rgba(9,0,7,0.46);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 10px 24px rgba(0,0,0,0.18);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .lbSearch:focus-within {
   border-color: rgba(255,46,118,0.45);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02)),
+    rgba(12,0,9,0.58);
   box-shadow:
     0 0 0 3px rgba(255,46,118,0.10),
-    0 8px 32px rgba(0,0,0,0.32),
-    0 0 24px rgba(255,46,118,0.12);
+    0 12px 28px rgba(0,0,0,0.24);
 }
 
 .lbSearch:focus-within .lbSearch__icon {
@@ -442,23 +455,43 @@
 }
 
 .lbSearch__icon {
-  opacity: 0.75;
+  width: 19px;
+  height: 19px;
+  color: rgba(255,235,246,0.64);
+  opacity: 1;
   transition: color 0.2s ease, filter 0.2s ease;
   flex-shrink: 0;
 }
 
 .lbSearch__input {
   width: 100%;
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
   color: rgba(255,255,255,0.92);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 650;
   caret-color: var(--accent);
 }
 
 .lbSearch__input::placeholder {
   color: rgba(255,255,255,0.45);
+}
+
+@media (max-width: 980px) {
+  .lbWallet,
+  .lbWalletWrap {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .lbSearch {
+    grid-column: 1;
+    grid-row: 3;
+    max-width: 100%;
+  }
 }
 
 /* ─── Header Row ─────────────────────────────────────────────────── */

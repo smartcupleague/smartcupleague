@@ -2,7 +2,7 @@
 name = "deploy"
 version = "0.1.0"
 edition = "2021"
-description = "CLI tool to deploy Oracle-Program and BolaoCore-Program to Vara testnet"
+description = "CLI tool to deploy SmartCup League programs to Vara"
 
 # Standalone workspace — NOT part of Oracle-Program or BolaoCore workspaces.
 [workspace]
@@ -23,6 +23,8 @@ gclient   = "=1.10.0"
 # Generated on-chain clients (their build.rs regenerates from IDL at compile time)
 oracle-client = { path = "../Oracle-Program/client" }
 bolao-client  = { path = "../BolaoCore-Program/client" }
+dao-client = { path = "../DAO-SmartCupLeague-Program/client" }
+smartcup-freebet-ledger-client = { path = "../FreebetLedger-Program/client" }
 
 # Runtime & utilities
 tokio   = { version = "1.41", features = ["full"] }

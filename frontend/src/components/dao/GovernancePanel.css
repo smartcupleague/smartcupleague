@@ -90,8 +90,11 @@
 }
 
 .gov__icon {
-  opacity: 0.75;
-  font-size: 14px;
+  width: 17px;
+  height: 17px;
+  color: rgba(255, 235, 246, 0.66);
+  opacity: 1;
+  flex-shrink: 0;
 }
 
 .gov__input {

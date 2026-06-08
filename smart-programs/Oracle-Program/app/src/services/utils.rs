@@ -1,6 +1,6 @@
-use sails_rs::prelude::*;
+use super::types::{PenaltyWinner, ResultSubmission, Score};
 use sails_rs::collections::HashMap as SailsHashMap;
-use super::types::{Score, PenaltyWinner, ResultSubmission};
+use sails_rs::prelude::*;
 
 /// Counts how many submissions from **currently authorized** feeders agree on the
 /// same (score, penalty_winner) tuple.
@@ -21,9 +21,9 @@ pub fn find_consensus(
         return None;
     }
 
-    let mut best_score:          Option<Score>                 = None;
+    let mut best_score: Option<Score> = None;
     let mut best_penalty_winner: Option<Option<PenaltyWinner>> = None;
-    let mut best_count:          u8                            = 0;
+    let mut best_count: u8 = 0;
 
     for sub in &active {
         // Saturating cast — with MAX_FEEDERS=20 this never overflows u8,
@@ -35,8 +35,8 @@ pub fn find_consensus(
             .min(u8::MAX as usize) as u8;
 
         if count > best_count {
-            best_count          = count;
-            best_score          = Some(sub.score);
+            best_count = count;
+            best_score = Some(sub.score);
             best_penalty_winner = Some(sub.penalty_winner);
         }
     }
@@ -45,9 +45,6 @@ pub fn find_consensus(
 }
 
 /// Returns true if the feeder has already submitted for this match.
-pub fn feeder_already_submitted(
-    submissions: &[ResultSubmission],
-    feeder: ActorId,
-) -> bool {
+pub fn feeder_already_submitted(submissions: &[ResultSubmission], feeder: ActorId) -> bool {
     submissions.iter().any(|s| s.feeder == feeder)
 }

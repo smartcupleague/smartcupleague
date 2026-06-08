@@ -1,7 +1,7 @@
-use sails_rs::prelude::*;
 use super::constants::FINAL_PRIZE_TOP5_BPS;
-use super::types::{Score, PenaltyWinner};
 use super::state::SmartCupState;
+use super::types::{PenaltyWinner, Score};
+use sails_rs::prelude::*;
 
 /// Returns 1 = home win, 0 = draw, -1 = away win.
 pub fn outcome(score: Score) -> i8 {

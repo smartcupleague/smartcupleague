@@ -741,6 +741,33 @@
   border-bottom: 1px solid rgba(255, 0, 110, 0.14);
 }
 
+.mcx__existingPrediction {
+  position: relative;
+  z-index: 2;
+  padding: 14px;
+  border: 1px solid rgba(255, 200, 0, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 200, 0, 0.06);
+}
+
+.mcx__existingPredictionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mcx__existingPredictionValue {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  .mcx__existingPredictionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ============================================================
    PRIZE ESTIMATE
    ============================================================ */
@@ -938,6 +965,14 @@
 .mcx__stakeFeedbackRow .mcx__stakeUsd {
   margin: 0;
   white-space: nowrap;
+}
+.mcx__freebetHint {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  white-space: normal !important;
 }
 .mcx__stakeMinimumWarn {
   grid-column: 2;

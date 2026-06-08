@@ -1,0 +1,49 @@
+services:
+  rewards-postgres:
+    image: postgres:16-alpine
+    container_name: smartcup-rewards-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smartcup_rewards
+    ports:
+      - "5436:5432"
+    volumes:
+      - smartcup_rewards_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smartcup_rewards"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rewards-backend:
+    build:
+      context: ./rewards-backend
+    container_name: smartcup-rewards-backend
+    restart: unless-stopped
+    depends_on:
+      rewards-postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3002
+      DB_HOST: rewards-postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: smartcup_rewards
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-false}
+      NODE_URL: ${NODE_URL:-wss://archive-rpc.vara.network}
+      CHAIN_DISABLED: ${CHAIN_DISABLED:-false}
+      CORS_ORIGINS: http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:3001,http://localhost:3001,http://127.0.0.1:3005,http://localhost:3005
+      FREEBET_LEDGER_ID: ${FREEBET_LEDGER_ID}
+      REWARDS_ACCOUNT: ${REWARDS_ACCOUNT}
+      X_BEARER_TOKEN: ${X_BEARER_TOKEN:-local-dev-token}
+      SMARTCUP_X_USERNAME: ${SMARTCUP_X_USERNAME:-SmartCupLeague}
+      SMARTCUP_APP_URL: ${SMARTCUP_APP_URL:-http://127.0.0.1:3000/}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-local-dev-admin}
+    ports:
+      - "3002:3002"
+
+volumes:
+  smartcup_rewards_pgdata:

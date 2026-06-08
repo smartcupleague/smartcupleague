@@ -1,11 +1,14 @@
 #![allow(static_mut_refs)]
 
-use sails_rs::{prelude::*, gstd::msg};
-use sails_rs::collections::HashMap as SailsHashMap;
+use super::constants::{
+    BET_TARGET_USD_MICRO, DEFAULT_PRICE_STALENESS_LIMIT_MS, MAX_MIGRATION_PAGE_SIZE,
+    MIN_BET_PLANCK, PLANCK_PER_VARA,
+};
+use super::migration::{div_ceil, slice, MigrationMetadata, MigrationPage, MigrationUserPayload};
+use super::types::{Bet, Match, PhaseConfig, PodiumPick, PodiumResult, UserBetRecord};
 use sails_rs::collections::BTreeSet;
-use super::constants::{BET_TARGET_USD_MICRO, PLANCK_PER_VARA, DEFAULT_PRICE_STALENESS_LIMIT_MS, MIN_BET_PLANCK, MAX_MIGRATION_PAGE_SIZE};
-use super::types::{Match, PhaseConfig, Bet, UserBetRecord, PodiumPick, PodiumResult};
-use super::migration::{MigrationPage, MigrationMetadata, MigrationUserPayload, slice, div_ceil};
+use sails_rs::collections::HashMap as SailsHashMap;
+use sails_rs::{gstd::msg, prelude::*};
 
 pub static mut SMARTCUP_STATE: Option<SmartCupState> = None;
 
@@ -41,9 +44,10 @@ pub struct SmartCupState {
     pub price_staleness_limit_ms: u64,
     /// Oracle-Program address used for refresh_vara_price (informational).
     pub price_oracle_program_id: Option<ActorId>,
+    /// FreebetLedger-Program address allowed to place sponsored predictions.
+    pub freebet_ledger_program_id: Option<ActorId>,
 
     // ── Migration fields ──────────────────────────────────────────────────────
-
     /// SOURCE side: set to true by lock_for_migration(); blocks all user writes.
     /// Default: false (normal operation).
     pub migration_locked: bool,
@@ -100,6 +104,7 @@ impl Default for SmartCupState {
             price_cached_at: 0,
             price_staleness_limit_ms: 0,
             price_oracle_program_id: None,
+            freebet_ledger_program_id: None,
             // Migration: default to sealed=true so normal deploys work without any admin action.
             migration_locked: false,
             migration_sealed: true,
@@ -186,7 +191,12 @@ impl SmartCupState {
     /// Panics if the caller is not an active authorized oracle.
     pub fn only_oracle(&self) {
         let caller = msg::source();
-        if !self.authorized_oracles.get(&caller).cloned().unwrap_or(false) {
+        if !self
+            .authorized_oracles
+            .get(&caller)
+            .cloned()
+            .unwrap_or(false)
+        {
             panic!("Only authorized oracle");
         }
     }
@@ -229,19 +239,29 @@ impl SmartCupState {
 
         // Bet keys — match-major (match_id ASC), then ActorId bytes ASC
         let mut bks: Vec<(ActorId, u64)> = self.bets.keys().copied().collect();
-        bks.sort_unstable_by(|a, b| {
-            a.1.cmp(&b.1).then_with(|| a.0.as_ref().cmp(b.0.as_ref()))
-        });
+        bks.sort_unstable_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.as_ref().cmp(b.0.as_ref())));
         self.migration_bet_keys = bks;
 
         // User keys — union of all ActorId-keyed maps, deduplicated, sorted by bytes
         let mut uks: BTreeSet<[u8; 32]> = BTreeSet::new();
-        for k in self.user_bets.keys()               { uks.insert((*k).into_bytes()); }
-        for k in self.user_points.keys()             { uks.insert((*k).into_bytes()); }
-        for k in self.pending_refunds.keys()         { uks.insert((*k).into_bytes()); }
-        for k in self.podium_picks.keys()            { uks.insert((*k).into_bytes()); }
-        for k in self.final_prize_allocations.keys() { uks.insert((*k).into_bytes()); }
-        for k in self.final_prize_claimed.keys()     { uks.insert((*k).into_bytes()); }
+        for k in self.user_bets.keys() {
+            uks.insert((*k).into_bytes());
+        }
+        for k in self.user_points.keys() {
+            uks.insert((*k).into_bytes());
+        }
+        for k in self.pending_refunds.keys() {
+            uks.insert((*k).into_bytes());
+        }
+        for k in self.podium_picks.keys() {
+            uks.insert((*k).into_bytes());
+        }
+        for k in self.final_prize_allocations.keys() {
+            uks.insert((*k).into_bytes());
+        }
+        for k in self.final_prize_claimed.keys() {
+            uks.insert((*k).into_bytes());
+        }
         // BTreeSet<[u8;32]> gives lexicographic sort by default
         self.migration_user_keys = uks.into_iter().map(ActorId::from).collect();
 
@@ -265,8 +285,8 @@ impl SmartCupState {
 
         let per_collection = page_size.min(MAX_MIGRATION_PAGE_SIZE) as usize;
 
-        let bet_len   = self.migration_bet_keys.len();
-        let user_len  = self.migration_user_keys.len();
+        let bet_len = self.migration_bet_keys.len();
+        let user_len = self.migration_user_keys.len();
         let total_pages = div_ceil(bet_len.max(user_len), per_collection).max(1) as u32;
 
         if page >= total_pages {
@@ -305,12 +325,12 @@ impl SmartCupState {
             .iter()
             .map(|u| MigrationUserPayload {
                 user: *u,
-                user_bets:              self.user_bets.get(u).cloned().unwrap_or_default(),
-                user_points:            self.user_points.get(u).cloned().unwrap_or(0),
-                pending_refund:         self.pending_refunds.get(u).cloned().unwrap_or(0),
-                podium_pick:            self.podium_picks.get(u).cloned(),
+                user_bets: self.user_bets.get(u).cloned().unwrap_or_default(),
+                user_points: self.user_points.get(u).cloned().unwrap_or(0),
+                pending_refund: self.pending_refunds.get(u).cloned().unwrap_or(0),
+                podium_pick: self.podium_picks.get(u).cloned(),
                 final_prize_allocation: self.final_prize_allocations.get(u).cloned().unwrap_or(0),
-                final_prize_claimed:    self.final_prize_claimed.get(u).cloned().unwrap_or(false),
+                final_prize_claimed: self.final_prize_claimed.get(u).cloned().unwrap_or(false),
             })
             .collect();
 
@@ -342,7 +362,7 @@ impl SmartCupState {
             .saturating_add(pending)
     }
 
-        /// Builds a MigrationMetadata snapshot of all scalar state fields.
+    /// Builds a MigrationMetadata snapshot of all scalar state fields.
     /// Requires migration_locked == true.
     pub fn build_export_metadata(&self) -> MigrationMetadata {
         if !self.migration_locked {
@@ -350,23 +370,28 @@ impl SmartCupState {
         }
         let pending_refunds_scalar: u128 = self.pending_refunds.values().copied().sum();
         MigrationMetadata {
-            admins:                       self.admins.clone(),
-            operators:                    self.operators.clone(),
-            treasury:                     self.treasury,
-            authorized_oracles:           self.authorized_oracles.iter().map(|(k, v)| (*k, *v)).collect(),
-            next_match_id:                self.next_match_id,
-            protocol_fee_accumulated:     self.protocol_fee_accumulated,
-            final_prize_accumulated:      self.final_prize_accumulated,
-            r32_lock_time:                self.r32_lock_time,
-            podium_result:                self.podium_result.clone(),
-            podium_finalized:             self.podium_finalized,
-            final_prize_finalized:        self.final_prize_finalized,
-            final_prize_claimable_total:  self.final_prize_claimable_total,
-            final_prize_rounding_dust:    self.final_prize_rounding_dust,
-            vara_price_usd_micro:         self.vara_price_usd_micro,
-            price_cached_at:              self.price_cached_at,
-            price_staleness_limit_ms:     self.price_staleness_limit_ms,
-            price_oracle_program_id:      self.price_oracle_program_id,
+            admins: self.admins.clone(),
+            operators: self.operators.clone(),
+            treasury: self.treasury,
+            authorized_oracles: self
+                .authorized_oracles
+                .iter()
+                .map(|(k, v)| (*k, *v))
+                .collect(),
+            next_match_id: self.next_match_id,
+            protocol_fee_accumulated: self.protocol_fee_accumulated,
+            final_prize_accumulated: self.final_prize_accumulated,
+            r32_lock_time: self.r32_lock_time,
+            podium_result: self.podium_result.clone(),
+            podium_finalized: self.podium_finalized,
+            final_prize_finalized: self.final_prize_finalized,
+            final_prize_claimable_total: self.final_prize_claimable_total,
+            final_prize_rounding_dust: self.final_prize_rounding_dust,
+            vara_price_usd_micro: self.vara_price_usd_micro,
+            price_cached_at: self.price_cached_at,
+            price_staleness_limit_ms: self.price_staleness_limit_ms,
+            price_oracle_program_id: self.price_oracle_program_id,
+            freebet_ledger_program_id: self.freebet_ledger_program_id,
             pending_refunds_scalar,
         }
     }
@@ -394,6 +419,7 @@ pub struct IoSmartCupState {
     pub vara_price_usd_micro: u64,
     pub price_cached_at: u64,
     pub price_staleness_limit_ms: u64,
+    pub freebet_ledger_program_id: Option<ActorId>,
 }
 
 impl From<SmartCupState> for IoSmartCupState {
@@ -419,14 +445,15 @@ impl From<SmartCupState> for IoSmartCupState {
             vara_price_usd_micro: state.vara_price_usd_micro,
             price_cached_at: state.price_cached_at,
             price_staleness_limit_ms: state.price_staleness_limit_ms,
+            freebet_ledger_program_id: state.freebet_ledger_program_id,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::constants::{BET_TARGET_USD_MICRO, MIN_BET_PLANCK, PLANCK_PER_VARA};
     use super::*;
-    use super::super::constants::{BET_TARGET_USD_MICRO, PLANCK_PER_VARA, MIN_BET_PLANCK};
 
     fn s(price: u64, cached_at: u64, limit_ms: u64) -> SmartCupState {
         SmartCupState {
@@ -439,7 +466,10 @@ mod tests {
 
     #[test]
     fn fallback_when_price_is_zero() {
-        assert_eq!(s(0, 0, 3_600_000).compute_min_bet_planck(1_000), MIN_BET_PLANCK);
+        assert_eq!(
+            s(0, 0, 3_600_000).compute_min_bet_planck(1_000),
+            MIN_BET_PLANCK
+        );
     }
 
     #[test]
@@ -450,7 +480,10 @@ mod tests {
     #[test]
     fn fallback_when_price_is_stale() {
         // cached_at=0, now=3_600_001 > limit=3_600_000 → stale
-        assert_eq!(s(749, 0, 3_600_000).compute_min_bet_planck(3_600_001), MIN_BET_PLANCK);
+        assert_eq!(
+            s(749, 0, 3_600_000).compute_min_bet_planck(3_600_001),
+            MIN_BET_PLANCK
+        );
     }
 
     #[test]
@@ -475,7 +508,10 @@ mod tests {
     fn dynamic_price_at_1_dollar() {
         // $1/VARA → min bet = ceil($3) = 3 VARA = MIN_BET_PLANCK exactly
         let expected = (BET_TARGET_USD_MICRO * PLANCK_PER_VARA + 1_000_000 - 1) / 1_000_000;
-        assert_eq!(s(1_000_000, 0, 3_600_000).compute_min_bet_planck(0), expected);
+        assert_eq!(
+            s(1_000_000, 0, 3_600_000).compute_min_bet_planck(0),
+            expected
+        );
         assert_eq!(expected, 3 * PLANCK_PER_VARA);
     }
 
@@ -484,7 +520,10 @@ mod tests {
         // $100/VARA → min bet = ceil($3/$100) VARA = 30_000_000_000 planck = 0.03 VARA
         let price: u128 = 100_000_000;
         let expected = (BET_TARGET_USD_MICRO * PLANCK_PER_VARA + price - 1) / price;
-        assert_eq!(s(100_000_000, 0, 3_600_000).compute_min_bet_planck(0), expected);
+        assert_eq!(
+            s(100_000_000, 0, 3_600_000).compute_min_bet_planck(0),
+            expected
+        );
         // Must be below MIN_BET_PLANCK (expensive coin → cheap bet in VARA)
         assert!(expected < MIN_BET_PLANCK);
     }

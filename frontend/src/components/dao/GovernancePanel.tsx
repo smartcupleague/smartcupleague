@@ -5,6 +5,7 @@ import { AllProposals } from './AllProposals';
 import { CreateProposalComponent } from './CreateProposal';
 import { MyProposals } from './MyProposals';
 import { Wallet } from '@gear-js/wallet-connect';
+import { PiMagnifyingGlassBold } from 'react-icons/pi';
 
 export type TabKey = 'Overview' | 'New Proposal' | 'All Proposals' | 'My Proposals';
 
@@ -25,7 +26,7 @@ export default function GovernancePanel() {
 
           <div className="gov__topRight">
             <div className="gov__searchTop">
-              <span className="gov__icon">⌕</span>
+              <PiMagnifyingGlassBold className="gov__icon" aria-hidden="true" />
               <input className="gov__input" placeholder="Search teams, match ID, date..." />
             </div>
 

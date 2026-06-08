@@ -22,10 +22,10 @@ pub const PLANCK_PER_VARA: u128 = 1_000_000_000_000;
 /// Default freshness window for the cached VARA/USD price: 1 hour.
 pub const DEFAULT_PRICE_STALENESS_LIMIT_MS: u64 = 3_600_000;
 
-/// Maximum byte length for phase names to prevent memory bloat. 
+/// Maximum byte length for phase names to prevent memory bloat.
 pub const MAX_PHASE_NAME_LEN: usize = 64;
 
-/// Maximum points_weight per phase to prevent u32 saturation in the leaderboard. 
+/// Maximum points_weight per phase to prevent u32 saturation in the leaderboard.
 pub const MAX_POINTS_WEIGHT: u32 = 20;
 
 /// Maximum byte length for team and pick names to prevent storage bloat and gas DoS.

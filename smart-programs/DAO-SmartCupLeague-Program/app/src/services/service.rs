@@ -8,9 +8,7 @@ use sails_rs::{
 use super::constants::MAX_DESCRIPTION_LEN;
 use super::events::DaoEvent;
 use super::state::DaoState;
-use super::types::{
-    BolaoInstance, IoDaoState, Proposal, ProposalKind, ProposalStatus, VoteChoice,
-};
+use super::types::{BolaoInstance, IoDaoState, Proposal, ProposalKind, ProposalStatus, VoteChoice};
 use super::utils::compute_status;
 
 // ── Internal BolaoCore command type ─────────────────────────────────────────
@@ -38,7 +36,9 @@ enum BolaoCmd {
         runner_up: String,
         third_place: String,
     },
-    CancelMatchResult { match_id: u64 },
+    CancelMatchResult {
+        match_id: u64,
+    },
 }
 
 /// Encode a sails service call and fire it at `target` with zero value.
@@ -144,8 +144,77 @@ impl Service {
         if new_owner == ActorId::zero() {
             panic!("Owner cannot be zero address");
         }
-        DaoState::state_mut().owner = new_owner;
+        let st = DaoState::state_mut();
+        st.owner = new_owner;
+        if !st.admins.contains(&new_owner) {
+            st.admins.push(new_owner);
+        }
         self.emit_event(DaoEvent::OwnerChanged(new_owner)).ok();
+    }
+
+    #[export]
+    pub fn add_admin(&mut self, new_admin: ActorId) {
+        DaoState::only_owner();
+        if new_admin == ActorId::zero() {
+            panic!("Admin cannot be zero address");
+        }
+        let st = DaoState::state_mut();
+        if !st.admins.contains(&new_admin) {
+            st.admins.push(new_admin);
+            self.emit_event(DaoEvent::AdminAdded(new_admin)).ok();
+        }
+    }
+
+    #[export]
+    pub fn remove_admin(&mut self, admin: ActorId) {
+        DaoState::only_owner();
+        let st = DaoState::state_mut();
+        if st.admins.len() <= 1 {
+            panic!("Cannot remove last admin");
+        }
+        let pos = st
+            .admins
+            .iter()
+            .position(|id| *id == admin)
+            .expect("Address is not an admin");
+        st.admins.remove(pos);
+        if st.owner == admin {
+            st.owner = st.admins[0];
+        }
+        self.emit_event(DaoEvent::AdminRemoved(admin)).ok();
+    }
+
+    #[export]
+    pub fn withdraw_vara(&mut self, to: ActorId, amount: u128) {
+        DaoState::only_owner();
+        if to == ActorId::zero() || to == exec::program_id() {
+            panic!("Invalid withdraw destination");
+        }
+        if amount == 0 {
+            panic!("Amount must be greater than zero");
+        }
+        if exec::value_available() < amount {
+            panic!("Insufficient balance");
+        }
+        msg::send(to, (), amount).expect("VARA withdraw failed");
+        self.emit_event(DaoEvent::VaraWithdrawn(to, amount)).ok();
+    }
+
+    #[export]
+    pub fn force_withdraw_vara(&mut self, to: ActorId, amount: u128) {
+        DaoState::only_owner();
+        if to == ActorId::zero() || to == exec::program_id() {
+            panic!("Invalid withdraw destination");
+        }
+        if amount == 0 {
+            panic!("Amount must be greater than zero");
+        }
+        if exec::value_available() < amount {
+            panic!("Insufficient balance");
+        }
+        msg::send(to, (), amount).expect("Force VARA withdraw failed");
+        self.emit_event(DaoEvent::ForceVaraWithdrawn(to, amount))
+            .ok();
     }
 
     // ── BolaoCore factory ────────────────────────────────────────────────────
@@ -183,14 +252,9 @@ impl Service {
         let mut payload = "New".encode();
         payload.extend_from_slice(&admin.encode());
 
-        let (_, new_program_id) = gstd::prog::create_program_bytes_with_gas(
-            code_id,
-            salt,
-            payload,
-            gas_limit,
-            0,
-        )
-        .expect("BolaoCore deployment failed");
+        let (_, new_program_id) =
+            gstd::prog::create_program_bytes_with_gas(code_id, salt, payload, gas_limit, 0)
+                .expect("BolaoCore deployment failed");
 
         let deployed_at = exec::block_timestamp();
         DaoState::state_mut().bolao_instances.push(BolaoInstance {
@@ -199,7 +263,8 @@ impl Service {
             deployed_at,
         });
 
-        self.emit_event(DaoEvent::BolaoDeployed(new_program_id, admin)).ok();
+        self.emit_event(DaoEvent::BolaoDeployed(new_program_id, admin))
+            .ok();
     }
 
     // ── Governance ───────────────────────────────────────────────────────────
@@ -235,7 +300,8 @@ impl Service {
         };
 
         st.proposals.insert(id, p);
-        self.emit_event(DaoEvent::ProposalCreated(id, proposer)).ok();
+        self.emit_event(DaoEvent::ProposalCreated(id, proposer))
+            .ok();
     }
 
     /// Cast a vote on an active proposal. Each address may vote once per proposal.
@@ -267,7 +333,8 @@ impl Service {
         }
 
         st.votes.insert((proposal_id, voter), choice.clone());
-        self.emit_event(DaoEvent::Voted(proposal_id, voter, choice)).ok();
+        self.emit_event(DaoEvent::Voted(proposal_id, voter, choice))
+            .ok();
     }
 
     /// Compute and persist the final status of a proposal after voting ends.
@@ -340,7 +407,8 @@ impl Service {
                         points_weight,
                     },
                 );
-                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id)).ok();
+                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id))
+                    .ok();
             }
 
             ProposalKind::AddMatch {
@@ -358,7 +426,8 @@ impl Service {
                         kick_off,
                     },
                 );
-                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id)).ok();
+                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id))
+                    .ok();
             }
 
             ProposalKind::SetOracleAuthorized { oracle, authorized } => {
@@ -366,7 +435,8 @@ impl Service {
                     bolao_program,
                     BolaoCmd::SetOracleAuthorized { oracle, authorized },
                 );
-                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id)).ok();
+                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id))
+                    .ok();
             }
 
             ProposalKind::FinalizePodium {
@@ -382,15 +452,14 @@ impl Service {
                         third_place,
                     },
                 );
-                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id)).ok();
+                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id))
+                    .ok();
             }
 
             ProposalKind::CancelMatchResult { match_id } => {
-                dispatch_bolao(
-                    bolao_program,
-                    BolaoCmd::CancelMatchResult { match_id },
-                );
-                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id)).ok();
+                dispatch_bolao(bolao_program, BolaoCmd::CancelMatchResult { match_id });
+                self.emit_event(DaoEvent::BolaoCallDispatched(proposal_id))
+                    .ok();
             }
 
             // Factory via governance vote
@@ -407,14 +476,9 @@ impl Service {
                 let mut payload = "New".encode();
                 payload.extend_from_slice(&admin.encode());
 
-                let (_, new_program_id) = gstd::prog::create_program_bytes_with_gas(
-                    code_id,
-                    salt,
-                    payload,
-                    gas_limit,
-                    0,
-                )
-                .expect("BolaoCore deployment failed");
+                let (_, new_program_id) =
+                    gstd::prog::create_program_bytes_with_gas(code_id, salt, payload, gas_limit, 0)
+                        .expect("BolaoCore deployment failed");
 
                 let deployed_at = exec::block_timestamp();
                 DaoState::state_mut().bolao_instances.push(BolaoInstance {
@@ -423,7 +487,8 @@ impl Service {
                     deployed_at,
                 });
 
-                self.emit_event(DaoEvent::BolaoDeployed(new_program_id, admin)).ok();
+                self.emit_event(DaoEvent::BolaoDeployed(new_program_id, admin))
+                    .ok();
             }
 
             ProposalKind::SetQuorum { new_quorum_bps } => {
@@ -450,7 +515,8 @@ impl Service {
         p.executed = true;
         p.status = ProposalStatus::Executed;
 
-        self.emit_event(DaoEvent::ProposalExecuted(proposal_id)).ok();
+        self.emit_event(DaoEvent::ProposalExecuted(proposal_id))
+            .ok();
     }
 
     // ── Queries ───────────────────────────────────────────────────────────────
@@ -460,6 +526,7 @@ impl Service {
         let st = DaoState::state_ref();
         IoDaoState {
             owner: st.owner,
+            admins: st.admins.clone(),
             bolao_program: st.bolao_program,
             kyc_contract: st.kyc_contract,
             quorum_bps: st.quorum_bps,
@@ -472,10 +539,7 @@ impl Service {
 
     #[export]
     pub fn query_proposal(&self, proposal_id: u64) -> Option<Proposal> {
-        DaoState::state_ref()
-            .proposals
-            .get(&proposal_id)
-            .cloned()
+        DaoState::state_ref().proposals.get(&proposal_id).cloned()
     }
 
     #[export]

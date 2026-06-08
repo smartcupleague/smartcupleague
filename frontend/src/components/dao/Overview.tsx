@@ -3,6 +3,7 @@ import { useApi } from '@gear-js/react-hooks';
 import { useToast } from '@/hooks/useToast';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/dao';
+import { PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_DAOPROGRAM as `0x${string}`;
 
@@ -241,7 +242,7 @@ export default function Overview() {
           </button>
         </div>
 
-        <div className="gov__filtersRight">
+          <div className="gov__filtersRight">
           <label className="gov__toggle">
             <input type="checkbox" checked={excludeFinalized} onChange={(e) => setExcludeFinalized(e.target.checked)} />
             <span className="gov__toggleUi" />
@@ -249,7 +250,7 @@ export default function Overview() {
           </label>
 
           <div className="gov__searchVoting">
-            <span className="gov__icon">⌕</span>
+            <PiMagnifyingGlassBold className="gov__icon" aria-hidden="true" />
             <input
               className="gov__input"
               value={search}

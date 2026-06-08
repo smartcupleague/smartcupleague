@@ -3,7 +3,7 @@ import { useAccount } from '@gear-js/react-hooks';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
 
 function toHex(addr?: string | null): string | null {
   if (!addr) return null;
@@ -28,7 +28,7 @@ export function useWalletProfile() {
   useEffect(() => {
     if (!walletHex) { setDisplayName(null); return; }
     setIsLoading(true);
-    fetch(`${API_BASE}/api/v1/profiles/${walletHex}`)
+    fetch(`${API_BASE}/api/v1/profiles/${walletHex}`, { signal: AbortSignal.timeout(4000) })
       .then((r) => r.json())
       .then((d) => setDisplayName(d.display_name ?? null))
       .catch(() => setDisplayName(null))
@@ -43,6 +43,7 @@ export function useWalletProfile() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: name.trim() }),
+        signal: AbortSignal.timeout(5000),
       });
       if (!res.ok && res.status !== 409) return false;
       if (res.status === 409) return true;
