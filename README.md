@@ -9,6 +9,7 @@ A fully on-chain, house-free prediction market for football tournaments built on
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Repository Structure](#repository-structure)
+- [Agent Skills](#agent-skills)
 - [Smart Contracts](#smart-contracts)
 - [Oracle Server](#oracle-server)
 - [API Backend](#api-backend)
@@ -91,12 +92,29 @@ smartcupleague/
 ├── frontend/               React + TypeScript web application
 ├── api/                    FastAPI Python backend (leaderboard, prices)
 ├── oracle-server/          Node.js/TypeScript oracle bridge to Vara
+├── agent-skills/           Installable agent skills for SmartCup operations
 ├── smart-programs/         Rust smart contracts (sails-rs)
 │   ├── Oracle-Program/     Decentralized match result oracle
 │   ├── BolaoCore-Program/  Prediction market & prize distribution
 │   └── DAO-SmartCupLeague-Program/  Governance
 └── rules.txt               Game rules reference
 ```
+
+---
+
+## Agent Skills
+
+Installable AI-agent skills live in `agent-skills/smartcup-programs/`.
+
+Use this skill when an agent needs to inspect SmartCup matches, check user predictions, verify freebet balances, prepare safe wallet/freebet prediction flows, claim/refund flows, or debug frontend/backend state against canonical on-chain state.
+
+After this branch is merged, install it with:
+
+```bash
+npx skills add https://github.com/smartcupleague/smartcupleague/tree/main/agent-skills/smartcup-programs -g --all -y
+```
+
+The skill keeps detailed procedures under `skills/`, stable domain references under `references/`, and exact Sails IDL files under `references/idl/`.
 
 ---
 
