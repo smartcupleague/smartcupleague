@@ -22,6 +22,10 @@ export interface FinalResult {
 
 export interface IoMatchResult {
   match_id: number | string | bigint;
+  phase: string;
+  home: string;
+  away: string;
+  kick_off: number | string | bigint;
   status: OracleResultStatus;
   final_result: FinalResult | null;
   submissions: number;
@@ -29,11 +33,15 @@ export interface IoMatchResult {
 
 export interface IoOracleState {
   admin: ActorId;
+  admins: Array<ActorId>;
+  operators: Array<ActorId>;
   consensus_threshold: number;
   bolao_program_id: ActorId | null;
   authorized_feeders: Array<ActorId>;
   match_results: Array<IoMatchResult>;
   pending_admin: ActorId | null;
+  vara_price_usd_micro: number | string | bigint;
+  price_updated_at: number | string | bigint;
 }
 
 const types = {
@@ -41,14 +49,18 @@ const types = {
   OracleResultStatus: { _enum: ['Pending', 'Finalized'] },
   Score: { home: 'u8', away: 'u8' },
   FinalResult: { score: 'Score', penalty_winner: 'Option<PenaltyWinner>', finalized_at: 'u64' },
-  IoMatchResult: { match_id: 'u64', status: 'OracleResultStatus', final_result: 'Option<FinalResult>', submissions: 'u32' },
+  IoMatchResult: { match_id: 'u64', phase: 'String', home: 'String', away: 'String', kick_off: 'u64', status: 'OracleResultStatus', final_result: 'Option<FinalResult>', submissions: 'u32' },
   IoOracleState: {
     admin: '[u8;32]',
+    admins: 'Vec<[u8;32]>',
+    operators: 'Vec<[u8;32]>',
     consensus_threshold: 'u8',
     bolao_program_id: 'Option<[u8;32]>',
     authorized_feeders: 'Vec<[u8;32]>',
     match_results: 'Vec<IoMatchResult>',
     pending_admin: 'Option<[u8;32]>',
+    vara_price_usd_micro: 'u64',
+    price_updated_at: 'u64',
   },
   FeederSet: { actor_id: '[u8;32]', bool: 'bool' },
   ResultSubmitted: { u64: 'u64', actor_id: '[u8;32]', Score: 'Score' },
