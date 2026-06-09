@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RewardSubmission } from '../entities/reward-submission.entity';
@@ -19,7 +20,6 @@ import { SyncReferralActivityDto } from './dto/sync-referral-activity.dto';
 import { SubmitXTaskDto } from './dto/submit-x-task.dto';
 import {
   REFERRAL_AMOUNTS_VARA,
-  X_TASK_AMOUNTS_VARA,
   getUtcWeekKey,
   normalizeActorId,
   parseTweetUrl,
@@ -40,6 +40,7 @@ export class RewardsService {
     private readonly referralProgress: Repository<ReferralProgress>,
     private readonly xService: XService,
     private readonly chain: ChainService,
+    private readonly config: ConfigService,
   ) {}
 
   getTasks() {
@@ -47,12 +48,12 @@ export class RewardsService {
       x: [
         {
           taskType: 'repost',
-          amountVara: X_TASK_AMOUNTS_VARA.repost.toString(),
+          amountVara: this.config.get<bigint>('xRepostAmountVara')!.toString(),
           cadence: 'weekly',
         },
         {
           taskType: 'post',
-          amountVara: X_TASK_AMOUNTS_VARA.post.toString(),
+          amountVara: this.config.get<bigint>('xPostAmountVara')!.toString(),
           cadence: 'weekly',
         },
       ],
@@ -63,7 +64,8 @@ export class RewardsService {
     const actorId = normalizeActorId(body.wallet);
     const { tweetId, username: urlUsername } = parseTweetUrl(body.tweetUrl);
     const weekKey = getUtcWeekKey();
-    const amountPlanck = varaToPlanck(X_TASK_AMOUNTS_VARA[body.taskType]);
+    const amountKey = body.taskType === 'repost' ? 'xRepostAmountVara' : 'xPostAmountVara';
+    const amountPlanck = varaToPlanck(this.config.get<bigint>(amountKey)!);
     const grantId = `x:${weekKey}:${actorId}:${body.taskType}`;
     const reason = `x ${body.taskType} ${weekKey}`;
     const submittedUsername = body.xUsername

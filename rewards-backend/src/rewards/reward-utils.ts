@@ -3,10 +3,6 @@ import { decodeAddress } from '@polkadot/util-crypto';
 
 export const PLANCK_PER_VARA = 1_000_000_000_000n;
 
-export const X_TASK_AMOUNTS_VARA = {
-  repost: 100n,
-  post: 300n,
-} as const;
 
 export const REFERRAL_AMOUNTS_VARA = {
   5: {

@@ -17,6 +17,14 @@ const posInt = (name: string, defaultValue: string): number => {
   return n;
 };
 
+const positiveBigInt = (name: string, defaultValue: bigint): bigint => {
+  const raw = process.env[name];
+  if (!raw) return defaultValue;
+  const n = BigInt(raw.trim());
+  if (n <= 0n) throw new Error(`${name} must be a positive integer (got "${raw}")`);
+  return n;
+};
+
 const bool = (name: string, defaultValue: boolean): boolean => {
   const raw = process.env[name];
   if (raw === undefined) return defaultValue;
@@ -54,4 +62,6 @@ export default () => ({
   smartCupXUsername: process.env.SMARTCUP_X_USERNAME || 'SmartCupLeague',
   smartCupAppUrl: process.env.SMARTCUP_APP_URL || 'https://app.smartcupleague.com/',
   adminApiKey: process.env.ADMIN_API_KEY || '',
+  xRepostAmountVara: positiveBigInt('X_REPOST_AMOUNT_VARA', 100n),
+  xPostAmountVara: positiveBigInt('X_POST_AMOUNT_VARA', 300n),
 });
