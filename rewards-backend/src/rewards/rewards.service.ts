@@ -19,7 +19,6 @@ import { RegisterReferralDto } from './dto/register-referral.dto';
 import { SyncReferralActivityDto } from './dto/sync-referral-activity.dto';
 import { SubmitXTaskDto } from './dto/submit-x-task.dto';
 import {
-  REFERRAL_AMOUNTS_VARA,
   getUtcWeekKey,
   normalizeActorId,
   parseTweetUrl,
@@ -292,7 +291,11 @@ export class RewardsService {
 
     for (const recipient of ['referrer'] as ReferralRecipient[]) {
       const recipientActorId = recipient === 'referrer' ? referrerActorId : friendActorId;
-      const amountPlanck = varaToPlanck(REFERRAL_AMOUNTS_VARA[body.milestone][recipient]);
+      const referralAmounts = {
+        referrer: this.config.get<bigint>('referralMilestoneReferrerVara')!,
+        friend: this.config.get<bigint>('referralMilestoneFriendVara')!,
+      };
+      const amountPlanck = varaToPlanck(referralAmounts[recipient]);
       const grantId = `ref:${referrerActorId}:${friendActorId}:${body.milestone}:${recipient}`;
       const reason = `referral ${body.milestone} ${recipient}`;
 

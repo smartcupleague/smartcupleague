@@ -4,12 +4,6 @@ import { decodeAddress } from '@polkadot/util-crypto';
 export const PLANCK_PER_VARA = 1_000_000_000_000n;
 
 
-export const REFERRAL_AMOUNTS_VARA = {
-  5: {
-    referrer: 150n,
-    friend: 0n,
-  },
-} as const;
 
 export function varaToPlanck(vara: bigint): bigint {
   return vara * PLANCK_PER_VARA;
