@@ -269,6 +269,95 @@ function saveKickOffMap(): void {
   }
 }
 
+/**
+ * Rebuilds matchIdToSportsId and kickOffMap from Oracle on-chain data + football-data.org.
+ * Called at boot when the JSON files are missing (e.g. after a Render redeploy wipes the fs).
+ *
+ * kickOffMap  → rebuilt entirely from Oracle (no external API needed).
+ * matchIdToSportsId → resolved by matching home/away names + kick_off against WC fixtures.
+ * Unresolved entries are logged clearly — never guessed.
+ * Use POST /setup/repair-mapping to fix any unresolved entries manually.
+ */
+async function rebuildMappingFromChain(oracle: OracleProgram): Promise<void> {
+  console.log("[mapping-rebuild] JSON files missing — rebuilding from on-chain data...");
+
+  let onChainMatches: Awaited<ReturnType<typeof oracle.service.queryAllResults>>;
+  try {
+    onChainMatches = await oracle.service.queryAllResults();
+  } catch (e: any) {
+    console.error("[mapping-rebuild] queryAllResults failed:", e?.message);
+    return;
+  }
+  if (onChainMatches.length === 0) {
+    console.warn("[mapping-rebuild] Oracle has no registered matches — nothing to rebuild");
+    return;
+  }
+
+  // kickOffMap: kick_off is stored verbatim on-chain — no API needed
+  for (const r of onChainMatches) {
+    const mid = Number(r.match_id);
+    const ko  = Number(r.kick_off);
+    if (mid > 0 && ko > 0) kickOffMap.set(mid, ko);
+  }
+  saveKickOffMap();
+  console.log(`[mapping-rebuild] kickOffMap rebuilt: ${kickOffMap.size} entries`);
+
+  // matchIdToSportsId: match by team names + kick_off against WC fixtures
+  let fixtures: WCFixture[];
+  try {
+    fixtures = await fetchWCFixtures();
+  } catch (e: any) {
+    console.error("[mapping-rebuild] fetchWCFixtures failed:", e?.message);
+    console.warn("[mapping-rebuild] kickOffMap saved but matchIdToSportsId NOT rebuilt.");
+    console.warn("[mapping-rebuild] Use POST /setup/repair-mapping to add entries manually.");
+    return;
+  }
+
+  // kick_off was stored as new Date(utcDate).getTime() — should match exactly.
+  // 60s tolerance handles any edge cases (DST, clock skew at registration time).
+  const KICK_OFF_TOLERANCE_MS = 60_000;
+  const unresolved: Array<{ match_id: number; home: string; away: string; kick_off: string }> = [];
+
+  for (const r of onChainMatches) {
+    const mid    = Number(r.match_id);
+    const kickMs = Number(r.kick_off);
+
+    const fixture = fixtures.find((f) => {
+      const fKickMs = new Date(f.utcDate).getTime();
+      return (
+        f.homeTeam.name === r.home &&
+        f.awayTeam.name === r.away &&
+        Math.abs(fKickMs - kickMs) < KICK_OFF_TOLERANCE_MS
+      );
+    });
+
+    if (fixture) {
+      addMatchMapping(mid, fixture.id);
+    } else {
+      unresolved.push({
+        match_id: mid,
+        home: String(r.home),
+        away: String(r.away),
+        kick_off: new Date(kickMs).toISOString(),
+      });
+    }
+  }
+
+  if (matchIdToSportsId.size > 0) saveMatchMapping();
+
+  console.log(`[mapping-rebuild] matchIdToSportsId rebuilt: ${matchIdToSportsId.size}/${onChainMatches.length} resolved`);
+
+  if (unresolved.length > 0) {
+    console.warn(`[mapping-rebuild] ${unresolved.length} match(es) could NOT be auto-resolved:`);
+    for (const u of unresolved) {
+      console.warn(`  match_id=${u.match_id}  "${u.home}" vs "${u.away}"  kick_off=${u.kick_off}`);
+    }
+    console.warn("[mapping-rebuild] Fix with: POST /setup/repair-mapping  { bolao_match_id, sports_api_id }");
+  } else {
+    console.log("[mapping-rebuild] All matches resolved ✓");
+  }
+}
+
 async function fetchWCFixtures(status?: string): Promise<WCFixture[]> {
   const cacheKey = `wc-fixtures:${status ?? "all"}`;
   const cached = getCached<WCFixture[]>(cacheKey);
@@ -1619,6 +1708,34 @@ app.get("/setup/match-mapping", (_req, res) => {
 });
 
 /**
+ * POST /setup/repair-mapping
+ * Manually adds a bolao_match_id → sports_api_id entry.
+ * Use this to resolve entries that could not be auto-matched by rebuildMappingFromChain
+ * (e.g. team names registered in a different language, playoff placeholders).
+ *
+ * Body: { bolao_match_id: number, sports_api_id: number }
+ */
+app.post("/setup/repair-mapping", (req, res) => {
+  try {
+    const bolaoMatchId = Number(req.body?.bolao_match_id);
+    const sportsApiId  = Number(req.body?.sports_api_id);
+
+    if (!Number.isInteger(bolaoMatchId) || bolaoMatchId < 1)
+      throw new Error("bolao_match_id must be a positive integer");
+    if (!Number.isInteger(sportsApiId) || sportsApiId < 1)
+      throw new Error("sports_api_id must be a positive integer");
+
+    addMatchMapping(bolaoMatchId, sportsApiId);
+    saveMatchMapping();
+
+    console.log(`[repair-mapping] Added: ${bolaoMatchId} → ${sportsApiId}`);
+    return res.json({ ok: true, bolao_match_id: bolaoMatchId, sports_api_id: sportsApiId });
+  } catch (e: any) {
+    return res.status(400).json({ ok: false, error: e?.message });
+  }
+});
+
+/**
  * POST /match/register-both
  * Registers a match in BOTH BolaoCore AND Oracle with the same sequential ID,
  * then persists the sports_api_id → sequential mapping for the auto-feeder.
@@ -2108,6 +2225,14 @@ const server = app.listen(PORT, () => {
       const oracle = getOracle(api);
       const bolao = getBolao(api);
       const signer = getGatewaySigner();
+
+      // Rebuild match mapping from on-chain data if the JSON files were lost
+      // (happens on every Render redeploy due to ephemeral filesystem).
+      if (matchIdToSportsId.size === 0) {
+        rebuildMappingFromChain(oracle).catch((e) =>
+          console.error("[mapping-rebuild] unhandled error:", e?.message),
+        );
+      }
 
       // Recover any matches stuck in Proposed state from a previous server run
       recoverProposedMatches(bolao, signer).catch((e) =>

@@ -7,7 +7,7 @@ use gclient::GearApi;
 use oracle_client::service::Service as OracleService;
 use oracle_client::{OracleCtors, OracleProgram};
 use sails_rs::{
-    client::{GclientEnv, GearEnv},
+    client::{Actor, GclientEnv, GearEnv},
     prelude::ActorId,
     CodeId,
 };
@@ -45,10 +45,18 @@ async fn main() -> anyhow::Result<()> {
         .context("MNEMONIC is required (seed phrase / SURI for the deployer account)")?;
     let deploy_version = std::env::var("DEPLOY_VERSION").unwrap_or_else(|_| "v1".into());
 
-    let oracle_wasm_path = env_path(
-        "ORACLE_WASM",
-        "../Oracle-Program/target/wasm32-gear/release/oracle_program.opt.wasm",
-    );
+    // Oracle WASM is only needed when not reusing an existing deployed program.
+    let existing_oracle_id = env_actor("EXISTING_ORACLE_PROGRAM_ID");
+    let oracle_wasm: Option<Vec<u8>> = if existing_oracle_id.is_none() {
+        let path = env_path(
+            "ORACLE_WASM",
+            "../Oracle-Program/target/wasm32-gear/release/oracle_program.opt.wasm",
+        );
+        Some(read_wasm(&path, "Oracle")?)
+    } else {
+        None
+    };
+
     let bolao_wasm_path = env_path(
         "BOLAO_WASM",
         "../BolaoCore-Program/target/wasm32-gear/release/bolao_program.opt.wasm",
@@ -62,7 +70,6 @@ async fn main() -> anyhow::Result<()> {
         "../DAO-SmartCupLeague-Program/target/wasm32-gear/release/dao_program.opt.wasm",
     );
 
-    let oracle_wasm = read_wasm(&oracle_wasm_path, "Oracle")?;
     let bolao_wasm = read_wasm(&bolao_wasm_path, "BolaoCore")?;
     let freebet_wasm = read_wasm(&freebet_wasm_path, "FreebetLedger")?;
     let dao_wasm = read_wasm(&dao_wasm_path, "DAO")?;
@@ -92,9 +99,11 @@ async fn main() -> anyhow::Result<()> {
     let gateway = env_actor("GATEWAY_PUBKEY");
     let explicit_feeder = env_actor("FEEDER_PUBKEY");
     let rewards_admin = env_actor("REWARDS_PUBKEY");
+    let freebet_deposit_admin = env_actor("FREEBET_DEPOSIT_ADMIN");
     let extra_admins = env_actors("EXTRA_ADMIN_PUBKEYS")?;
     let add_dao_as_admin = env_bool("ADD_DAO_AS_ADMIN", true);
     let register_bolao_code = env_bool("REGISTER_BOLAO_CODE_IN_DAO", true);
+    let import_mode = env_bool("IMPORT_MODE", false);
 
     println!("Deployer : {}", actor_hex(deployer));
     println!("Admin    : {}", actor_hex(admin));
@@ -108,26 +117,43 @@ async fn main() -> anyhow::Result<()> {
     if let Some(rewards) = rewards_admin {
         println!("Rewards  : {}", actor_hex(rewards));
     }
+    if let Some(deposit) = freebet_deposit_admin {
+        println!("FreebetDeposit: {}", actor_hex(deposit));
+    }
+    if let Some(eid) = existing_oracle_id {
+        println!("ExistingOracle: {}", actor_hex(eid));
+    }
 
     let env = GclientEnv::new(api.clone());
 
-    println!(
-        "\n[1/16] Uploading Oracle-Program code ({} bytes)...",
-        oracle_wasm.len()
-    );
-    let oracle_code_id = upload_or_reuse(&api, &oracle_wasm, "Oracle-Program").await?;
-    wait_block().await;
+    // ── Phases 1-2: Oracle ────────────────────────────────────────────────────
+    let (oracle, oracle_id) = if let Some(eid) = existing_oracle_id {
+        println!("\n[1/16] Oracle upload skipped — EXISTING_ORACLE_PROGRAM_ID is set.");
+        println!("[2/16] Reusing existing Oracle-Program: {}", actor_hex(eid));
+        let actor = Actor::<OracleProgram, GclientEnv>::new(env.clone(), eid);
+        (actor, eid)
+    } else {
+        let wasm = oracle_wasm.as_deref().expect("oracle_wasm loaded above");
+        println!(
+            "\n[1/16] Uploading Oracle-Program code ({} bytes)...",
+            wasm.len()
+        );
+        let oracle_code_id = upload_or_reuse(&api, wasm, "Oracle-Program").await?;
+        wait_block().await;
 
-    println!("[2/16] Deploying Oracle-Program...");
-    let oracle = env
-        .deploy::<OracleProgram>(oracle_code_id, salt("scl-oracle", &deploy_version))
-        .new(admin)
-        .await
-        .context("Failed to deploy Oracle-Program")?;
-    let oracle_id = oracle.id();
-    println!("      program_id: {}", actor_hex(oracle_id));
-    wait_block().await;
+        println!("[2/16] Deploying Oracle-Program...");
+        let oracle = env
+            .deploy::<OracleProgram>(oracle_code_id, salt("scl-oracle", &deploy_version))
+            .new(admin)
+            .await
+            .context("Failed to deploy Oracle-Program")?;
+        let oid = oracle.id();
+        println!("      program_id: {}", actor_hex(oid));
+        wait_block().await;
+        (oracle, oid)
+    };
 
+    // ── Phases 3-4: BolaoCore ─────────────────────────────────────────────────
     println!(
         "\n[3/16] Uploading BolaoCore-Program code ({} bytes)...",
         bolao_wasm.len()
@@ -135,7 +161,6 @@ async fn main() -> anyhow::Result<()> {
     let bolao_code_id = upload_or_reuse(&api, &bolao_wasm, "BolaoCore-Program").await?;
     wait_block().await;
 
-    let import_mode = env_bool("IMPORT_MODE", false);
     println!(
         "[4/16] Deploying BolaoCore-Program{}...",
         if import_mode { " (importer mode)" } else { "" }
@@ -157,6 +182,7 @@ async fn main() -> anyhow::Result<()> {
     println!("      program_id: {}", actor_hex(bolao_id));
     wait_block().await;
 
+    // ── Phases 5-6: FreebetLedger ─────────────────────────────────────────────
     println!(
         "\n[5/16] Uploading FreebetLedger code ({} bytes)...",
         freebet_wasm.len()
@@ -177,6 +203,7 @@ async fn main() -> anyhow::Result<()> {
     println!("      program_id: {}", actor_hex(freebet_id));
     wait_block().await;
 
+    // ── Phases 7-8: DAO ───────────────────────────────────────────────────────
     println!("\n[7/16] Uploading DAO code ({} bytes)...", dao_wasm.len());
     let dao_code_id = upload_or_reuse(&api, &dao_wasm, "DAO").await?;
     wait_block().await;
@@ -191,6 +218,7 @@ async fn main() -> anyhow::Result<()> {
     println!("      program_id: {}", actor_hex(dao_id));
     wait_block().await;
 
+    // ── Phase 9: BolaoCore price oracle ──────────────────────────────────────
     println!("\n[9/16] Wiring BolaoCore price oracle...");
     {
         let mut svc = bolao.service("Service");
@@ -200,6 +228,7 @@ async fn main() -> anyhow::Result<()> {
     }
     wait_block().await;
 
+    // ── Phase 10: Authorize Oracle in BolaoCore ───────────────────────────────
     println!("[10/16] Authorizing Oracle in BolaoCore...");
     {
         let mut svc = bolao.service("Service");
@@ -209,6 +238,7 @@ async fn main() -> anyhow::Result<()> {
     }
     wait_block().await;
 
+    // ── Phase 11: FreebetLedger <-> BolaoCore ─────────────────────────────────
     println!("[11/16] Wiring FreebetLedger <-> BolaoCore...");
     {
         let mut svc = bolao.service("Service");
@@ -225,6 +255,7 @@ async fn main() -> anyhow::Result<()> {
     }
     wait_block().await;
 
+    // ── Phase 12: Oracle back-link ────────────────────────────────────────────
     println!("[12/16] Setting Oracle back-link to BolaoCore...");
     {
         let mut svc = oracle.service("Service");
@@ -234,6 +265,7 @@ async fn main() -> anyhow::Result<()> {
     }
     wait_block().await;
 
+    // ── Phase 13: Gateway / feeder roles ─────────────────────────────────────
     println!("[13/16] Configuring gateway / feeder roles...");
     if let Some(feeder) = explicit_feeder {
         let mut svc = oracle.service("Service");
@@ -243,20 +275,27 @@ async fn main() -> anyhow::Result<()> {
         wait_block().await;
     }
     if let Some(gw) = gateway {
-        {
-            let mut svc = oracle.service("Service");
-            OracleService::add_operator(&mut svc, gw)
-                .await
-                .context("Failed to add GATEWAY_PUBKEY as Oracle operator")?;
+        if existing_oracle_id.is_none() {
+            // Only configure Oracle roles when deploying a fresh Oracle.
+            // When reusing an existing Oracle the operator/feeder entries are
+            // already on-chain; calling add_operator again would be rejected.
+            {
+                let mut svc = oracle.service("Service");
+                OracleService::add_operator(&mut svc, gw)
+                    .await
+                    .context("Failed to add GATEWAY_PUBKEY as Oracle operator")?;
+            }
+            wait_block().await;
+            {
+                let mut svc = oracle.service("Service");
+                svc.set_feeder_authorized(gw, true)
+                    .await
+                    .context("Failed to authorize GATEWAY_PUBKEY as Oracle feeder")?;
+            }
+            wait_block().await;
+        } else {
+            println!("      skipped Oracle gateway roles — reusing existing Oracle");
         }
-        wait_block().await;
-        {
-            let mut svc = oracle.service("Service");
-            svc.set_feeder_authorized(gw, true)
-                .await
-                .context("Failed to authorize GATEWAY_PUBKEY as Oracle feeder")?;
-        }
-        wait_block().await;
         {
             let mut svc = bolao.service("Service");
             BolaoService::add_operator(&mut svc, gw)
@@ -268,9 +307,10 @@ async fn main() -> anyhow::Result<()> {
         println!("      skipped gateway roles — GATEWAY_PUBKEY is not set");
     }
 
+    // ── Phase 14: Admin lists ─────────────────────────────────────────────────
     println!("[14/16] Configuring admin lists...");
     if add_dao_as_admin {
-        add_program_admins(&oracle, &bolao, &freebet, dao_id).await?;
+        add_program_admins(&oracle, &bolao, &freebet, dao_id, existing_oracle_id.is_some()).await?;
     } else {
         println!("      skipped DAO admin grants — ADD_DAO_AS_ADMIN=false");
     }
@@ -281,14 +321,22 @@ async fn main() -> anyhow::Result<()> {
             .context("Failed to add REWARDS_PUBKEY as FreebetLedger admin")?;
         wait_block().await;
     }
+    if let Some(deposit_admin) = freebet_deposit_admin {
+        let mut svc = freebet.freebet_ledger();
+        svc.add_admin(deposit_admin)
+            .await
+            .context("Failed to add FREEBET_DEPOSIT_ADMIN as FreebetLedger admin")?;
+        wait_block().await;
+        println!("      FreebetLedger deposit admin added: {}", actor_hex(deposit_admin));
+    }
     for extra in extra_admins {
-        {
+        if existing_oracle_id.is_none() {
             let mut svc = oracle.service("Service");
             OracleService::add_admin(&mut svc, extra)
                 .await
                 .context("Failed to add EXTRA_ADMIN_PUBKEYS entry to Oracle")?;
+            wait_block().await;
         }
-        wait_block().await;
         {
             let mut svc = bolao.service("Service");
             BolaoService::add_admin(&mut svc, extra)
@@ -312,6 +360,7 @@ async fn main() -> anyhow::Result<()> {
         wait_block().await;
     }
 
+    // ── Phase 15: Register BolaoCore code in DAO ──────────────────────────────
     println!("[15/16] Registering BolaoCore code in DAO...");
     if register_bolao_code {
         let mut svc = dao.service("Service");
@@ -323,11 +372,16 @@ async fn main() -> anyhow::Result<()> {
         println!("      skipped — REGISTER_BOLAO_CODE_IN_DAO=false");
     }
 
+    // ── Phase 16: Summary ─────────────────────────────────────────────────────
     println!("[16/16] Reading deployment summary...");
     println!("\n╔══════════════════════════════════════════════════════════════╗");
     println!("║  DEPLOY COMPLETE                                             ║");
     println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("ORACLE_PROGRAM_ID={}", actor_hex(oracle_id));
+    if existing_oracle_id.is_some() {
+        println!("ORACLE_PROGRAM_ID={} (reused)", actor_hex(oracle_id));
+    } else {
+        println!("ORACLE_PROGRAM_ID={}", actor_hex(oracle_id));
+    }
     println!("BOLAO_PROGRAM_ID={}", actor_hex(bolao_id));
     println!("FREEBET_LEDGER_ID={}", actor_hex(freebet_id));
     println!("DAO_PROGRAM_ID={}", actor_hex(dao_id));
@@ -347,12 +401,15 @@ async fn add_program_admins(
     bolao: &sails_rs::client::Actor<BolaoProgram, GclientEnv>,
     freebet: &sails_rs::client::Actor<FreebetLedgerProgram, GclientEnv>,
     dao_id: ActorId,
+    skip_oracle: bool,
 ) -> anyhow::Result<()> {
-    {
+    if !skip_oracle {
         let mut svc = oracle.service("Service");
         OracleService::add_admin(&mut svc, dao_id)
             .await
             .context("Failed to add DAO as Oracle admin")?;
+    } else {
+        println!("      skipped Oracle admin grant — reusing existing Oracle");
     }
     {
         let mut svc = bolao.service("Service");
