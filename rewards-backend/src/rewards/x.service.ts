@@ -35,7 +35,8 @@ type XTweetLookup = {
   includedUsers: XUser[];
 };
 
-const RETWEETED_BY_PAGE_LIMIT = 10;
+// const RETWEETED_BY_PAGE_LIMIT = 10; // unused after migrating to user-timeline verification
+const USER_TWEETS_PAGE_LIMIT = 10;
 
 @Injectable()
 export class XService {
@@ -176,22 +177,50 @@ export class XService {
     }
   }
 
+  // Previous implementation used GET /2/tweets/:id/retweeted_by, which returns result_count: 0
+  // silently due to a known X API cache bug even when retweets exist. Kept for reference.
+  //
+  // private async didUserRepostTweet_retweetedBy(tweetId: string, username: string): Promise<boolean> {
+  //   let paginationToken: string | null = null;
+  //   for (let page = 0; page < RETWEETED_BY_PAGE_LIMIT; page += 1) {
+  //     const url = new URL(`https://api.x.com/2/tweets/${tweetId}/retweeted_by`);
+  //     url.searchParams.set('user.fields', 'username');
+  //     url.searchParams.set('max_results', '100');
+  //     if (paginationToken) url.searchParams.set('pagination_token', paginationToken);
+  //     const json = await this.xApiGet<{ data?: XUser[]; meta?: { next_token?: string } }>(url);
+  //     if ((json.data ?? []).some((user) => user.username?.toLowerCase() === username)) return true;
+  //     paginationToken = json.meta?.next_token ?? null;
+  //     if (!paginationToken) break;
+  //   }
+  //   return false;
+  // }
+
   private async didUserRepostTweet(tweetId: string, username: string): Promise<boolean> {
+    const userUrl = new URL(`https://api.x.com/2/users/by/username/${encodeURIComponent(username)}`);
+    const userJson = await this.xApiGet<{ data?: XUser }>(userUrl);
+    const userId = userJson.data?.id;
+    if (!userId) return false;
+
     let paginationToken: string | null = null;
-    for (let page = 0; page < RETWEETED_BY_PAGE_LIMIT; page += 1) {
-      const url = new URL(`https://api.x.com/2/tweets/${tweetId}/retweeted_by`);
-      url.searchParams.set('user.fields', 'username');
+    for (let page = 0; page < USER_TWEETS_PAGE_LIMIT; page += 1) {
+      const url = new URL(`https://api.x.com/2/users/${userId}/tweets`);
+      url.searchParams.set('tweet.fields', 'referenced_tweets');
       url.searchParams.set('max_results', '100');
+      url.searchParams.set('exclude', 'replies');
       if (paginationToken) url.searchParams.set('pagination_token', paginationToken);
 
       const json = await this.xApiGet<{
-        data?: XUser[];
+        data?: XTweet[];
         meta?: { next_token?: string };
       }>(url);
 
-      if ((json.data ?? []).some((user) => user.username?.toLowerCase() === username)) {
-        return true;
-      }
+      const found = (json.data ?? []).some((tweet) =>
+        (tweet.referenced_tweets ?? []).some(
+          (ref) => ref.type === 'retweeted' && ref.id === tweetId,
+        ),
+      );
+      if (found) return true;
+
       paginationToken = json.meta?.next_token ?? null;
       if (!paginationToken) break;
     }
