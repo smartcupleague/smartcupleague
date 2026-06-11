@@ -88,10 +88,8 @@ function formatKickoff(kickOff: string) {
 function formatAmount(val: string | number | bigint, decimals = 12) {
   if (val === null || val === undefined) return '—';
   const bn = typeof val === 'bigint' ? val : BigInt(val);
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const intVal = bn / divisor;
-  const frac = (bn % divisor).toString().padStart(decimals, '0').replace(/0+$/, '');
-  return frac ? `${intVal.toString()}.${frac}` : intVal.toString();
+  const amount = Number(bn) / 10 ** decimals;
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function toBn(val: string | number | bigint): bigint {
@@ -271,23 +269,11 @@ function estimatePayoutBn(stakeInMatchPool: bigint, outcomePool: bigint, matchPr
 
 function formatPrizeValue(amount: bigint | null) {
   if (amount === null) return '—';
-  const raw = formatAmount(amount, 12);
-  const [intPart, fracPart] = raw.split('.');
-  const frac = (fracPart ?? '').slice(0, 4).replace(/0+$/, '');
-  return `${frac ? `${intPart}.${frac}` : intPart} VARA`;
-}
-
-function addGroupSeparators(value: string) {
-  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${formatAmount(amount, 12)} VARA`;
 }
 
 function formatStakeValue(amount: bigint) {
-  const raw = formatAmount(amount, 12);
-  const [intPart, fracPart = ''] = raw.split('.');
-  const intBn = toBn(intPart || '0');
-  const fractionDigits = intBn >= 1000n ? 0 : intBn >= 100n ? 1 : 4;
-  const frac = fractionDigits > 0 ? fracPart.slice(0, fractionDigits).replace(/0+$/, '') : '';
-  return `${addGroupSeparators(intPart)}${frac ? `.${frac}` : ''}`;
+  return formatAmount(amount, 12);
 }
 
 function computeDeterministicShareBn(

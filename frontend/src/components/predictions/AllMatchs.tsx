@@ -138,10 +138,8 @@ function formatAmount(val: unknown, decimals = 12) {
 
   try {
     const bn = typeof val === 'bigint' ? val : BigInt(val as any);
-    const divisor = BigInt(10) ** BigInt(decimals);
-    const intVal = bn / divisor;
-    const frac = (bn % divisor).toString().padStart(decimals, '0').replace(/0+$/, '');
-    return frac ? `${intVal.toString()}.${frac}` : intVal.toString();
+    const amount = Number(bn) / 10 ** decimals;
+    return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } catch {
     return '—';
   }

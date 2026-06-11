@@ -35,10 +35,8 @@ function planckToVaraNumber(planck: bigint): number {
 
 function formatVara(planck: bigint): string {
   const value = planckToVaraNumber(planck);
-  if (!Number.isFinite(value)) return '3';
-  if (value >= 100) return value.toFixed(2);
-  if (value >= 10) return value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
-  return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  if (!Number.isFinite(value)) return '3.00';
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function computeMinimum(state?: MinimumState | null) {

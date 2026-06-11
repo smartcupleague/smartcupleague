@@ -114,20 +114,9 @@ function safeBigInt(input: unknown): bigint {
   }
 }
 
-function formatToken(val: string | number | bigint, decimals = VARA_DECIMALS) {
-  const bn = safeBigInt(val);
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const intVal = bn / divisor;
-  const frac = (bn % divisor).toString().padStart(decimals, '0').replace(/0+$/, '');
-  return frac ? `${intVal.toString()}.${frac}` : intVal.toString();
-}
-
 function formatTokenCompact(val: string | number | bigint, decimals = VARA_DECIMALS) {
-  const raw = formatToken(val, decimals);
-  const [i, f] = raw.split('.');
-  const withCommas = i.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  if (!f) return withCommas;
-  return `${withCommas}.${f.slice(0, 2)}`;
+  const amount = Number(safeBigInt(val)) / 10 ** decimals;
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function kickOffToMs(input: number) {

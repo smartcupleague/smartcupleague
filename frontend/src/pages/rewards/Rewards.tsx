@@ -79,6 +79,12 @@ function fallbackTasks(): RewardTasks {
   };
 }
 
+function formatWholeVara(amount: string): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return amount;
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!REWARDS_API_BASE) {
     throw new Error('Rewards API is not configured');
@@ -354,7 +360,7 @@ export function Rewards() {
                       <div className="rewards-task__meta">{copy.meta}</div>
                     </div>
                     <div className="rewards-task__side">
-                      <div className="rewards-task__amount">{task.amountVara} VARA</div>
+                      <div className="rewards-task__amount">{formatWholeVara(task.amountVara)} VARA</div>
                       <span>{copy.action}</span>
                     </div>
                   </button>
@@ -433,7 +439,7 @@ export function Rewards() {
           <div className="rewards-modal__panel">
             <div className="rewards-modal__head">
               <div>
-                <div className="rewards-modal__reward">{activeTaskReward ?? '0'} VARA freebet</div>
+                <div className="rewards-modal__reward">{activeTaskReward ? formatWholeVara(activeTaskReward) : '0.00'} VARA freebet</div>
                 <h2 id="rewards-modal-title">{activeTaskConfig.title}</h2>
                 <p>{activeTaskConfig.meta}</p>
               </div>

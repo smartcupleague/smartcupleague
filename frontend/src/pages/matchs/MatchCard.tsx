@@ -295,10 +295,7 @@ function computeShareBn(stake: bigint, matchPrizePool: bigint, totalWinnerStake:
 }
 
 function formatVaraFromPlanck(planck: bigint) {
-  const s = planck.toString().padStart(13, '0');
-  const intPart = s.slice(0, -12);
-  const frac = s.slice(-12).replace(/0+$/, '');
-  return frac ? `${intPart}.${frac}` : intPart;
+  return formatVaraFromPlanckFixed(planck);
 }
 
 function formatVaraFromPlanckFixed(planck: bigint, fractionDigits = 2) {
@@ -458,7 +455,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [varaUsdRate]);
   const minStakePlaceholder = useMemo(() => {
     if (liveUsdMinimumPlanck <= 0n) return '';
-    return `Min ${formatVaraInputFromPlanck(liveUsdMinimumPlanck)}`;
+    return `Min ${formatVaraFromPlanckFixed(liveUsdMinimumPlanck)}`;
   }, [liveUsdMinimumPlanck]);
   const isConversionAvailable = liveUsdMinimumPlanck > 0n;
   const isOnChainPriceFresh = IS_DEV_PREVIEW || onChainMinimumBet.isBettingAvailable;
@@ -473,7 +470,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [betAmountNumber, isDemoPreview, varaToUsd]);
   const belowUsdMinimumMessage = useMemo(() => {
     if (betAmountNumber <= 0 || !betDisabledByAmount) return '';
-    return `${betAmountNumber.toLocaleString(undefined, { maximumFractionDigits: 4 })} VARA is below the current minimum.`;
+    return `${betAmountNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} VARA is below the current minimum.`;
   }, [betAmountNumber, betDisabledByAmount]);
 
   const shownScore = useMemo(
@@ -848,7 +845,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
 
     if (betDisabledByAmount) {
-      toast.error(`${betAmountNumber || 0} VARA is below the current minimum. Minimum required: 3 USD converted in VARA.`);
+      toast.error(`${betAmountNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} VARA is below the current minimum. Minimum required: 3 USD converted in VARA.`);
       return;
     }
 
@@ -1218,7 +1215,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     );
   }
 
-  const poolVara = planckToVaraHuman(totalPoolPlanck(match));
+  const poolVara = formatVaraFromPlanckFixed(totalPoolPlanck(match));
   const topScoreHome = isFinalized ? chainResult.home : shownScore.home;
   const topScoreAway = isFinalized ? chainResult.away : shownScore.away;
   const displayedPredictionScore = hasExistingBet && userBetScore ? userBetScore : selectedScore;
@@ -1593,8 +1590,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     : !isPredictionPricingAvailable
                       ? 'Predictions paused'
                       : isFreebetBet
-                        ? betAmountNumber > 0 ? `Use Freebet (${formatVaraInputFromPlanck(betValuePlanck)} VARA)` : 'Enter stake'
-                        : betAmountNumber > 0 ? `Send Prediction (${formatVaraInputFromPlanck(betValuePlanck)} ${betCurrency})` : 'Enter stake'}
+                        ? betAmountNumber > 0 ? `Use Freebet (${formatVaraFromPlanckFixed(betValuePlanck)} VARA)` : 'Enter stake'
+                        : betAmountNumber > 0 ? `Send Prediction (${formatVaraFromPlanckFixed(betValuePlanck)} ${betCurrency})` : 'Enter stake'}
                 </button>
 
                 {prizeEstimate !== null && (

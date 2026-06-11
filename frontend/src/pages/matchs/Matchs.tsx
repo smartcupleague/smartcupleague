@@ -83,10 +83,8 @@ function safeBigInt(input: unknown): bigint {
 
 function formatToken(val: string | number | bigint, decimals = VARA_DECIMALS) {
   const bn = safeBigInt(val);
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const intVal = bn / divisor;
-  const frac = (bn % divisor).toString().padStart(decimals, '0').replace(/0+$/, '');
-  return frac ? `${intVal.toString()}.${frac}` : intVal.toString();
+  const amount = Number(bn) / 10 ** decimals;
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatAddress(addr?: string, start = 4, end = 4) {
@@ -97,10 +95,8 @@ function formatAddress(addr?: string, start = 4, end = 4) {
 
 
 function formatVaraFromPlanck(planck: bigint) {
-  const s = planck.toString().padStart(13, '0');
-  const intPart = s.slice(0, -12);
-  const frac = s.slice(-12).replace(/0+$/, '');
-  return frac ? `${intPart || '0'}.${frac}` : intPart || '0';
+  const amount = Number(planck) / 1e12;
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function getCurrentScore(result?: ResultStatus): { home: number; away: number } {
@@ -474,10 +470,7 @@ function Match() {
                     </div>
                     <div className="sideRow">
                       <span className="dim">Prediction Stake</span>
-                      <b>{Number(safeBigInt(userBetForThisMatch.stake_in_match_pool ?? '0')) / 1e12 < 0.1
-                        ? formatToken(userBetForThisMatch.stake_in_match_pool ?? '0')
-                        : (Number(safeBigInt(userBetForThisMatch.stake_in_match_pool ?? '0')) / 1e12).toFixed(1)
-                      } VARA</b>
+                      <b>{formatToken(userBetForThisMatch.stake_in_match_pool ?? '0')} VARA</b>
                     </div>
                     <div className="sideRow">
                       <span className="dim">Status</span>

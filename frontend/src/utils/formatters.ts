@@ -22,15 +22,11 @@ export function safeBigInt(input: unknown): bigint {
 }
 
 /**
- * Format planck amount to VARA with full precision.
- * e.g. 17000000000000n → "17"
+ * Format planck amount to VARA with 2 decimal places.
+ * e.g. 17000000000000n -> "17.00"
  */
 export function formatVara(planck: bigint | string | number): string {
-  const bn = safeBigInt(planck);
-  const divisor = BigInt(10) ** BigInt(VARA_DECIMALS);
-  const intVal = bn / divisor;
-  const frac = (bn % divisor).toString().padStart(VARA_DECIMALS, '0').replace(/0+$/, '');
-  return frac ? `${intVal.toString()}.${frac}` : intVal.toString();
+  return formatVaraCompact(planck);
 }
 
 /**
@@ -75,10 +71,8 @@ export function formatPoolAmount(val: unknown, decimals = VARA_DECIMALS): string
   try {
     const bn = typeof val === 'bigint' ? val : BigInt(val as string | number);
     if (bn === 0n) return '—';
-    const divisor = BigInt(10) ** BigInt(decimals);
-    const intVal = bn / divisor;
-    const frac = (bn % divisor).toString().padStart(decimals, '0').replace(/0+$/, '');
-    return frac ? `${intVal.toString()}.${frac}` : intVal.toString();
+    const vara = Number(bn) / 10 ** decimals;
+    return vara.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } catch {
     return '—';
   }

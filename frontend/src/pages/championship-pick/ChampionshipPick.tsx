@@ -113,6 +113,11 @@ function toPlanck(amount: number): bigint {
   return BigInt(integer || '0') * VARA_PLANCK + BigInt(planckFraction || '0');
 }
 
+function formatVaraAmount(amount: number): string {
+  const value = Number.isFinite(amount) ? amount : 0;
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function ChampionshipPick() {
   const navigate = useNavigate();
   const { account } = useAccount();
@@ -213,7 +218,7 @@ export function ChampionshipPick() {
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
     if (stakeBelowMinimum) return minimumBet.shortLabel;
-    return `Submit Championship Pick (${stakeAmountNumber || 0} VARA)`;
+    return `Submit Championship Pick (${formatVaraAmount(stakeAmountNumber)} VARA)`;
   }, [account, complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
 
   function updatePick(key: PickKey, team: string) {
