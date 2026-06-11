@@ -33,7 +33,7 @@ if (!globalThis.crypto) {
         entities: [GaslessProgram, Voucher, IpTrancheUsage],
         // synchronize:true is safe for initial dev/deploy. Disable for production
         // once the schema is stable and switch to explicit migrations.
-        synchronize: process.env.NODE_ENV !== 'production',
+        synchronize: process.env.NODE_ENV !== 'production' || process.env.DB_SYNCHRONIZE === 'true',
       }),
       inject: [ConfigService],
     }),
