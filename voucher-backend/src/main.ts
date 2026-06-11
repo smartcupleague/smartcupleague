@@ -19,6 +19,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://smartcupleague.com',
+      'https://www.smartcupleague.com',
       'https://app.smartcupleague.com',
       ...(isDev ? ['http://localhost:3000', 'http://localhost:5173'] : []),
     ],
