@@ -189,8 +189,9 @@ export async function withVoucherSignAndSend(params: {
 
   try {
     return await buildAndSend(firstId);
-  } catch {
+  } catch (err1) {
     // Voucher attempt failed. Invalidate + top-up + retry.
+    console.error('[withVoucherSignAndSend] attempt 1 (voucher) failed:', err1);
     invalidateVoucher();
 
     let secondId: string | null = null;
@@ -204,8 +205,9 @@ export async function withVoucherSignAndSend(params: {
       try {
         // Attempt 2: fresh voucher
         return await buildAndSend(secondId);
-      } catch {
+      } catch (err2) {
         // Attempt 3: fallback without voucher (blind retry, design §7)
+        console.error('[withVoucherSignAndSend] attempt 2 (fresh voucher) failed:', err2);
         return buildAndSend(null);
       }
     }
