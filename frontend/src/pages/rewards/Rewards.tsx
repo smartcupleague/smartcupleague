@@ -27,7 +27,7 @@ function getRewardsApiBase() {
 
 const REWARDS_API_BASE = getRewardsApiBase();
 const SMARTCUP_X_URL = 'https://x.com/smartcupleague';
-const SMARTCUP_APP_URL = 'https://app.smartcupleague.com/';
+const SMARTCUP_APP_URL = 'smartcupleague.com';
 
 type XTask = {
   taskType: 'repost' | 'post';
@@ -110,7 +110,7 @@ function taskCopy(taskType: XTask['taskType']) {
     };
   }
   return {
-    title: 'Make a SmartCupLeague post',
+    title: 'Make a SmartCup League post',
     meta: 'Publish a SmartCup campaign post, then paste your published X URL.',
     action: 'Open X draft',
   };
@@ -126,13 +126,13 @@ function getXTaskTemplate(taskType: XTask['taskType']) {
   }
 
   return [
-    'I am joining SmartCup League on Vara.',
+    'I am joining SmartCup League on Vara! 🏆',
     '',
     'Set your agent, make football predictions, and compete through tournament leaderboards for the best takes.',
     '',
     SMARTCUP_APP_URL,
     '',
-    '#SmartCupLeague #VaraNetwork',
+    '#SmartCupLeague #VaraNetwork #WorldCup #Predictions',
   ].join('\n');
 }
 
@@ -367,7 +367,7 @@ export function Rewards() {
             <div className="rewards-panel__head">
               <div>
                 <h2>Referrals</h2>
-                <p>Invite a friend. Earn freebet after 5 bets.</p>
+                <p>Invite a friend. Earn freebet after 5 predictions.</p>
               </div>
               <FaUserFriends aria-hidden="true" />
             </div>
