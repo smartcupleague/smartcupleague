@@ -3,6 +3,7 @@ import { useAccount, useApi } from '@gear-js/react-hooks';
 import { Link, useNavigate } from 'react-router-dom';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { TransactionBuilder } from 'sails-js';
+import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 import { GetVaraModal } from '@/components/get-vara';
@@ -117,6 +118,7 @@ export function ChampionshipPick() {
   const { account } = useAccount();
   const { api, isApiReady } = useApi();
   const toast = useToast();
+  const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
   const { varaToUsd } = useVaraPrice();
   const podiumPick = usePodiumPick();
 
@@ -321,12 +323,6 @@ export function ChampionshipPick() {
 
     try {
       setSubmitting(true);
-      const svc = new Service(new Program(api, PROGRAM_ID));
-      const tx: TransactionBuilder<unknown> = (svc as any).submitPodiumPick(
-        picks.champion,
-        picks.runnerUp,
-        picks.thirdPlace,
-      );
 
       const source = account.meta?.source;
       if (!source) throw new Error('Wallet source unavailable');
@@ -334,10 +330,22 @@ export function ChampionshipPick() {
       if (!extensions.length) throw new Error('Wallet extension access was not granted');
       const { signer } = await web3FromSource(source);
 
-      tx.withAccount(account.decodedAddress, { signer }).withValue(stakeValuePlanck);
-      await tx.calculateGas();
+      const txFactory: TxFactory = () =>
+        (new Service(new Program(api, PROGRAM_ID)) as any).submitPodiumPick(
+          picks.champion,
+          picks.runnerUp,
+          picks.thirdPlace,
+        );
 
-      const { blockHash, response } = await tx.signAndSend();
+      const { blockHash, response } = await withVoucherSignAndSend({
+        txFactory,
+        account: account.decodedAddress,
+        signerOptions: { signer },
+        value: stakeValuePlanck,
+        ensureVoucher,
+        invalidateVoucher,
+        // uses default calculateGas() — no extra params
+      });
       toast.info(`Championship Pick included in block ${blockHash}`);
       await response();
 
@@ -350,7 +358,7 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
 
   return (
     <div className="cpArena">

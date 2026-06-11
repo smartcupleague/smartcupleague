@@ -7,6 +7,7 @@ import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 import { HexString } from '@gear-js/api';
 import { TransactionBuilder } from 'sails-js';
+import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
 import { Program as CoreProgram, Service as CoreService } from '@/hocs/lib';
 import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
@@ -226,6 +227,7 @@ export default function Home() {
   const toast = useToast();
   const { account } = useAccount();
   const navigate = useNavigate();
+  const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
 
   const myWalletHex = useMemo(() => {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
@@ -757,15 +759,21 @@ export default function Home() {
       const source = account.meta?.source;
       if (!source) throw new Error('Wallet source unavailable');
 
-      const svc = new CoreService(coreProgram);
-      const tx = (svc as any).claimFinalPrize() as TransactionBuilder<unknown>;
-
       const injector = await web3FromSource(source);
-      tx.withAccount(account.decodedAddress, { signer: injector.signer });
 
-      await tx.calculateGas();
+      // coreProgram is stable (from component scope) — safe to capture in closure
+      const txFactory: TxFactory = () =>
+        (new CoreService(coreProgram) as any).claimFinalPrize();
 
-      const { blockHash, response } = await tx.signAndSend();
+      const { blockHash, response } = await withVoucherSignAndSend({
+        txFactory,
+        account: account.decodedAddress,
+        signerOptions: { signer: injector.signer },
+        value: 0n,
+        ensureVoucher,
+        invalidateVoucher,
+        // uses default calculateGas() — no extra params
+      });
       toast.success(`Claim tx submitted: ${blockHash}`);
 
       await response();
@@ -788,6 +796,8 @@ export default function Home() {
     claimablePrizeBn,
     fetchCoreState,
     fetchFinalPrizeClaimStatus,
+    ensureVoucher,
+    invalidateVoucher,
   ]);
 
   return (

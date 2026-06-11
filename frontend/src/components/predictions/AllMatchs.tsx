@@ -6,6 +6,7 @@ import { Program, Service } from '@/hocs/lib';
 import { useNavigate } from 'react-router-dom';
 import { TransactionBuilder } from 'sails-js';
 import { useToast } from '@/hooks/useToast';
+import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
 import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
@@ -291,6 +292,7 @@ export const MatchesTableComponent: React.FC = () => {
   const { api, isApiReady } = useApi();
   const { account } = useAccount();
   const toast = useToast();
+  const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -561,12 +563,8 @@ export const MatchesTableComponent: React.FC = () => {
 
       try {
         setClaimLoadingId(matchId);
-        const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-
-        const tx: TransactionBuilder<unknown> = (svc as any).claimMatchReward(BigInt(matchId));
 
         const { signer } = await web3FromSource(account.meta.source);
-        tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
 
         // Snapshot balance before claim to compute the earned amount
         let balanceBefore = 0n;
@@ -575,8 +573,18 @@ export const MatchesTableComponent: React.FC = () => {
           balanceBefore = BigInt(raw.toString());
         } catch { /* non-fatal */ }
 
-        await tx.calculateGas(false, 50);
-        const { blockHash, response } = await tx.signAndSend();
+        const txFactory: TxFactory = () =>
+          (new Service(new Program(api, PROGRAM_ID as HexString)) as any).claimMatchReward(BigInt(matchId));
+
+        const { blockHash, response } = await withVoucherSignAndSend({
+          txFactory,
+          account: account.decodedAddress,
+          signerOptions: { signer },
+          value: 0n,
+          ensureVoucher,
+          invalidateVoucher,
+          calculateGas: (tx) => tx.calculateGas(false, 50),
+        });
         toast.info(`Claim included in block ${blockHash}`);
         await response();
         toast.success('Reward claimed ✅');
@@ -597,7 +605,7 @@ export const MatchesTableComponent: React.FC = () => {
         setClaimLoadingId(null);
       }
     },
-    [api, isApiReady, account, toast, fetchMatches],
+    [api, isApiReady, account, toast, fetchMatches, ensureVoucher, invalidateVoucher],
   );
 
   return (

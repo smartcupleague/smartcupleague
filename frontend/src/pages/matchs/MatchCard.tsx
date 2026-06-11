@@ -9,6 +9,7 @@ import { FreebetLedgerProgram } from '@/hocs/freebetLedger';
 import { TransactionBuilder } from 'sails-js';
 import { useToast } from '@/hooks/useToast';
 import { FREEBET_BALANCE_CHANGED_EVENT, useFreebetBalance } from '@/hooks/useFreebetBalance';
+import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
 import './matchcard.css';
 import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
@@ -437,6 +438,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [loadingUserBet, setLoadingUserBet] = useState<boolean>(false);
   const [poolStats, setPoolStats] = useState<MatchPoolStats | null>(null);
   const onChainMinimumBet = useDynamicMinimumBet(state);
+  const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
   const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
@@ -888,35 +890,41 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     try {
       setTxLoadingBet(true);
 
-      const tx: TransactionBuilder<unknown> = isFreebetBet
-        ? new FreebetLedgerProgram(api, FREEBET_LEDGER_ID as HexString).service.spendFreebet(
-            PROGRAM_ID as HexString,
-            BigInt(match.match_id),
-            betValuePlanck,
-            { home: h, away: a },
-            penaltyWinnerToSend,
-          )
-        : (new Service(new Program(api, PROGRAM_ID as HexString)) as any).placeBet(
-            BigInt(match.match_id),
-            { home: h, away: a },
-            penaltyWinnerToSend,
-          );
-
       const extensions = await web3Enable('SmartCup League');
       if (!extensions.length) throw new Error('Wallet extension access was not granted');
       const { signer } = await web3FromSource(account.meta.source);
 
-      if (betCurrency === 'VARA') {
-        tx.withAccount(account.decodedAddress, { signer }).withValue(betValuePlanck);
-      } else if (isFreebetBet) {
-        tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
-      } else {
-        tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
+      // value derived from currency/freebet path (identical logic as before)
+      const value = betCurrency === 'VARA' ? betValuePlanck : 0n;
+      if (betCurrency !== 'VARA' && !isFreebetBet) {
         toast.info(`Selected ${betCurrency}. You may need an ERC20-like approve/transfer flow.`);
       }
 
-      await tx.calculateGas(false, 50);
-      const { blockHash, response } = await tx.signAndSend();
+      // Factory: reconstructs a fresh TransactionBuilder on every call (required for retry)
+      const txFactory: TxFactory = () =>
+        isFreebetBet
+          ? new FreebetLedgerProgram(api, FREEBET_LEDGER_ID as HexString).service.spendFreebet(
+              PROGRAM_ID as HexString,
+              BigInt(match.match_id),
+              betValuePlanck,
+              { home: h, away: a },
+              penaltyWinnerToSend,
+            )
+          : (new Service(new Program(api, PROGRAM_ID as HexString)) as any).placeBet(
+              BigInt(match.match_id),
+              { home: h, away: a },
+              penaltyWinnerToSend,
+            );
+
+      const { blockHash, response } = await withVoucherSignAndSend({
+        txFactory,
+        account: account.decodedAddress,
+        signerOptions: { signer },
+        value,
+        ensureVoucher,
+        invalidateVoucher,
+        calculateGas: (tx) => tx.calculateGas(false, 50),
+      });
 
       toast.info(`Prediction included in block ${blockHash}`);
       await response();
@@ -985,6 +993,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     refetchFreebetBalance,
     isKnockout,
     hasExistingBet,
+    ensureVoucher,
+    invalidateVoucher,
   ]);
 
   const handleClaim = useCallback(async () => {
@@ -1018,13 +1028,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     try {
       setTxLoadingClaim(true);
 
-      const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const tx: TransactionBuilder<unknown> = (svc as any).claimMatchReward(BigInt(match.match_id));
-
       const extensions = await web3Enable('SmartCup League');
       if (!extensions.length) throw new Error('Wallet extension access was not granted');
       const { signer } = await web3FromSource(account.meta.source);
-      tx.withAccount(account.decodedAddress, { signer }).withValue(0n);
 
       let balanceBefore = 0n;
       try {
@@ -1032,8 +1038,18 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         balanceBefore = BigInt(raw.toString());
       } catch { /* non-fatal; DB report can fall back to deterministic amount */ }
 
-      await tx.calculateGas();
-      const { blockHash, response } = await tx.signAndSend();
+      const txFactory: TxFactory = () =>
+        (new Service(new Program(api, PROGRAM_ID as HexString)) as any).claimMatchReward(BigInt(match.match_id));
+
+      const { blockHash, response } = await withVoucherSignAndSend({
+        txFactory,
+        account: account.decodedAddress,
+        signerOptions: { signer },
+        value: 0n,
+        ensureVoucher,
+        invalidateVoucher,
+        // uses default calculateGas() — no extra params
+      });
 
       toast.info(`Claim included in block ${blockHash}`);
       await response();
@@ -1069,7 +1085,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     } finally {
       setTxLoadingClaim(false);
     }
-  }, [match, account, api, isApiReady, toast, fetchState, fetchUserBetForMatch, claimableBn, userBetScore, chainResult]);
+  }, [match, account, api, isApiReady, toast, fetchState, fetchUserBetForMatch, claimableBn, userBetScore, chainResult, ensureVoucher, invalidateVoucher]);
 
   const sincePredictedTop = useMemo(() => {
     if (!match) return 'Your prediction: —';

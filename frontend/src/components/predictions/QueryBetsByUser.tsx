@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/useToast';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { TransactionBuilder } from 'sails-js';
+import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
@@ -362,6 +363,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
   const { account } = useAccount();
   const toast = useToast();
   const { api, isApiReady } = useApi();
+  const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
   const { planckToUsd } = useVaraPrice();
 
   const [bets, setBets] = useState<ContractUserBetView[] | null>(null);
@@ -747,14 +749,21 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
       setClaimingByMatch((p) => ({ ...p, [matchId]: true }));
       try {
-        const svc = new Service(new Program(api, programId));
-        const tx: TransactionBuilder<unknown> = (svc as any).claimMatchReward(matchId);
-
         const injector = await web3FromSource(account.meta.source);
-        tx.withAccount(account.decodedAddress, { signer: injector.signer });
 
-        await tx.calculateGas(false, 50);
-        const { blockHash, response } = await tx.signAndSend();
+        // Factory reconstructs svc+tx fresh on every call (required for voucher retry)
+        const txFactory: TxFactory = () =>
+          (new Service(new Program(api, programId)) as any).claimMatchReward(matchId);
+
+        const { blockHash, response } = await withVoucherSignAndSend({
+          txFactory,
+          account: account.decodedAddress,
+          signerOptions: { signer: injector.signer },
+          value: 0n,
+          ensureVoucher,
+          invalidateVoucher,
+          calculateGas: (tx) => tx.calculateGas(false, 50),
+        });
 
         toast.info(`Transaction included in block ${blockHash}`);
         await response();
@@ -781,7 +790,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
         setClaimingByMatch((p) => ({ ...p, [matchId]: false }));
       }
     },
-    [api, isApiReady, account, toast, fetchBets, fetchState, fetchPoolStats, hasProgramId, programId],
+    [api, isApiReady, account, toast, fetchBets, fetchState, fetchPoolStats, hasProgramId, programId, ensureVoucher, invalidateVoucher],
   );
 
   const claimRefund = useCallback(async () => {
@@ -790,14 +799,20 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
     setClaimingRefund(true);
     try {
-      const svc = new Service(new Program(api, programId));
-      const tx: TransactionBuilder<unknown> = (svc as any).claimRefund();
-
       const injector = await web3FromSource(account.meta.source);
-      tx.withAccount(account.decodedAddress, { signer: injector.signer });
 
-      await tx.calculateGas();
-      const { blockHash, response } = await tx.signAndSend();
+      const txFactory: TxFactory = () =>
+        (new Service(new Program(api, programId)) as any).claimRefund();
+
+      const { blockHash, response } = await withVoucherSignAndSend({
+        txFactory,
+        account: account.decodedAddress,
+        signerOptions: { signer: injector.signer },
+        value: 0n,
+        ensureVoucher,
+        invalidateVoucher,
+        // uses default calculateGas() — no extra params
+      });
 
       toast.info(`Refund tx included in block ${blockHash}`);
       await response();
@@ -813,7 +828,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     } finally {
       setClaimingRefund(false);
     }
-  }, [api, isApiReady, account, pendingRefund, toast, fetchPendingRefund, fetchBets, fetchState, fetchPoolStats, hasProgramId, programId]);
+  }, [api, isApiReady, account, pendingRefund, toast, fetchPendingRefund, fetchBets, fetchState, fetchPoolStats, hasProgramId, programId, ensureVoucher, invalidateVoucher]);
 
   return (
     <div className="mpShell">
