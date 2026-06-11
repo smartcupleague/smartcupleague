@@ -32,6 +32,8 @@ services:
         value: vara-network
       - key: PRICE_CACHE_TTL_SECONDS
         value: 300
+      - key: INDEXER_GRAPHQL_URL
+        sync: false
 
   - type: web
     name: smartcupleague-oracle

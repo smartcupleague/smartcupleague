@@ -145,6 +145,8 @@ async function fetchFromIndexer(
           nodes {
             id
             totalPoints
+            exactCount
+            outcomeCount
             totalBets
             totalClaimedRaw
           }
@@ -193,8 +195,8 @@ async function fetchFromIndexer(
         displayName: apiRow?.display_name ?? (isConnectedWallet ? connectedProfile.displayName : null),
         totalPoints: Number(u.totalPoints ?? 0),
         matches: apiRow?.matches_count ?? Number(u.totalBets ?? 0),
-        exact: apiRow?.exact_count ?? 0,
-        outcomes: apiRow?.outcome_count ?? 0,
+        exact: Number(u.exactCount ?? apiRow?.exact_count ?? 0),
+        outcomes: Number(u.outcomeCount ?? apiRow?.outcome_count ?? 0),
       };
     });
 

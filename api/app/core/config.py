@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Cache
     PRICE_CACHE_TTL_SECONDS: int = 300  # 5 minutes
 
+    # Optional indexer GraphQL endpoint used to enrich leaderboard accuracy.
+    INDEXER_GRAPHQL_URL: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

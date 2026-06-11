@@ -21,7 +21,7 @@ def _get_leaderboard_service(request: Request) -> LeaderboardService:
     summary="Get global leaderboard",
     description=(
         "Returns per-wallet stats: matches predicted, exact score predictions, "
-        "correct outcome claims, and total VARA claimed (in planck units). "
+        "correct outcome predictions, and total VARA claimed (in planck units). "
         "Points come from the on-chain contract."
     ),
 )

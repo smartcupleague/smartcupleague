@@ -66,6 +66,23 @@ function toNumericString(value: bigint | number | string): string {
   return toBigInt(value).toString();
 }
 
+function normalizePenaltyWinner(value: string | null | undefined): "Home" | "Away" | null {
+  if (!value) return null;
+  const normalized = String(value).toLowerCase();
+  if (normalized === "home") return "Home";
+  if (normalized === "away") return "Away";
+  return null;
+}
+
+function scoreOutcome(scoreHome: number, scoreAway: number, penaltyWinner?: string | null): "home" | "draw" | "away" {
+  if (scoreHome > scoreAway) return "home";
+  if (scoreHome < scoreAway) return "away";
+  const penalty = normalizePenaltyWinner(penaltyWinner);
+  if (penalty === "Home") return "home";
+  if (penalty === "Away") return "away";
+  return "draw";
+}
+
 // ---- Handler ----
 
 export class BolaoHandler extends BaseHandler {
@@ -250,7 +267,7 @@ export class BolaoHandler extends BaseHandler {
         break;
 
       case "ResultFinalized":
-        this.onResultFinalized(payload as ResultFinalizedPayload, timestamp);
+        await this.onResultFinalized(payload as ResultFinalizedPayload, timestamp);
         break;
 
       case "SettlementPrepared":
@@ -369,10 +386,10 @@ export class BolaoHandler extends BaseHandler {
     }
   }
 
-  private onResultFinalized(
+  private async onResultFinalized(
     [matchId, score, penaltyWinner]: ResultFinalizedPayload,
     timestamp: Date
-  ) {
+  ): Promise<void> {
     const mId = toNumericString(matchId);
     const match = this.matches.get(mId);
     if (match) {
@@ -382,6 +399,7 @@ export class BolaoHandler extends BaseHandler {
       match.penaltyWinner = penaltyWinner;
       match.updatedAt = timestamp;
     }
+    await this.projectAccuracyForMatch(mId, score, penaltyWinner, timestamp);
   }
 
   private onSettlementPrepared(
@@ -524,6 +542,8 @@ export class BolaoHandler extends BaseHandler {
       addBet?: boolean;
       addStake?: bigint;
       addPoints?: number;
+      addExact?: number;
+      addOutcome?: number;
       addClaimed?: bigint;
       addFinalPrize?: bigint;
       addRefund?: bigint;
@@ -536,6 +556,8 @@ export class BolaoHandler extends BaseHandler {
       stat.totalBets = 0;
       stat.totalStakedRaw = "0";
       stat.totalPoints = 0;
+      stat.exactCount = 0;
+      stat.outcomeCount = 0;
       stat.totalClaimedRaw = "0";
       stat.finalPrizeClaimedRaw = "0";
       stat.totalRefundClaimedRaw = "0";
@@ -545,6 +567,8 @@ export class BolaoHandler extends BaseHandler {
     if (delta.addStake !== undefined)
       stat.totalStakedRaw = (BigInt(stat.totalStakedRaw) + delta.addStake).toString();
     if (delta.addPoints !== undefined) stat.totalPoints += delta.addPoints;
+    if (delta.addExact !== undefined) stat.exactCount = (stat.exactCount ?? 0) + delta.addExact;
+    if (delta.addOutcome !== undefined) stat.outcomeCount = (stat.outcomeCount ?? 0) + delta.addOutcome;
     if (delta.addClaimed !== undefined)
       stat.totalClaimedRaw = (BigInt(stat.totalClaimedRaw) + delta.addClaimed).toString();
     if (delta.addFinalPrize !== undefined)
@@ -553,6 +577,46 @@ export class BolaoHandler extends BaseHandler {
       stat.totalRefundClaimedRaw = (BigInt(stat.totalRefundClaimedRaw ?? "0") + delta.addRefund).toString();
     stat.updatedAt = timestamp;
     this.touchedUserIds.add(userId);
+  }
+
+  private async projectAccuracyForMatch(
+    matchId: string,
+    finalScore: ScorePayload,
+    finalPenaltyWinner: PenaltyWinner | null,
+    timestamp: Date
+  ): Promise<void> {
+    const dbBets = await this._ctx.store.find(Bet, {
+      where: { matchId },
+    });
+    const betsById = new Map<string, Bet>();
+    for (const bet of dbBets) betsById.set(bet.id, bet);
+    for (const bet of this.bets.values()) {
+      if (bet.matchId === matchId) betsById.set(bet.id, bet);
+    }
+
+    const bets = [...betsById.values()];
+    if (!bets.length) return;
+
+    const usersToLoad = new Set<string>();
+    for (const bet of bets) {
+      if (!this.userStats.has(bet.user)) usersToLoad.add(bet.user);
+    }
+    if (usersToLoad.size) {
+      const existing = await this._ctx.store.find(UserStat, {
+        where: { id: In([...usersToLoad]) },
+      });
+      for (const stat of existing) this.userStats.set(stat.id, stat);
+    }
+
+    const finalOutcome = scoreOutcome(finalScore.home, finalScore.away, finalPenaltyWinner);
+    for (const bet of bets) {
+      const exact = bet.scoreHome === finalScore.home && bet.scoreAway === finalScore.away;
+      const betOutcome = scoreOutcome(bet.scoreHome, bet.scoreAway, bet.penaltyWinner);
+      this.touchUser(bet.user, timestamp, {
+        addExact: exact ? 1 : 0,
+        addOutcome: exact || betOutcome === finalOutcome ? 1 : 0,
+      });
+    }
   }
 
   async save(): Promise<void> {

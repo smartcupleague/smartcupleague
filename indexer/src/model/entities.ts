@@ -108,6 +108,12 @@ export class UserStat {
   @Column("int", { default: 0 })
   totalPoints!: number;
 
+  @Column("int", { default: 0 })
+  exactCount!: number;
+
+  @Column("int", { default: 0 })
+  outcomeCount!: number;
+
   @Column("numeric", { default: "0" })
   totalClaimedRaw!: string;
 

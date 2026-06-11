@@ -38,6 +38,8 @@ type UserStat @entity {
   totalBets: Int!
   totalStakedRaw: String!
   totalPoints: Int!
+  exactCount: Int!
+  outcomeCount: Int!
   totalClaimedRaw: String!
   finalPrizeClaimedRaw: String!
   totalRefundClaimedRaw: String!

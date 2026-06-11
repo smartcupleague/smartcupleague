@@ -1,6 +1,8 @@
 
 import logging
 
+import httpx
+
 from app.repositories.leaderboard_repository import LeaderboardRepository
 from app.schemas.leaderboard import (
     LeaderboardEntry,
@@ -12,6 +14,7 @@ logger = logging.getLogger(__name__)
 _ZERO = "0"
 MATCH_POOL_BPS = 8500
 BPS_DENOMINATOR = 10000
+INDEXER_TIMEOUT_SECONDS = 5.0
 
 
 def _safe_str(val) -> str:
@@ -30,8 +33,9 @@ def _derive_match_pool_amount(amount_planck: str) -> str:
 
 
 class LeaderboardService:
-    def __init__(self, repository: LeaderboardRepository) -> None:
+    def __init__(self, repository: LeaderboardRepository, indexer_graphql_url: str = "") -> None:
         self._repo = repository
+        self._indexer_graphql_url = indexer_graphql_url.strip()
 
     # ── Commands ──────────────────────────────────────────────────────────────
 
@@ -90,6 +94,7 @@ class LeaderboardService:
 
     async def get_leaderboard(self, limit: int = 500) -> list[LeaderboardEntry]:
         rows = await self._repo.get_leaderboard(limit=limit)
+        rows = await self._merge_indexer_accuracy(rows, limit=limit)
         result: list[LeaderboardEntry] = []
         for row in rows:
             try:
@@ -107,6 +112,64 @@ class LeaderboardService:
             except Exception as exc:
                 logger.warning("Skipping malformed leaderboard row: %s — %s", row, exc)
         return result
+
+    async def _merge_indexer_accuracy(self, rows: list[dict], limit: int) -> list[dict]:
+        if not self._indexer_graphql_url:
+            return rows
+
+        query = """
+        query LeaderboardAccuracy($first: Int!) {
+          userStats(orderBy: TOTAL_POINTS_DESC, first: $first) {
+            nodes {
+              id
+              totalBets
+              exactCount
+              outcomeCount
+              totalClaimedRaw
+              updatedAt
+            }
+          }
+        }
+        """
+
+        try:
+            async with httpx.AsyncClient(timeout=INDEXER_TIMEOUT_SECONDS) as client:
+                response = await client.post(
+                    self._indexer_graphql_url,
+                    json={"query": query, "variables": {"first": limit}},
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Indexer leaderboard enrichment failed: %s", exc)
+            return rows
+
+        if payload.get("errors"):
+            logger.warning("Indexer leaderboard enrichment GraphQL errors: %s", payload.get("errors"))
+            return rows
+
+        nodes = payload.get("data", {}).get("userStats", {}).get("nodes") or []
+        by_wallet = {str(row.get("wallet_address", "")).lower(): dict(row) for row in rows}
+
+        for node in nodes:
+            wallet = str(node.get("id") or "").lower()
+            if not wallet:
+                continue
+
+            existing = by_wallet.get(wallet, {"wallet_address": wallet})
+            existing["matches_count"] = max(
+                int(existing.get("matches_count") or 0),
+                int(node.get("totalBets") or 0),
+            )
+            existing["exact_count"] = int(node.get("exactCount") or 0)
+            existing["outcome_count"] = int(node.get("outcomeCount") or 0)
+            existing["total_claimed_planck"] = _safe_str(
+                existing.get("total_claimed_planck") or node.get("totalClaimedRaw")
+            )
+            existing["updated_at"] = existing.get("updated_at") or node.get("updatedAt")
+            by_wallet[wallet] = existing
+
+        return list(by_wallet.values())[:limit]
 
     async def get_pool_stats(self, match_id: str) -> MatchPoolStats | None:
         row = await self._repo.get_pool_stats(match_id)

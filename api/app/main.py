@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── Leaderboard service ────────────────────────────────────────────────
     lb_repo = LeaderboardRepository(supabase)
-    lb_service = LeaderboardService(repository=lb_repo)
+    lb_service = LeaderboardService(repository=lb_repo, indexer_graphql_url=settings.INDEXER_GRAPHQL_URL)
     app.state.leaderboard_service = lb_service
     logger.info("LeaderboardService ready")
 
