@@ -1107,22 +1107,24 @@ export const QueryBetsByUserComponent: React.FC = () => {
                       (realBn > 0n || hasFreebetPrincipalToReturn) &&
                       !matchCancelled;
 
+                    const isClaiming = !!claimingByMatch[Number(b.match_id)];
+
                     const statusLabelText = matchCancelled
                       ? 'Cancelled'
                       : claimed
                         ? 'Claimed'
-                        : matchFinal
-                          ? 'Finalized'
-                          : 'Pending';
+                        : canClaim
+                          ? 'Ready to claim'
+                          : matchFinal
+                            ? 'Finalized'
+                            : 'Pending';
                     const statusTone = matchCancelled
                       ? 'muted'
-                      : claimed
+                      : claimed || canClaim
                         ? 'ok'
                         : matchFinal
                           ? 'final'
                           : 'muted';
-
-                    const isClaiming = !!claimingByMatch[Number(b.match_id)];
 
                     const claimTitle = matchCancelled
                       ? 'Match cancelled — claim your refund from the banner above'
@@ -1212,23 +1214,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
                         </div>
 
                         <div className="mpCenter">
-                          {canClaim ? (
-                            <button
-                              className="mpClaim is-ready"
-                              disabled={isClaiming}
-                              title={claimTitle}
-                              onClick={() => claim(Number(b.match_id))}
-                              type="button">
-                              <span className="mpClaim__dot" aria-hidden="true" />
-                              {isClaiming
-                                ? 'Claiming…'
-                                : hasFreebetPrincipalToReturn && walletRealBn <= 0n
-                                  ? 'Return freebet'
-                                  : 'Claim'}
-                            </button>
-                          ) : (
-                            <span className={'mpStatus mpStatus--' + statusTone}>{statusLabelText}</span>
-                          )}
+                          <span className={'mpStatus mpStatus--' + statusTone}>{statusLabelText}</span>
                         </div>
 
                         <div className="mpCenter">
