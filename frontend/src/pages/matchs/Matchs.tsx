@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './match.css';
 import { MatchCard, BreakdownData } from './MatchCard';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { HexString } from '@gear-js/api';
-import { GetVaraModal } from '@/components/get-vara';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { AppFooter } from '@/components/layout/footer/AppFooter';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 
@@ -596,16 +596,7 @@ function Match() {
           </div>
 
 
-          <footer className="match-footer">
-            <span>© 2026 SmartCup League</span>
-            <span className="match-footer__sep">·</span>
-            <Link to="/terms-of-use" className="match-footer__link">Terms of Use</Link>
-            <span className="match-footer__sep">·</span>
-            <Link to="/rules" className="match-footer__link">Rules</Link>
-            <span className="match-footer__sep">·</span>
-            <Link to="/dao-constitution" className="match-footer__link">DAO Constitution</Link>
-          </footer>
-          <GetVaraModal placement="floating" />
+          <AppFooter className="match-footer" />
       </div>
     </div>
   );
