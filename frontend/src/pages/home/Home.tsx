@@ -3,8 +3,6 @@ import './dashboard.css';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { useToast } from '@/hooks/useToast';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
-import { decodeAddress } from '@polkadot/util-crypto';
-import { u8aToHex } from '@polkadot/util';
 import { HexString } from '@gear-js/api';
 import { TransactionBuilder } from 'sails-js';
 import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
@@ -12,14 +10,19 @@ import { Program as CoreProgram, Service as CoreService } from '@/hocs/lib';
 import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { useNavigate } from 'react-router-dom';
 import {
   TOURNAMENT_TAB_ORDER,
   WORLD_CUP_2026_TOURNAMENT,
+  addressKey,
+  getAddressMapValue,
   getTournamentByKey,
   isWCPhase,
   matchPath,
+  setAddressMapValue,
+  toHexAddress,
 } from '@/utils';
 
 const CORE_PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
@@ -94,19 +97,6 @@ function shortHex(addr: string) {
   if (!addr) return '-';
   if (!addr.startsWith('0x') || addr.length < 16) return addr;
   return addr.slice(0, 6) + '…' + addr.slice(-4);
-}
-
-function toHexAddress(input?: string | null): `0x${string}` | null {
-  if (!input) return null;
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('0x')) return trimmed.toLowerCase() as `0x${string}`;
-  try {
-    const u8a = decodeAddress(trimmed);
-    return u8aToHex(u8a).toLowerCase() as `0x${string}`;
-  } catch {
-    return null;
-  }
 }
 
 function safeBigInt(input: unknown): bigint {
@@ -226,6 +216,7 @@ export default function Home() {
   const { api, isApiReady } = useApi();
   const toast = useToast();
   const { account } = useAccount();
+  const { displayName: connectedDisplayName } = useWalletProfile();
   const navigate = useNavigate();
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
 
@@ -366,7 +357,7 @@ export default function Home() {
       const data = (await res.json()) as { rows?: ApiLeaderboardRow[] };
       const rows = data.rows ?? [];
       const row = myWalletHex
-        ? rows.find((item) => item.wallet_address.toLowerCase() === myWalletHex.toLowerCase())
+        ? rows.find((item) => addressKey(item.wallet_address) === myWalletHex.toLowerCase())
         : null;
       setApiLeaderboardRows(rows);
       setApiLeaderboardRow(row ?? null);
@@ -477,14 +468,14 @@ export default function Home() {
   const sortedLeaderboard = useMemo(() => {
     const pointsMap = new Map<string, number>();
     for (const [wallet, points] of coreState?.user_points ?? []) {
-      const key = String(wallet ?? '').toLowerCase();
+      const key = addressKey(String(wallet ?? ''));
       if (key) pointsMap.set(key, Number(points ?? 0));
     }
 
     const matchCountMap = new Map<string, number>();
     for (const match of activeMatches) {
       for (const participant of match.participants ?? []) {
-        const key = String(participant ?? '').toLowerCase();
+        const key = addressKey(String(participant ?? ''));
         if (!key) continue;
         matchCountMap.set(key, (matchCountMap.get(key) ?? 0) + 1);
         if (!pointsMap.has(key)) pointsMap.set(key, 0);
@@ -493,8 +484,7 @@ export default function Home() {
 
     const apiStatsMap = new Map<string, ApiLeaderboardRow>();
     for (const row of apiLeaderboardRows) {
-      const key = String(row.wallet_address ?? '').toLowerCase();
-      if (key) apiStatsMap.set(key, row);
+      setAddressMapValue(apiStatsMap, row.wallet_address, row);
     }
 
     const wallets = new Set<string>();
@@ -508,10 +498,11 @@ export default function Home() {
 
     return Array.from(wallets)
       .map((wallet) => {
-        const apiRow = apiStatsMap.get(wallet);
+        const apiRow = getAddressMapValue(apiStatsMap, wallet);
+        const isConnectedWallet = !!myWalletHex && addressKey(wallet) === myWalletHex.toLowerCase();
         return {
           wallet,
-          displayName: apiRow?.display_name ?? null,
+          displayName: apiRow?.display_name ?? (isConnectedWallet ? connectedDisplayName : null),
           points: pointsMap.get(wallet) ?? 0,
           matches: activeMatches.length ? matchCountMap.get(wallet) ?? 0 : apiRow?.matches_count ?? 0,
           exact: apiRow?.exact_count ?? 0,
@@ -519,7 +510,7 @@ export default function Home() {
         };
       })
       .sort((a, b) => (b.points !== a.points ? b.points - a.points : a.wallet.localeCompare(b.wallet)));
-  }, [activeMatches, apiLeaderboardRows, coreState?.user_points]);
+  }, [activeMatches, apiLeaderboardRows, connectedDisplayName, coreState?.user_points, myWalletHex]);
 
   const myRankInfo = useMemo(() => {
     const totalPlayers = sortedLeaderboard.length;

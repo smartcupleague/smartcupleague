@@ -1,25 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
-import { decodeAddress } from '@polkadot/util-crypto';
-import { u8aToHex } from '@polkadot/util';
+import { toHexAddress } from '@/utils/address';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
 
-function toHex(addr?: string | null): string | null {
-  if (!addr) return null;
-  const t = addr.trim();
-  if (!t) return null;
-  if (t.startsWith('0x')) return t.toLowerCase();
-  try {
-    return u8aToHex(decodeAddress(t)).toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
 export function useWalletProfile() {
   const { account } = useAccount();
-  const walletHex = toHex(account?.decodedAddress ?? (account as any)?.address ?? null);
+  const walletHex = toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? null);
 
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);

@@ -1,4 +1,5 @@
 import { isWorldCupPhase } from './tournaments';
+export { addressKey, getAddressMapValue, setAddressMapValue, toHexAddress } from './address';
 
 const copyToClipboard = (value: string) => navigator.clipboard.writeText(value).then(() => console.log('Copied!'));
 

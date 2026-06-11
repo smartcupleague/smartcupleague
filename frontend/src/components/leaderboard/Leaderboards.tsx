@@ -3,18 +3,21 @@ import './leaderboards.css';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { useToast } from '@/hooks/useToast';
 import { web3Enable } from '@polkadot/extension-dapp';
-import { decodeAddress } from '@polkadot/util-crypto';
-import { u8aToHex } from '@polkadot/util';
 import { Program, Service } from '@/hocs/lib';
 import { StyledWallet } from '../wallet/Wallet';
+import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { useNavigate } from 'react-router-dom';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import {
   TOURNAMENT_TAB_ORDER,
   WORLD_CUP_2026_TOURNAMENT,
+  addressKey,
+  getAddressMapValue,
   getTournamentByKey,
   isWCPhase,
   matchPath,
+  setAddressMapValue,
+  toHexAddress,
 } from '@/utils';
 import { UserProfileModal } from './UserProfileModal';
 import { TeamFlag } from '@/components/common/TeamFlag';
@@ -53,19 +56,6 @@ function shortHex(addr: string) {
   if (!addr) return '-';
   if (!addr.startsWith('0x') || addr.length < 16) return addr;
   return addr.slice(0, 6) + '…' + addr.slice(-4);
-}
-
-function toHexAddress(input?: string | null): `0x${string}` | null {
-  if (!input) return null;
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('0x')) return trimmed.toLowerCase() as `0x${string}`;
-  try {
-    const u8a = decodeAddress(trimmed);
-    return u8aToHex(u8a).toLowerCase() as `0x${string}`;
-  } catch {
-    return null;
-  }
 }
 
 function kickOffToMs(input: number) {
@@ -120,6 +110,11 @@ type IndexerResult = {
   upcomingMatches: any[];
 };
 
+type ConnectedProfileFallback = {
+  walletHex: string | null;
+  displayName: string | null;
+};
+
 /**
  * Try to load the leaderboard from the indexer (GraphQL).
  * Returns rows + upcoming matches sourced exclusively from the indexer.
@@ -132,7 +127,10 @@ type IndexerResult = {
  *   - GraphQL `errors` field present
  *   - Empty leaderboard (probably stale DB or wrong programId)
  */
-async function fetchFromIndexer(apiStats: Map<string, ApiStatsRow>): Promise<IndexerResult> {
+async function fetchFromIndexer(
+  apiStats: Map<string, ApiStatsRow>,
+  connectedProfile: ConnectedProfileFallback
+): Promise<IndexerResult> {
   if (!INDEXER_URL) {
     throw new Error('VITE_INDEXER_GRAPHQL_URL not set');
   }
@@ -186,12 +184,13 @@ async function fetchFromIndexer(apiStats: Map<string, ApiStatsRow>): Promise<Ind
 
     // Map UserStat → LbRow, enriched with /api/v1/leaderboard when available
     const rows: LbRow[] = userNodes.map((u) => {
-      const wallet = String(u.id ?? '').toLowerCase();
-      const apiRow = apiStats.get(wallet);
+      const wallet = addressKey(String(u.id ?? '')) ?? String(u.id ?? '').toLowerCase();
+      const apiRow = getAddressMapValue(apiStats, wallet);
+      const isConnectedWallet = !!connectedProfile.walletHex && addressKey(wallet) === connectedProfile.walletHex;
       return {
         rank: 0,
         wallet,
-        displayName: apiRow?.display_name ?? null,
+        displayName: apiRow?.display_name ?? (isConnectedWallet ? connectedProfile.displayName : null),
         totalPoints: Number(u.totalPoints ?? 0),
         matches: apiRow?.matches_count ?? Number(u.totalBets ?? 0),
         exact: apiRow?.exact_count ?? 0,
@@ -235,7 +234,7 @@ async function fetchApiStats(): Promise<Map<string, ApiStatsRow>> {
     if (!res.ok) return map;
     const data: { rows: ApiStatsRow[] } = await res.json();
     for (const row of data.rows ?? []) {
-      map.set(row.wallet_address.toLowerCase(), row);
+      setAddressMapValue(map, row.wallet_address, row);
     }
   } catch { /* API unavailable — empty map is fine */ }
   return map;
@@ -249,6 +248,7 @@ export default function Leaderboards() {
   const { api, isApiReady } = useApi();
   const toast = useToast();
   const { account } = useAccount();
+  const { displayName: connectedDisplayName } = useWalletProfile();
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LbRow[]>([]);
@@ -320,7 +320,10 @@ export default function Leaderboards() {
 
       // ── Path 1: indexer-first ─────────────────────────────────────────────
       try {
-        const { rows: idxRows, upcomingMatches: idxUpcoming } = await fetchFromIndexer(statsMap);
+        const { rows: idxRows, upcomingMatches: idxUpcoming } = await fetchFromIndexer(statsMap, {
+          walletHex: myWalletHex,
+          displayName: connectedDisplayName,
+        });
         setRows(idxRows);
         setUpcomingMatches(idxUpcoming);
         return;
@@ -337,7 +340,8 @@ export default function Leaderboards() {
       // Build a map of wallet → points
       const pointsMap = new Map<string, number>();
       for (const [wallet, pts] of points) {
-        if (wallet) pointsMap.set(String(wallet).toLowerCase(), Number(pts ?? 0));
+        const key = addressKey(String(wallet ?? ''));
+        if (key) pointsMap.set(key, Number(pts ?? 0));
       }
 
       // Build match count per wallet from participants lists
@@ -346,7 +350,7 @@ export default function Leaderboards() {
         for (const m of state.matches as any[]) {
           if (Array.isArray(m?.participants)) {
             for (const p of m.participants) {
-              const hw = String(p ?? '').toLowerCase();
+              const hw = addressKey(String(p ?? ''));
               if (hw) {
                 matchCountMap.set(hw, (matchCountMap.get(hw) ?? 0) + 1);
                 if (!pointsMap.has(hw)) pointsMap.set(hw, 0);
@@ -363,11 +367,12 @@ export default function Leaderboards() {
 
       const mapped: LbRow[] = Array.from(pointsMap.entries())
         .map(([wallet, totalPoints]) => {
-          const apiRow = statsMap.get(wallet);
+          const apiRow = getAddressMapValue(statsMap, wallet);
+          const isConnectedWallet = !!myWalletHex && addressKey(wallet) === myWalletHex.toLowerCase();
           return {
             rank: 0,
             wallet,
-            displayName: apiRow?.display_name ?? null,
+            displayName: apiRow?.display_name ?? (isConnectedWallet ? connectedDisplayName : null),
             totalPoints,
             // API data takes precedence; fall back to contract participant count
             matches: apiRow?.matches_count ?? matchCountMap.get(wallet) ?? 0,
@@ -409,7 +414,7 @@ export default function Leaderboards() {
     } finally {
       setLoading(false);
     }
-  }, [api, isApiReady, myWalletHex, toast]);
+  }, [api, connectedDisplayName, isApiReady, myWalletHex, toast]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -450,7 +455,7 @@ export default function Leaderboards() {
     const matchCountMap = new Map<string, number>();
     for (const match of activeTournamentMatches) {
       for (const participant of match.participants ?? []) {
-        const wallet = participant.toLowerCase();
+        const wallet = addressKey(participant);
         if (wallet) matchCountMap.set(wallet, (matchCountMap.get(wallet) ?? 0) + 1);
       }
     }
