@@ -16,11 +16,11 @@ import { TeamFlag } from '@/components/common/TeamFlag';
 import { reportBet, reportClaim } from '@/utils/statsReporter';
 import { dispatchPredictionPlaced } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
+import { API_BASE_URL } from '@/utils/api';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const FREEBET_LEDGER_ID = import.meta.env.VITE_FREEBET_LEDGER_ID as string | undefined;
 const IS_DEV_PREVIEW = import.meta.env.DEV;
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 type Score = { home: number; away: number };
 type ResultStatus = any;
@@ -572,7 +572,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stats/pools/${matchId}`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`);
       if (!res.ok) throw new Error(`Pool stats request failed: ${res.status}`);
       const data = (await res.json()) as MatchPoolStats;
       setPoolStats(data);

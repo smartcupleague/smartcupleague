@@ -8,10 +8,9 @@ import { Program, Service } from '@/hocs/lib';
 import { HexString } from '@gear-js/api';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { AppFooter } from '@/components/layout/footer/AppFooter';
+import { API_BASE_URL } from '@/utils/api';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
-
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const IS_DEV_PREVIEW = import.meta.env.DEV;
@@ -242,7 +241,7 @@ function Match() {
 
   useEffect(() => {
     if (!matchId) return;
-    fetch(`${API_BASE}/api/v1/stats/pools/${matchId}`)
+    fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data || Number(data.total_bets) === 0) { setApiPoolPercentages(null); return; }

@@ -4,7 +4,7 @@
  * block or break the user's main flow.
  */
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
+import { API_BASE_URL } from './api';
 
 export type PredictedOutcome = 'home' | 'draw' | 'away';
 
@@ -15,7 +15,7 @@ export function reportBet(
   matchPoolAmountPlanck: string,
   predictedOutcome: PredictedOutcome,
 ): void {
-  fetch(`${API_BASE}/api/v1/stats/record-bet`, {
+  fetch(`${API_BASE_URL}/api/v1/stats/record-bet`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -34,7 +34,7 @@ export function reportClaim(
   amountPlanck: string,
   isExact = false,
 ): void {
-  fetch(`${API_BASE}/api/v1/stats/record-claim`, {
+  fetch(`${API_BASE_URL}/api/v1/stats/record-claim`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

@@ -15,11 +15,11 @@ import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { reportClaim } from '@/utils/statsReporter';
 import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
+import { API_BASE_URL } from '@/utils/api';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
 import { PiCaretDownBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 
 type MatchInfo = {
@@ -363,7 +363,7 @@ export const MatchesTableComponent: React.FC = () => {
 
   const fetchPoolStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/stats/pools`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/stats/pools`);
       if (!res.ok) throw new Error(`Pool stats request failed: ${res.status}`);
       const data = (await res.json()) as { pools?: MatchPoolStats[] };
       const next = new Map<string, MatchPoolStats>();

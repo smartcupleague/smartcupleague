@@ -11,6 +11,7 @@ import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
+import { API_BASE_URL } from '@/utils/api';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -27,7 +28,6 @@ import {
 
 const CORE_PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const DAO_PROGRAM_ID = import.meta.env.VITE_DAOPROGRAM as string;
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 
 const VARA_DECIMALS = 12;
 
@@ -347,7 +347,7 @@ export default function Home() {
 
   const fetchApiLeaderboardRow = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/leaderboard?limit=2000`);
+      const res = await fetch(`${API_BASE_URL}/api/v1/leaderboard?limit=2000`);
       if (!res.ok) {
         setApiLeaderboardRows([]);
         setApiLeaderboardRow(null);
@@ -515,7 +515,7 @@ export default function Home() {
   const myRankInfo = useMemo(() => {
     const totalPlayers = sortedLeaderboard.length;
     if (!myWalletHex) return { rank: null as number | null, points: 0, totalPlayers };
-    const idx = sortedLeaderboard.findIndex((x) => x.wallet.toLowerCase() === myWalletHex.toLowerCase());
+    const idx = sortedLeaderboard.findIndex((x) => addressKey(x.wallet) === myWalletHex.toLowerCase());
     return { rank: idx >= 0 ? idx + 1 : null, points: idx >= 0 ? sortedLeaderboard[idx].points : 0, totalPlayers };
   }, [sortedLeaderboard, myWalletHex]);
 

@@ -6,6 +6,7 @@ import { web3Enable } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { StyledWallet } from '../wallet/Wallet';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
+import { API_BASE_URL } from '@/utils/api';
 import { useNavigate } from 'react-router-dom';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import {
@@ -25,7 +26,6 @@ import { PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const MY_LB_KEY = 'scl_my_leaderboard_v1';
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000';
 const INDEXER_URL = import.meta.env.VITE_INDEXER_GRAPHQL_URL as string | undefined;
 const INDEXER_TIMEOUT_MS = 4_000;
 
@@ -230,7 +230,7 @@ async function fetchFromIndexer(
 async function fetchApiStats(): Promise<Map<string, ApiStatsRow>> {
   const map = new Map<string, ApiStatsRow>();
   try {
-    const res = await fetch(`${API_BASE}/api/v1/leaderboard?limit=2000`);
+    const res = await fetch(`${API_BASE_URL}/api/v1/leaderboard?limit=2000`);
     if (!res.ok) return map;
     const data: { rows: ApiStatsRow[] } = await res.json();
     for (const row of data.rows ?? []) {
@@ -450,7 +450,14 @@ export default function Leaderboards() {
   }, [selectedTournamentKey, stateMatches, upcomingMatches]);
 
   const activeTournamentRows = useMemo(() => {
-    if (!stateMatches.length) return rows;
+    const withConnectedProfile = (row: LbRow): LbRow => {
+      const isConnectedWallet = !!myWalletHex && addressKey(row.wallet) === myWalletHex.toLowerCase();
+      return isConnectedWallet && !row.displayName && connectedDisplayName
+        ? { ...row, displayName: connectedDisplayName }
+        : row;
+    };
+
+    if (!stateMatches.length) return rows.map(withConnectedProfile);
 
     const matchCountMap = new Map<string, number>();
     for (const match of activeTournamentMatches) {
@@ -461,17 +468,20 @@ export default function Leaderboards() {
     }
 
     return rows
-      .filter((row) => matchCountMap.has(row.wallet.toLowerCase()))
+      .filter((row) => {
+        const wallet = addressKey(row.wallet);
+        return !!wallet && matchCountMap.has(wallet);
+      })
       .map((row) => ({
-        ...row,
-        matches: matchCountMap.get(row.wallet.toLowerCase()) ?? 0,
+        ...withConnectedProfile(row),
+        matches: matchCountMap.get(addressKey(row.wallet) ?? '') ?? 0,
       }))
       .sort((a, b) => {
         if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
         return a.wallet.localeCompare(b.wallet);
       })
       .map((row, index) => ({ ...row, rank: index + 1 }));
-  }, [activeTournamentMatches, rows, stateMatches.length]);
+  }, [activeTournamentMatches, connectedDisplayName, myWalletHex, rows, stateMatches.length]);
 
   const selectedUpcomingMatches = useMemo(() => {
     const now = Date.now();
@@ -504,7 +514,7 @@ export default function Leaderboards() {
   const myRow = useMemo(() => {
     if (!myWalletHex) return null;
     const target = myWalletHex.toLowerCase();
-    return activeTournamentRows.find((r) => r.wallet.toLowerCase() === target) ?? null;
+    return activeTournamentRows.find((r) => addressKey(r.wallet) === target) ?? null;
   }, [activeTournamentRows, myWalletHex]);
 
   const myRank = myRow?.rank ?? null;

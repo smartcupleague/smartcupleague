@@ -10,9 +10,9 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { planckToUsdString, varaToUsdString } from '@/utils/formatters';
+import { API_BASE_URL } from '@/utils/api';
 
-const API_BASE  = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
-const ENDPOINT  = `${API_BASE}/api/v1/prices/vara`;
+const ENDPOINT  = `${API_BASE_URL}/api/v1/prices/vara`;
 const REFRESH_MS = 5 * 60 * 1000;
 const EMPTY_RETRY_MS = 15 * 1000;
 const STORAGE_KEY = 'smartcup:vara-usd-rate';

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { toHexAddress } from '@/utils/address';
-
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
+import { API_BASE_URL } from '@/utils/api';
 
 export function useWalletProfile() {
   const { account } = useAccount();
@@ -15,7 +14,7 @@ export function useWalletProfile() {
   useEffect(() => {
     if (!walletHex) { setDisplayName(null); return; }
     setIsLoading(true);
-    fetch(`${API_BASE}/api/v1/profiles/${walletHex}`, { signal: AbortSignal.timeout(4000) })
+    fetch(`${API_BASE_URL}/api/v1/profiles/${walletHex}`, { signal: AbortSignal.timeout(4000) })
       .then((r) => r.json())
       .then((d) => setDisplayName(d.display_name ?? null))
       .catch(() => setDisplayName(null))
@@ -26,7 +25,7 @@ export function useWalletProfile() {
     if (!walletHex) return false;
     setIsSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/profiles/${walletHex}`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/profiles/${walletHex}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: name.trim() }),
