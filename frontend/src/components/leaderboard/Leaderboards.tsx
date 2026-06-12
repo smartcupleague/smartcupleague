@@ -77,6 +77,46 @@ function isFinalizedMatch(m: LeaderboardMatch) {
   return !!((m.result as any)?.Finalized || (m.result as any)?.finalized);
 }
 
+type Score = { home: number; away: number };
+type PenaltyWinner = 'Home' | 'Away' | null;
+
+function normalizePenaltyWinner(value: unknown): PenaltyWinner {
+  if (!value) return null;
+  if (value === 'Home' || value === 'Away') return value;
+  if (typeof value === 'object') {
+    if ('Home' in (value as Record<string, unknown>)) return 'Home';
+    if ('Away' in (value as Record<string, unknown>)) return 'Away';
+  }
+  return null;
+}
+
+function getFinalizedResult(result: unknown): { score?: Score; penaltyWinner: PenaltyWinner } {
+  const finalized = (result as any)?.Finalized ?? (result as any)?.finalized;
+  const score = finalized?.score;
+  if (!score) return { penaltyWinner: null };
+  return {
+    score: {
+      home: Number(score.home ?? 0) || 0,
+      away: Number(score.away ?? 0) || 0,
+    },
+    penaltyWinner: normalizePenaltyWinner(finalized?.penalty_winner),
+  };
+}
+
+function outcome(score: Score, penaltyWinner: PenaltyWinner = null): 'home' | 'draw' | 'away' {
+  if (score.home > score.away) return 'home';
+  if (score.home < score.away) return 'away';
+  if (penaltyWinner === 'Home') return 'home';
+  if (penaltyWinner === 'Away') return 'away';
+  return 'draw';
+}
+
+function isExactPrediction(betScore: Score, betPenalty: PenaltyWinner, finalScore: Score, finalPenalty: PenaltyWinner) {
+  if (betScore.home !== finalScore.home || betScore.away !== finalScore.away) return false;
+  const finalDrawWithPenalty = finalScore.home === finalScore.away && !!finalPenalty;
+  return !finalDrawWithPenalty || (!!betPenalty && betPenalty === finalPenalty);
+}
+
 function normalizeMatch(m: any): LeaderboardMatch {
   return {
     match_id: String(m?.match_id ?? m?.matchId ?? ''),
@@ -87,6 +127,54 @@ function normalizeMatch(m: any): LeaderboardMatch {
     result: m?.result ?? null,
     participants: Array.isArray(m?.participants) ? m.participants.map((p: any) => String(p ?? '').toLowerCase()) : [],
   };
+}
+
+async function deriveOnChainAccuracy(rows: LbRow[], svc: Service | null, matches: LeaderboardMatch[]): Promise<LbRow[]> {
+  if (!svc || !rows.length) return rows;
+
+  const finalizedById = new Map<string, { score: Score; penaltyWinner: PenaltyWinner }>();
+  for (const match of matches) {
+    const finalized = getFinalizedResult(match.result);
+    if (finalized.score) finalizedById.set(String(match.match_id), { score: finalized.score, penaltyWinner: finalized.penaltyWinner });
+  }
+  if (!finalizedById.size) return rows;
+
+  const rowsNeedingFallback = rows.filter((row) => row.exact === 0 && row.outcomes === 0 && row.matches > 0);
+  if (!rowsNeedingFallback.length) return rows;
+
+  const derived = new Map<string, Pick<LbRow, 'exact' | 'outcomes'>>();
+  await Promise.allSettled(rowsNeedingFallback.map(async (row) => {
+    const wallet = addressKey(row.wallet);
+    if (!wallet) return;
+
+    const bets = (await (svc as any).queryBetsByUser(wallet)) as any[];
+    let exact = 0;
+    let outcomes = 0;
+
+    for (const bet of bets ?? []) {
+      const finalized = finalizedById.get(String(bet?.match_id ?? ''));
+      const betScore = bet?.score;
+      if (!finalized || !betScore) continue;
+
+      const score = {
+        home: Number(betScore.home ?? 0) || 0,
+        away: Number(betScore.away ?? 0) || 0,
+      };
+      const betPenalty = normalizePenaltyWinner(bet?.penalty_winner);
+      const exactHit = isExactPrediction(score, betPenalty, finalized.score, finalized.penaltyWinner);
+      if (exactHit) exact += 1;
+      if (exactHit || outcome(score, betPenalty) === outcome(finalized.score, finalized.penaltyWinner)) outcomes += 1;
+    }
+
+    if (exact > 0 || outcomes > 0) derived.set(wallet, { exact, outcomes });
+  }));
+
+  if (!derived.size) return rows;
+  return rows.map((row) => {
+    const wallet = addressKey(row.wallet);
+    const stats = wallet ? derived.get(wallet) : null;
+    return stats ? { ...row, ...stats } : row;
+  });
 }
 
 type QueryStateResponse = {
@@ -326,7 +414,7 @@ export default function Leaderboards() {
           walletHex: myWalletHex,
           displayName: connectedDisplayName,
         });
-        setRows(idxRows);
+        setRows(await deriveOnChainAccuracy(idxRows, svc, normalizedStateMatches));
         setUpcomingMatches(idxUpcoming);
         return;
       } catch (indexerErr) {
@@ -389,7 +477,8 @@ export default function Leaderboards() {
         return a.wallet.localeCompare(b.wallet);
       });
 
-      setRows(mapped.map((r, idx) => ({ ...r, rank: idx + 1 })));
+      const rankedRows = mapped.map((r, idx) => ({ ...r, rank: idx + 1 }));
+      setRows(await deriveOnChainAccuracy(rankedRows, svc, normalizedStateMatches));
 
       // Extract upcoming matches for sidebar widget
       if (Array.isArray(state?.matches)) {
