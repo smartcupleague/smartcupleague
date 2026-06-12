@@ -163,7 +163,7 @@ async function deriveOnChainAccuracy(rows: LbRow[], svc: Service | null, matches
       const betPenalty = normalizePenaltyWinner(bet?.penalty_winner);
       const exactHit = isExactPrediction(score, betPenalty, finalized.score, finalized.penaltyWinner);
       if (exactHit) exact += 1;
-      if (exactHit || outcome(score, betPenalty) === outcome(finalized.score, finalized.penaltyWinner)) outcomes += 1;
+      if (!exactHit && outcome(score, betPenalty) === outcome(finalized.score, finalized.penaltyWinner)) outcomes += 1;
     }
 
     if (exact > 0 || outcomes > 0) derived.set(wallet, { exact, outcomes });

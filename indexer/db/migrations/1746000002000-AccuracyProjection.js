@@ -47,7 +47,7 @@ export class AccuracyProjection1746000002000 {
         SELECT
           "user",
           count(*) FILTER (WHERE exact_hit) AS exact_count,
-          count(*) FILTER (WHERE exact_hit OR bet_outcome = final_outcome) AS outcome_count
+          count(*) FILTER (WHERE NOT exact_hit AND bet_outcome = final_outcome) AS outcome_count
         FROM scored_bets
         GROUP BY "user"
       )

@@ -614,7 +614,7 @@ export class BolaoHandler extends BaseHandler {
       const betOutcome = scoreOutcome(bet.scoreHome, bet.scoreAway, bet.penaltyWinner);
       this.touchUser(bet.user, timestamp, {
         addExact: exact ? 1 : 0,
-        addOutcome: exact || betOutcome === finalOutcome ? 1 : 0,
+        addOutcome: !exact && betOutcome === finalOutcome ? 1 : 0,
       });
     }
   }
