@@ -41,21 +41,47 @@ type IoBolaoState = {
   user_points?: Array<[string, number]>;
 };
 
+type PreviewMatchState =
+  | 'open-not-predicted'
+  | 'open-predicted'
+  | 'closed-awaiting'
+  | 'final-predicted'
+  | 'final-reward-ready';
+
+function getPreviewMatchState(): PreviewMatchState {
+  if (typeof window === 'undefined') return 'open-not-predicted';
+  const raw = new URLSearchParams(window.location.search).get('previewMatchState');
+  if (
+    raw === 'open-predicted' ||
+    raw === 'closed-awaiting' ||
+    raw === 'final-predicted' ||
+    raw === 'final-reward-ready'
+  ) {
+    return raw;
+  }
+  return 'open-not-predicted';
+}
+
 function demoMatch(matchId: string): MatchInfo {
+  const previewState = getPreviewMatchState();
+  const isOpen = previewState === 'open-not-predicted' || previewState === 'open-predicted';
+  const isFinal = previewState === 'final-predicted' || previewState === 'final-reward-ready';
+  const hasPrediction = previewState !== 'open-not-predicted';
+
   return {
     match_id: matchId || '1',
     phase: 'GROUP_STAGE',
     home: 'Brazil',
     away: 'Spain',
-    kick_off: String(Date.now() + 36 * 60 * 60 * 1000),
+    kick_off: String(Date.now() + (isOpen ? 36 * 60 * 60 * 1000 : -2 * 60 * 60 * 1000)),
     match_prize_pool: String(128_450n * PLANCK),
     total_pool: String(128_450n * PLANCK),
     pool_home: String(58_200n * PLANCK),
     pool_draw: String(18_750n * PLANCK),
     pool_away: String(51_500n * PLANCK),
     participants: ['demo-wallet-1', 'demo-wallet-2', 'demo-wallet-3'],
-    has_bets: true,
-    result: null,
+    has_bets: hasPrediction,
+    result: isFinal ? { finalized: { score: { home: 2, away: 0 }, penalty_winner: null } } : null,
   };
 }
 

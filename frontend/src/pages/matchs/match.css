@@ -368,6 +368,17 @@
   .match-footer.app-footer {
     display: none;
   }
+
+  .match-footer .app-footer__links {
+    gap: 4px 8px;
+  }
+
+  .match-footer .app-footer__copy,
+  .match-footer .app-footer__link {
+    font-size: 10.5px;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+  }
 }
 
 /* ============================================================

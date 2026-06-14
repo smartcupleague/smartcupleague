@@ -53,6 +53,20 @@
     flex-direction: column;
     gap: 10px;
     padding-bottom: 12px;
+    font-size: 10.5px;
+  }
+
+  .app-footer__links {
+    gap: 4px 8px;
+  }
+
+  .app-footer__link,
+  .app-footer__copy {
+    line-height: 1.25;
+  }
+
+  .app-footer__sep {
+    opacity: 0.65;
   }
 
   .app-footer .getVara__trigger {

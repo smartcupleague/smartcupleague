@@ -100,22 +100,57 @@ type MatchPoolStats = {
   total_planck: string;
 };
 
+type PreviewMatchState =
+  | 'open-not-predicted'
+  | 'open-predicted'
+  | 'closed-awaiting'
+  | 'final-predicted'
+  | 'final-reward-ready';
+
+function isLocalMatchPreview() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  if (!isLocalhost) return false;
+  return new URLSearchParams(window.location.search).get('previewMatch') === '1';
+}
+
+function getPreviewMatchState(): PreviewMatchState {
+  if (typeof window === 'undefined') return 'open-not-predicted';
+  const raw = new URLSearchParams(window.location.search).get('previewMatchState');
+  if (
+    raw === 'open-predicted' ||
+    raw === 'closed-awaiting' ||
+    raw === 'final-predicted' ||
+    raw === 'final-reward-ready'
+  ) {
+    return raw;
+  }
+  return 'open-not-predicted';
+}
+
 function demoMatch(matchId: string): MatchInfo {
+  const previewState = getPreviewMatchState();
+  const isOpen = previewState === 'open-not-predicted' || previewState === 'open-predicted';
+  const isFinal = previewState === 'final-predicted' || previewState === 'final-reward-ready';
+  const hasPrediction = previewState !== 'open-not-predicted';
+
   return {
     match_id: matchId || '1',
     phase: 'GROUP_STAGE',
     home: 'Brazil',
     away: 'Spain',
-    kick_off: String(Date.now() + 36 * 60 * 60 * 1000),
+    kick_off: String(Date.now() + (isOpen ? 36 * 60 * 60 * 1000 : -2 * 60 * 60 * 1000)),
     result: null,
     match_prize_pool: String(128_450n * PLANCK),
     total_winner_stake: String(58_200n * PLANCK),
-    settlement_prepared: false,
+    settlement_prepared: previewState === 'final-reward-ready',
     pool_home: String(58_200n * PLANCK),
     pool_draw: String(18_750n * PLANCK),
     pool_away: String(51_500n * PLANCK),
-    has_bets: true,
+    has_bets: hasPrediction,
     participants: ['demo-wallet-1', 'demo-wallet-2', 'demo-wallet-3'],
+    ...(isFinal ? { result: { finalized: { score: { home: 2, away: 0 }, penalty_winner: null } } } : {}),
   };
 }
 
@@ -438,7 +473,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
 
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
-  const isDemoPreview = IS_DEV_PREVIEW && (!api || !isApiReady);
+  const isPreviewMatch = isLocalMatchPreview();
+  const previewMatchState = useMemo(() => getPreviewMatchState(), []);
+  const isDemoPreview = IS_DEV_PREVIEW && (isPreviewMatch || !api || !isApiReady);
 
   const betAmountNumber = useMemo(() => {
     const n = Number(String(betAmount).replace(',', '.'));
@@ -483,6 +520,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, []);
 
   const fetchState = useCallback(async () => {
+    if (isDemoPreview) {
+      setState(demoState(matchId));
+      setLoading(false);
+      return;
+    }
+
     if (!api || !isApiReady) {
       if (IS_DEV_PREVIEW) {
         setState(demoState(matchId));
@@ -540,7 +583,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [api, isApiReady, matchId]);
+  }, [api, isApiReady, isDemoPreview, matchId]);
 
   useEffect(() => {
     void fetchState();
@@ -618,6 +661,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [match?.result]);
 
   const fetchUserBetForMatch = useCallback(async () => {
+    if (isDemoPreview) {
+      const hasDemoBet = previewMatchState !== 'open-not-predicted';
+      setLoadingUserBet(false);
+      setUserStakeBn(hasDemoBet ? 1_750n * PLANCK : 0n);
+      setUserClaimed(false);
+      setUserBetScore(hasDemoBet ? { home: 2, away: 0 } : null);
+      setUserBetPenaltyWinner(null);
+      return;
+    }
+
     if (!api || !isApiReady || !accountHex || !matchId) return;
 
     setLoadingUserBet(true);
@@ -660,7 +713,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     } finally {
       setLoadingUserBet(false);
     }
-  }, [api, isApiReady, accountHex, matchId]);
+  }, [api, isApiReady, accountHex, isDemoPreview, matchId, previewMatchState]);
 
   useEffect(() => {
     void fetchUserBetForMatch();
@@ -768,13 +821,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   ]);
 
   const showClaimButton = useMemo(() => {
-    if (!account) return false;
+    if (!account && !isDemoPreview) return false;
     if (!match) return false;
     if (!isFinalized) return false;
     if (!settlementPrepared) return false;
     if (loadingUserBet) return false;
     return claimableBn > 0n;
-  }, [account, match, isFinalized, settlementPrepared, loadingUserBet, claimableBn]);
+  }, [account, isDemoPreview, match, isFinalized, settlementPrepared, loadingUserBet, claimableBn]);
 
   const betValueBn = betCurrency === 'VARA' || betCurrency === 'FREEBET' ? betValuePlanck : 0n;
 
@@ -1494,6 +1547,44 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     placeholder={minStakePlaceholder}
                   />
                 </div>
+                <div className="mcx__stakeUsd mcx__stakeUsd--converted mcx__stakeUsd--mobile">{convertedStakeLabel}</div>
+                <div className="mcx__quickRow mcx__quickRow--mobile">
+                  <button
+                    className="mcx__qBtn"
+                    type="button"
+                    disabled={!isPredictionPricingAvailable}
+                    onClick={() => setBetAmount(formatVaraInputFromPlanck(liveUsdMinimumPlanck, 12))}
+                  >
+                    Min
+                  </button>
+                  <button
+                    className="mcx__qBtn"
+                    type="button"
+                    onClick={() => setBetAmount(String((betAmountNumber || 0) + 1))}
+                  >
+                    +1
+                  </button>
+                  <button
+                    className="mcx__qBtn"
+                    type="button"
+                    onClick={() => setBetAmount(String((betAmountNumber || 0) + 10))}
+                  >
+                    +10
+                  </button>
+                  <button
+                    className="mcx__qBtn"
+                    type="button"
+                    onClick={() => setBetAmount(String((betAmountNumber || 0) + 50))}
+                  >
+                    +50
+                  </button>
+                </div>
+                {belowUsdMinimumMessage && (
+                  <div className="mcx__stakeMinimumWarn mcx__stakeMinimumWarn--mobile" role="alert">
+                    <span>{belowUsdMinimumMessage}</span>
+                    <span>Minimum required: 3 USD converted in VARA.</span>
+                  </div>
+                )}
 
               </div>
 
@@ -1524,6 +1615,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     ))}
                   </div>
                 </div>
+                {isFreebetBet && (
+                  <div className={(betDisabledByFreebet ? 'mcx__stakeMinimumWarn' : 'mcx__stakeUsd') + ' mcx__freebetHint mcx__freebetHint--mobile'} role={betDisabledByFreebet ? 'alert' : undefined}>
+                    <span>Freebet balance: {formatVaraFromPlanck(freebetBalanceBn)} VARA</span>
+                    <span>{isFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
+                  </div>
+                )}
               </div>
 
               <div className="mcx__stakeFeedbackRow">
@@ -1562,13 +1659,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                 </div>
                 {belowUsdMinimumMessage && (
-                  <div className="mcx__stakeMinimumWarn" role="alert">
+                  <div className="mcx__stakeMinimumWarn mcx__stakeMinimumWarn--desktop" role="alert">
                     <span>{belowUsdMinimumMessage}</span>
                     <span>Minimum required: 3 USD converted in VARA.</span>
                   </div>
                 )}
                 {isFreebetBet && (
-                  <div className={(betDisabledByFreebet ? 'mcx__stakeMinimumWarn' : 'mcx__stakeUsd') + ' mcx__freebetHint'} role={betDisabledByFreebet ? 'alert' : undefined}>
+                  <div className={(betDisabledByFreebet ? 'mcx__stakeMinimumWarn' : 'mcx__stakeUsd') + ' mcx__freebetHint mcx__freebetHint--desktop'} role={betDisabledByFreebet ? 'alert' : undefined}>
                     <span>Freebet balance: {formatVaraFromPlanck(freebetBalanceBn)} VARA</span>
                     <span>{isFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
                   </div>

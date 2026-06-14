@@ -371,17 +371,31 @@ Tasks:
 - [x] Reduce scoreboard width on mobile.
 - [x] Make team blocks vertical or wrapped when necessary.
 - [x] Ensure score inputs are large enough for touch.
-- [ ] Make prediction submission controls full-width.
-- [ ] Prevent odds tables from squeezing.
-- [ ] Use contained horizontal scroll only when a table cannot be simplified.
+- [x] Keep prediction submission controls readable, touch-friendly, and aligned with the approved mobile layout.
+- [x] Separate mobile prediction stake, USD conversion, quick amount buttons, currency, and freebet messaging into a clear vertical flow.
+- [x] Keep desktop currency selector/stake controls visually refined without changing desktop match layout behavior.
+- [x] Reduce mobile footer legal link type size so page links fit more discreetly.
+- [ ] Verify all match states fit the approved mobile layout:
+  - open, not predicted
+  - open, predicted
+  - closed, awaiting result
+  - final, predicted
+  - final, reward ready
+- [ ] Verify freebet states fit without stretching the stake widget:
+  - freebet configured with balance
+  - freebet configured without enough balance
+  - freebet ledger not configured
+- [ ] Prevent odds/info tables from squeezing or causing horizontal page scroll.
+- [ ] Use contained horizontal scroll only when a table cannot be simplified safely.
 - [ ] Keep toast messages within viewport width.
-- [ ] Ensure match metadata does not truncate aggressively.
-- [ ] Confirm modal/dialog states are usable on mobile.
+- [ ] Ensure match metadata remains readable without aggressive truncation.
+- [ ] Confirm modal/dialog/loading/disabled transaction states are usable on mobile.
+- [ ] Verify no accidental horizontal scroll at `360px`, `375px`, and `390px`.
 
 Acceptance criteria:
 
-- [ ] User can place a prediction with one hand.
-- [ ] Score controls are easy to tap.
+- [x] User can place a prediction with one hand in the approved mobile flow.
+- [x] Score controls are easy to tap.
 - [ ] No match panel is wider than the viewport.
 
 ## 11. Championship Pick
