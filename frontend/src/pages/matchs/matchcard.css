@@ -922,23 +922,58 @@
 
 .mcx__currencyField {
   min-width: 0;
+  width: 100%;
 }
 
-.mcx__currencySwitch {
+.mcx__currencySelect {
   display: none;
 }
 
-@media (max-width: 768px) {
-  .mcx__currencySelect {
-    display: none;
-  }
+.mcx__currencySwitch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
 
-  .mcx__currencySwitch {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--mobile-control-gap, 8px);
-    width: 100%;
-  }
+.mcx__currencyChoice {
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 0, 110, 0.24);
+  background:
+    radial-gradient(260px 90px at 50% 0%, rgba(255, 46, 118, 0.12), transparent 64%),
+    rgba(255, 0, 110, 0.07);
+  color: rgba(255, 235, 246, 0.84);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.mcx__currencyChoice:hover {
+  border-color: rgba(255, 46, 118, 0.46);
+  background:
+    radial-gradient(260px 90px at 50% 0%, rgba(255, 46, 118, 0.2), transparent 64%),
+    rgba(255, 0, 110, 0.1);
+  color: #fff;
+}
+
+.mcx__currencyChoice.is-active {
+  border-color: rgba(255, 46, 118, 0.66);
+  background:
+    radial-gradient(320px 110px at 50% 0%, rgba(255, 79, 156, 0.34), transparent 64%),
+    linear-gradient(135deg, rgba(255, 46, 118, 0.42), rgba(168, 5, 69, 0.26));
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(255, 46, 118, 0.16) inset,
+    0 12px 28px rgba(255, 0, 110, 0.18);
+}
+
+.mcx__currencyChoice:focus-visible {
+  outline: 2px solid rgba(255, 211, 106, 0.78);
+  outline-offset: 2px;
 }
 
 /* ── Penalty box ─────────────────────────────────────────── */
