@@ -16,3 +16,74 @@
   overflow-y: auto; 
   padding: 1rem 1rem 0;
 }
+
+@media (max-width: 768px) {
+  :root {
+    --mobile-page-padding-x: 12px;
+    --mobile-page-padding-top: 10px;
+    --mobile-page-bottom-extra: 18px;
+    --mobile-panel-padding-y: 14px;
+    --mobile-panel-padding-x: 12px;
+    --mobile-panel-radius: 14px;
+    --mobile-card-padding: 12px;
+    --mobile-card-padding-y: 12px;
+    --mobile-card-padding-x: 12px;
+    --mobile-section-gap: 12px;
+    --mobile-card-gap: 10px;
+    --mobile-control-gap: 8px;
+    --mobile-control-height: 44px;
+    --mobile-compact-control-height: 40px;
+    --mobile-tabbar-height: 76px;
+    --mobile-safe-bottom: env(safe-area-inset-bottom);
+    --mobile-page-x: var(--mobile-page-padding-x);
+    --mobile-page-title-size: 22px;
+    --mobile-page-title-line: 1.08;
+    --mobile-page-copy-size: 12.5px;
+    --mobile-page-copy-line: 1.4;
+    --mobile-section-title-size: 17px;
+    --mobile-card-title-size: 13px;
+    --mobile-body-size: 12.5px;
+    --mobile-helper-size: 12px;
+    --mobile-label-size: 10.5px;
+    --mobile-label-spacing: 0;
+  }
+
+  .scb-app-layout {
+    display: block;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+  }
+
+  .scb-sidebar {
+    display: none;
+  }
+
+  .scb-app-content {
+    min-width: 0;
+    min-height: 100dvh;
+  }
+
+  .scb-app-main {
+    min-width: 0;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding:
+      var(--mobile-page-padding-top)
+      var(--mobile-page-padding-x)
+      calc(var(--mobile-tabbar-height) + var(--mobile-safe-bottom) + var(--mobile-page-bottom-extra));
+  }
+
+  .scb-app-content .scb-footer {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --mobile-page-padding-x: 10px;
+    --mobile-panel-padding-x: 10px;
+    --mobile-card-padding-x: 10px;
+  }
+}

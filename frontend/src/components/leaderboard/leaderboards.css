@@ -557,6 +557,20 @@
 
 .lbPage--ghost { background: transparent; }
 
+.lbPage--icon {
+  width: 42px;
+  min-width: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.lbPage--icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* ─── Grid ───────────────────────────────────────────────────────── */
 
 .lbGrid {
@@ -915,6 +929,11 @@
   text-align: center;
   color: var(--muted2);
   font-size: 12px;
+}
+
+.lbEmptyState {
+  padding: 10px 0;
+  color: var(--muted2);
 }
 
 /* ─── Right side cards ───────────────────────────────────────────── */
@@ -1461,9 +1480,186 @@
 }
 
 @media (max-width: 780px) {
+  .lb {
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  .lbGrid,
+  .lbCard,
+  .lbCard__head,
+  .lbRight,
+  .lbSubnav,
+  .lbTop__controls,
+  .lbTop__left,
+  .lbTable,
+  .lbUpcoming,
+  .lbUpMatch {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .lbTop {
+    padding: var(--mobile-panel-padding-y, 14px) var(--mobile-panel-padding-x, 12px);
+    border-radius: var(--mobile-panel-radius, 14px);
+    overflow: visible;
+  }
+
+  .lbTop__row {
+    gap: var(--mobile-section-gap, 12px);
+  }
+
+  .lbTitle h1 {
+    font-size: var(--mobile-page-title-size, 22px);
+    line-height: var(--mobile-page-title-line, 1.08);
+  }
+
+  .lbTitle p {
+    font-size: var(--mobile-page-copy-size, 12.5px);
+    line-height: var(--mobile-page-copy-line, 1.4);
+  }
+
+  .lbSearch {
+    min-height: var(--mobile-control-height, 44px);
+    height: var(--mobile-control-height, 44px);
+    margin-top: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+  }
+
+  .lbWallet,
+  .lbWalletWrap {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .lbWallet > *,
+  .lbWalletWrap > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .lbTop__controls {
+    gap: var(--mobile-card-gap, 10px);
+    margin-top: 10px;
+    align-items: stretch;
+  }
+
+  .lbTop__left {
+    width: 100%;
+  }
+
+  .lbSubnav {
+    overflow: hidden;
+  }
+
+  .lbTabs {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    border-radius: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lbChip {
+    min-height: var(--mobile-control-height, 44px);
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .lbTab,
+  .lbBtn,
+  .lbPage {
+    min-height: var(--mobile-control-height, 44px);
+  }
+
+  .lbTitle__main {
+    font-size: var(--mobile-section-title-size, 17px);
+    line-height: 1.15;
+  }
+
+  .lbCard__title {
+    font-size: var(--mobile-card-title-size, 13px);
+    line-height: 1.2;
+  }
+
+  .lbTitle__sub,
+  .lbTable__foot,
+  .lbChampState p,
+  .lbChampState span,
+  .lbChampPotential,
+  .lbChampTotal,
+  .lbUpMatch__meta,
+  .lbBottom__hint,
+  .lbBottom__detail {
+    font-size: var(--mobile-helper-size, 12px);
+    line-height: 1.35;
+  }
+
+  .lbTHead,
+  .lbBottom__label,
+  .lbMe {
+    font-size: var(--mobile-label-size, 10.5px);
+    letter-spacing: var(--mobile-label-spacing, 0.06em);
+  }
+
+  .lbTRow,
+  .lbWalletCell__text,
+  .lbEarnWallet,
+  .lbEarnNum,
+  .lbEarnRoi,
+  .lbChampPickRow span,
+  .lbChampPickRow b,
+  .lbUpMatch__teams {
+    font-size: var(--mobile-body-size, 12.5px);
+    line-height: 1.25;
+  }
+
+  .lbChip,
+  .lbTab,
+  .lbBtn,
+  .lbMe,
+  .lbBottom__label {
+    letter-spacing: 0;
+  }
+
+  .lbCard__head {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: var(--mobile-card-gap, 10px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .lbCard__head .lbBtn {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .lbPager {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lbPager .lbPage {
+    width: 100%;
+  }
+
+  .lbPager .lbPage--icon {
+    width: var(--mobile-control-height, 44px);
+    min-width: var(--mobile-control-height, 44px);
+    align-self: flex-start;
+  }
+
   .lbTHead,
   .lbTRow {
     grid-template-columns: 110px 1fr 110px;
+    min-width: 0;
   }
   .lbTHead > :nth-child(4),
   .lbTHead > :nth-child(5),
@@ -1474,11 +1670,110 @@
   .lbBottom {
     flex-direction: column;
     align-items: stretch;
+    min-width: 0;
+    padding: var(--mobile-card-padding, 12px);
+    border-radius: 14px;
+    gap: var(--mobile-card-gap, 10px);
+  }
+  .lbBottom__left,
+  .lbBottom__value {
+    min-width: 0;
+  }
+  .lbBottom__value {
+    flex-wrap: wrap;
+    gap: 4px 8px;
   }
   .lbBottom__right {
     justify-content: stretch;
   }
-  .lbBtn--primary { width: 100%; }
+  .lbBtn--primary,
+  .lbBottom__right .lbBtn,
+  .lbChampState .lbBtn {
+    width: 100%;
+  }
+
+  .lbEarnRow {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: var(--mobile-control-gap, 8px);
+    padding: var(--mobile-card-padding-y, 12px) var(--mobile-card-padding-x, 12px);
+  }
+
+  .lbEarnWallet {
+    min-width: 0;
+  }
+
+  .lbEarnRoi {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+
+  .lbChampPickRow {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--mobile-control-gap, 8px);
+    padding: var(--mobile-card-padding-y, 12px) var(--mobile-card-padding-x, 12px);
+  }
+
+  .lbPickList,
+  .lbEarnings,
+  .lbChampState {
+    gap: var(--mobile-card-gap, 10px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .lbTable__foot,
+  .lbChampState--empty,
+  .lbEmptyState {
+    width: 100%;
+    min-height: 76px;
+    display: grid;
+    place-items: center;
+    padding: var(--mobile-card-padding, 12px);
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .lbUpMatch {
+    gap: var(--mobile-control-gap, 8px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .lbChampPickRow span {
+    max-width: 100%;
+  }
+
+  .lbUpMatch__teams {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .lbUpMatch__team {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .lbUpMatch__name,
+  .lbUpMatch__meta {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .lbWalletCell,
+  .lbWalletCell__text,
+  .lbEarnWallet,
+  .lbEarnNum,
+  .lbEarnRoi,
+  .lbChampPickRow span,
+  .lbChampPickRow b,
+  .lbBottom__detail,
+  .lbBottom__value {
+    overflow-wrap: anywhere;
+  }
+
+  .lbUpMatch .lbBtn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 680px) {

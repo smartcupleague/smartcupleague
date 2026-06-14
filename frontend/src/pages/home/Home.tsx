@@ -1211,7 +1211,7 @@ export default function Home() {
               );
             })}
 
-            {!displayedUpcomingMatches.length ? <div className="muted">No upcoming matches</div> : null}
+            {!displayedUpcomingMatches.length ? <div className="h-empty-state muted">No upcoming matches</div> : null}
           </div>
         </section>
       </main>

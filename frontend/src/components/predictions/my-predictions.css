@@ -1325,6 +1325,20 @@
   background: rgba(0,0,0,0.16);
 }
 
+.mpBtn--icon {
+  width: 42px;
+  min-width: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.mpBtn--icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────── */
 
 @media (max-width: 980px) {
@@ -1348,21 +1362,265 @@
     grid-template-columns: 1fr;
   }
 
-  .mpTHead,
-  .mpRow {
-    grid-template-columns: minmax(260px, 1fr) minmax(108px, 0.7fr) minmax(150px, 0.8fr);
+  .mpTable {
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
   }
-  .mpTHead > :nth-child(3),
-  .mpTHead > :nth-child(4),
-  .mpTHead > :nth-child(5),
-  .mpRow   > :nth-child(3),
-  .mpRow   > :nth-child(4),
-  .mpRow   > :nth-child(5) { display: none; }
 
-  .mpTHead > :nth-child(6),
-  .mpRow   > :nth-child(6) { display: flex; }
+  .mpTHead {
+    display: none;
+  }
+
+  .mpRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "match match"
+      "pick stake"
+      "status action";
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+  }
+
+  .mpRow > :nth-child(1) { grid-area: match; }
+  .mpRow > :nth-child(2) { grid-area: stake; }
+  .mpRow > :nth-child(3) { grid-area: pick; display: block; }
+  .mpRow > :nth-child(4) { display: none; }
+  .mpRow > :nth-child(5) { grid-area: status; display: flex; }
+  .mpRow > :nth-child(6) { grid-area: action; display: flex; }
+
   .mpMatch { gap: 10px; }
   .mpName  { max-width: 150px; }
+
+  .mpNum,
+  .mpPick,
+  .mpCenter {
+    min-width: 0;
+  }
+
+  .mpNum,
+  .mpPick {
+    display: grid;
+    align-content: center;
+  }
+
+  .mpNum {
+    min-height: 77px;
+    padding: 9px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 215, 0, 0.22);
+    background:
+      radial-gradient(520px 180px at 20% 15%, rgba(255, 215, 0, 0.12), transparent 60%),
+      rgba(0, 0, 0, 0.16);
+    box-shadow:
+      0 0 0 1px rgba(255, 215, 0, 0.08) inset,
+      0 8px 24px rgba(255, 194, 75, 0.08);
+  }
+
+  .mpStatus,
+  .mpClaim {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .mpShell {
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  .mpTop__row,
+  .mpFilters,
+  .mpFilters__right,
+  .mpSection,
+  .mpCard,
+  .mpCard__head,
+  .mpCard__foot {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mpTop {
+    padding: var(--mobile-panel-padding-y, 14px) var(--mobile-panel-padding-x, 12px);
+    border-radius: var(--mobile-panel-radius, 14px);
+    overflow: visible;
+  }
+
+  .mpTop__row {
+    gap: var(--mobile-section-gap, 12px);
+  }
+
+  .mpTitle h1 {
+    font-size: var(--mobile-page-title-size, 22px);
+    line-height: var(--mobile-page-title-line, 1.08);
+  }
+
+  .mpTitle p {
+    font-size: var(--mobile-page-copy-size, 12.5px);
+    line-height: var(--mobile-page-copy-line, 1.4);
+  }
+
+  .mpSearch {
+    min-height: var(--mobile-control-height, 44px);
+    height: var(--mobile-control-height, 44px);
+    margin-top: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+  }
+
+  .mpWalletWrap {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .mpWalletWrap > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .mpTabs {
+    margin-top: 10px;
+    gap: var(--mobile-control-gap, 8px);
+  }
+
+  .mpTab {
+    min-height: var(--mobile-control-height, 44px);
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .mpBtn,
+  .mpClaim,
+  .mpFilterSelect {
+    min-height: var(--mobile-control-height, 44px);
+  }
+
+  .mpFilterSelect {
+    height: var(--mobile-control-height, 44px);
+  }
+
+  .mpSection__main {
+    font-size: var(--mobile-section-title-size, 17px);
+    line-height: 1.15;
+  }
+
+  .mpSection__sub,
+  .mpCard__ttl .s,
+  .mpMeta,
+  .mpNum__sub,
+  .mpWin__sub {
+    font-size: var(--mobile-helper-size, 12px);
+    line-height: 1.35;
+  }
+
+  .mpCard__ttl .t,
+  .mpName {
+    font-size: var(--mobile-card-title-size, 13px);
+    line-height: 1.2;
+  }
+
+  .mpFilterField span,
+  .mpPick__label {
+    font-size: var(--mobile-label-size, 10.5px);
+    letter-spacing: var(--mobile-label-spacing, 0.06em);
+  }
+
+  .mpFilterSelect,
+  .mpChip,
+  .mpTag,
+  .mpStatus,
+  .mpNum__main,
+  .mpWin__main {
+    font-size: var(--mobile-body-size, 12.5px);
+    line-height: 1.25;
+  }
+
+  .mpTab,
+  .mpFilterSelect,
+  .mpChip,
+  .mpTag,
+  .mpStatus,
+  .mpPick__label,
+  .mpClaim {
+    letter-spacing: 0;
+  }
+
+  .mpFilters__right {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--mobile-card-gap, 10px);
+  }
+
+  .mpFilterField {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .mpCard__head,
+  .mpCard__foot {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--mobile-card-gap, 10px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .mpFilters__right .mpBtn,
+  .mpCard__right,
+  .mpCard__right .mpClaim,
+  .mpCard__foot .mpBtn,
+  .mpCard__foot .mpClaim {
+    width: 100%;
+  }
+
+  .mpFilters__right .mpBtn--icon {
+    width: var(--mobile-control-height, 44px);
+    min-width: var(--mobile-control-height, 44px);
+    justify-self: start;
+  }
+
+  .mpTeams,
+  .mpMeta {
+    max-width: 100%;
+  }
+
+  .mpName {
+    max-width: min(100%, 180px);
+  }
+
+  .mpEmpty {
+    width: 100%;
+    min-height: 88px;
+    display: grid;
+    place-items: center;
+    padding: var(--mobile-card-padding, 12px);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .mpTeams,
+  .mpMeta,
+  .mpName,
+  .mpNum__main,
+  .mpNum__sub,
+  .mpWin__main,
+  .mpWin__sub {
+    overflow-wrap: anywhere;
+  }
+
+  .mpChip,
+  .mpTag,
+  .mpStatus {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .mpClaim {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* ── Result chip highlight ───────────────────────────── */

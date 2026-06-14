@@ -17,7 +17,7 @@ import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
 import { API_BASE_URL } from '@/utils/api';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
-import { PiCaretDownBold, PiMagnifyingGlassBold } from 'react-icons/pi';
+import { PiCaretDownBold, PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 
@@ -223,24 +223,52 @@ const LOCAL_PREVIEW_MATCHES: MatchInfo[] = [
   {
     match_id: '2',
     phase: 'GROUP_STAGE',
-    home: 'England',
-    away: 'Argentina',
-    kick_off: '1774645200',
-    result: { finalized: { score: { home: 1, away: 3 } } },
+    home: 'USA',
+    away: 'Netherlands',
+    kick_off: String(Math.floor((Date.now() + (2 * 60 + 37) * 60 * 1000) / 1000)),
+    result: null,
     match_prize_pool: '6475000000000000',
-    has_bets: true,
-    settlement_prepared: true,
+    has_bets: false,
   },
   {
     match_id: '3',
     phase: 'GROUP_STAGE',
+    home: 'Portugal',
+    away: 'Morocco',
+    kick_off: String(Math.floor((Date.now() + 5 * 60 * 1000) / 1000)),
+    result: null,
+    match_prize_pool: '5100000000000000',
+    has_bets: true,
+  },
+  {
+    match_id: '4',
+    phase: 'GROUP_STAGE',
     home: 'Brazil',
     away: 'Belgium',
-    kick_off: '1774731600',
-    result: { finalized: { score: { home: 2, away: 1 } } },
+    kick_off: String(Math.floor((Date.now() + 58 * 60 * 1000) / 1000)),
+    result: null,
     match_prize_pool: '6180000000000000',
     has_bets: true,
-    settlement_prepared: true,
+  },
+  {
+    match_id: '5',
+    phase: 'ROUND_OF_16',
+    home: 'England',
+    away: 'Argentina',
+    kick_off: String(Math.floor((Date.now() - 35 * 60 * 1000) / 1000)),
+    result: { proposed: { score: { home: 1, away: 1 } } },
+    match_prize_pool: '7725000000000000',
+    has_bets: true,
+  },
+  {
+    match_id: '6',
+    phase: 'ROUND_OF_16',
+    home: 'Spain',
+    away: 'France',
+    kick_off: String(Math.floor((Date.now() - 2 * 60 * 60 * 1000) / 1000)),
+    result: { cancelled: true },
+    match_prize_pool: '4300000000000000',
+    has_bets: false,
   },
 ];
 
@@ -255,7 +283,8 @@ function isLocalPredictedPreview() {
 
 function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
   const previewBets = new Map<string, UserBetView>();
-  for (const m of matches.slice(0, 4)) {
+  const predictedMatchIds = new Set(['1', '4', '5']);
+  for (const m of matches.filter((match) => predictedMatchIds.has(match.match_id))) {
     const result = getResultDetails(m.result);
     const seed = Number(m.match_id);
     const fallbackHome = Number.isFinite(seed) ? seed % 3 : 1;
@@ -726,8 +755,10 @@ export const MatchesTableComponent: React.FC = () => {
             {/* Clear filters */}
             {(filterStage || filterDate || filterSearch || headerSearch || filterStatus) && (
               <button
-                className="mxBtn mxBtn--ghost"
+                className="mxBtn mxBtn--ghost mxBtn--icon"
                 type="button"
+                aria-label="Clear filters"
+                title="Clear filters"
                 onClick={() => {
                   setFilterStage('');
                   setFilterDate('');
@@ -735,7 +766,7 @@ export const MatchesTableComponent: React.FC = () => {
                   setHeaderSearch('');
                   setFilterStatus('');
                 }}>
-                Clear
+                <PiEraserBold aria-hidden="true" />
               </button>
             )}
           </div>
@@ -775,12 +806,12 @@ export const MatchesTableComponent: React.FC = () => {
                 r.label === "FINAL"
                   ? "Final score " + r.home + "-" + r.away + "."
                   : r.label === "LIVE"
-                    ? "Live now " + r.home + "-" + r.away + " (proposed)."
+                    ? "Live now " + r.home + "-" + r.away + " - Proposed score."
                     : r.label === "CANCELLED"
-                      ? "Match cancelled • Refund available if eligible."
+                      ? "Match cancelled - Refund available if eligible."
                       : prediction.closed
-                        ? "Prediction closed • Awaiting result."
-                        : "Open for predictions • " + prediction.label + ".";
+                        ? "Prediction closed - Awaiting result."
+                        : "Open for predictions - " + prediction.label + ".";
 
               const userBet = userBetsByMatchId.get(m.match_id);
               const hasPrediction = !!userBet;
@@ -802,34 +833,35 @@ export const MatchesTableComponent: React.FC = () => {
                         <TeamFlag className="mxFlag" team={m.away} />
                       </div>
 
-                      <span className={"mxStatus mxStatus--" + displayLabel.toLowerCase()}>
-                        {displayLabel}
-                      </span>
                     </div>
 
                     <div className="mxCard__topRight">
-                      {r.label === "OPEN" ? <span className="mxPill">{prediction.label}</span> : null}
+                      <span className={"mxStatus mxStatus--scoreboard mxStatus--" + displayLabel.toLowerCase()}>
+                        {displayLabel}
+                      </span>
+
+                      {r.label === "OPEN" ? <span className="mxPill mxPill--predictionWindow">{prediction.label}</span> : null}
 
                       {/* Prediction Made badge on the right */}
                       {hasPrediction && (
-                        <span className="mxStatus mxStatus--predicted">✓ Predicted</span>
+                        <span className="mxStatus mxStatus--predicted mxPredictedBadge">✓ Predicted</span>
                       )}
 
                       {/* Claim badge — non-interactive, goes to match page for actual claim */}
                       {r.label === 'FINAL' && hasPrediction && m.settlement_prepared ? (
-                        <span className="mxBtn mxBtn--claim mxBtn--static">
+                        <span className="mxBtn mxBtn--claim mxBtn--static mxRewardBadge">
                           Reward Ready
                         </span>
                       ) : hasPrediction ? (
                         <button
-                          className="mxBtn mxBtn--soft"
+                          className="mxBtn mxBtn--soft mxTopAction"
                           onClick={() => navigate(matchPath(m.phase, m.match_id))}
                           type="button">
                           Details
                         </button>
                       ) : r.label === "OPEN" && !prediction.closed ? (
                         <button
-                          className="mxBtn mxBtn--primary"
+                          className="mxBtn mxBtn--primary mxTopAction"
                           onClick={() => navigate(matchPath(m.phase, m.match_id))}
                           type="button">
                           Predict
@@ -846,33 +878,35 @@ export const MatchesTableComponent: React.FC = () => {
                       <span className="mxMeta__chip">#{m.match_id}</span>
                       <span className="mxMeta__chip">{m.phase.replace(/_/g, ' ')}</span>
                       <span className="mxMeta__chip">{formatDatetime(m.kick_off)}</span>
-                      <span className="mxMeta__chip">{m.has_bets ? 'Has predictions ✓' : 'No predictions'}</span>
+                      <span className="mxMeta__chip">{m.has_bets ? 'Has Predictions ✓' : 'No predictions'}</span>
                     </div>
 
-                    {userBet ? (
-                      <div className="mxYourPick" aria-label={`Your pick ${pickText}`}>
-                        <span className="mxYourPick__label">Your Pick</span>
-                        <span className="mxYourPick__score">{pickText}</span>
-                      </div>
-                    ) : null}
+                    <div className="mxOutcomeGrid">
+                      {userBet ? (
+                        <div className="mxYourPick" aria-label={`Your pick ${pickText}`}>
+                          <span className="mxYourPick__label">Your Pick</span>
+                          <span className="mxYourPick__score">{pickText}</span>
+                        </div>
+                      ) : null}
 
-                    <div className="mxScore">
-                      <div className="mxScore__label">
-                        {displayLabel === "OPEN" ? "OPEN" : displayLabel === "CLOSED" ? "CLOSED" : r.label === "LIVE" ? "LIVE SCORE" : r.label === "CANCELLED" ? "CANCELLED" : "FINAL SCORE"}
-                      </div>
-                      <div className="mxScore__value">
-                        {r.home}-{r.away}
-                      </div>
-                      <div className="mxScore__sub">
-                        {r.label === "FINAL"
-                          ? "On-chain finalized result"
-                          : r.label === "LIVE"
-                            ? "On-chain proposed score"
-                            : r.label === "CANCELLED"
-                              ? "Match cancelled"
-                              : prediction.closed
-                                ? "Awaiting on-chain result"
-                                : "Open for predictions"}
+                      <div className="mxScore">
+                        <div className="mxScore__label">
+                          {displayLabel === "OPEN" ? "OPEN" : displayLabel === "CLOSED" ? "CLOSED" : r.label === "LIVE" ? "LIVE SCORE" : r.label === "CANCELLED" ? "CANCELLED" : "FINAL SCORE"}
+                        </div>
+                        <div className="mxScore__value">
+                          {r.home}-{r.away}
+                        </div>
+                        <div className="mxScore__sub">
+                          {r.label === "FINAL"
+                            ? "On-chain finalized result"
+                            : r.label === "LIVE"
+                              ? "On-chain proposed score"
+                              : r.label === "CANCELLED"
+                                ? "Match cancelled"
+                                : prediction.closed
+                                  ? "Awaiting on-chain result"
+                                  : "Open for predictions"}
+                        </div>
                       </div>
                     </div>
 
@@ -885,6 +919,7 @@ export const MatchesTableComponent: React.FC = () => {
                         </div>
                       </div>
                     </div>
+
                   </div>
                 </article>
               );

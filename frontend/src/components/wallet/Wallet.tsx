@@ -233,6 +233,13 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
     transform: translateY(0);
     filter: brightness(0.98);
   }
+
+  @media (max-width: 768px) {
+    button {
+      font-size: var(--mobile-body-size, 12.5px);
+      letter-spacing: 0;
+    }
+  }
 `;
 
 /** ===== Balance pill — columna: label arriba, cantidad + usd abajo ===== */
@@ -260,6 +267,15 @@ const BalancePill = styled.div`
   box-shadow:
     0 14px 44px rgba(0,0,0,.32),
     0 0 0 1px rgba(255,255,255,.04) inset;
+
+  @media (max-width: 520px) {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 54px;
+    justify-content: center;
+  }
 `;
 
 const BalanceLabel = styled.div`
@@ -326,6 +342,11 @@ const AmountGold = styled.span`
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    letter-spacing: 0;
+  }
 `;
 
 const TokenSymbol = styled.span`
@@ -337,6 +358,10 @@ const TokenSymbol = styled.span`
   color: rgba(255, 255, 255, 0.70);
   white-space: nowrap;
   line-height: 1;
+
+  @media (max-width: 768px) {
+    letter-spacing: 0;
+  }
 `;
 
 const UsdValue = styled.span`
@@ -393,6 +418,14 @@ const FreebetPill = styled(Link)`
     flex: 1 1 150px;
     max-width: none;
   }
+
+  @media (max-width: 520px) {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 54px;
+  }
 `;
 
 const FreebetValue = styled.span`
@@ -405,6 +438,11 @@ const FreebetValue = styled.span`
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 236, 162, 0.98);
+
+  @media (max-width: 768px) {
+    font-size: var(--mobile-body-size, 12.5px);
+    letter-spacing: 0;
+  }
 `;
 
 const FreebetHint = styled.span`

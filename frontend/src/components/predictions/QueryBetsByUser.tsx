@@ -14,7 +14,7 @@ import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase } from '@/utils';
-import { PiCaretDownBold, PiMagnifyingGlassBold } from 'react-icons/pi';
+import { PiCaretDownBold, PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string | undefined;
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
@@ -62,6 +62,111 @@ type MatchPoolStats = {
   total_planck: string;
   total_bets: number;
 };
+
+function isLocalPredictionsPreview() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  if (!isLocalhost) return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('previewPredictions') === '1';
+}
+
+function previewKickoff(offsetDays: number) {
+  return String(Math.floor((Date.now() + offsetDays * 24 * 60 * 60 * 1000) / 1000));
+}
+
+function buildPreviewPredictionMatches(): MatchInfo[] {
+  return [
+    {
+      match_id: '101',
+      phase: 'GROUP_STAGE',
+      home: 'Brazil',
+      away: 'Japan',
+      kick_off: previewKickoff(2),
+      result: null,
+      match_prize_pool: '18500000000000000',
+      has_bets: true,
+    },
+    {
+      match_id: '102',
+      phase: 'ROUND_OF_16',
+      home: 'Argentina',
+      away: 'Germany',
+      kick_off: previewKickoff(-1),
+      result: { finalized: { score: { home: 2, away: 1 } } },
+      match_prize_pool: '24850000000000000',
+      has_bets: true,
+      total_winner_stake: '4200000000000000',
+      settlement_prepared: true,
+    },
+    {
+      match_id: '103',
+      phase: 'FINAL',
+      home: 'Spain',
+      away: 'France',
+      kick_off: previewKickoff(-3),
+      result: { finalized: { score: { home: 1, away: 1 }, penalty_winner: 'Away' } },
+      match_prize_pool: '32600000000000000',
+      has_bets: true,
+      total_winner_stake: '7800000000000000',
+      settlement_prepared: true,
+    },
+    {
+      match_id: '201',
+      phase: 'SMARTCUP_LEAGUE',
+      home: 'SmartCup FC',
+      away: 'Vara United',
+      kick_off: previewKickoff(5),
+      result: { proposed: { score: { home: 1, away: 0 } } },
+      match_prize_pool: '9800000000000000',
+      has_bets: true,
+    },
+  ];
+}
+
+function buildPreviewPredictionBets(): ContractUserBetView[] {
+  return [
+    {
+      match_id: 101,
+      score: { home: 3, away: 1 },
+      stake_in_match_pool: '1500000000000000',
+      freebet_principal: '0',
+      claimed: false,
+    },
+    {
+      match_id: 102,
+      score: { home: 2, away: 1 },
+      stake_in_match_pool: '2100000000000000',
+      freebet_principal: '500000000000000',
+      claimed: false,
+    },
+    {
+      match_id: 103,
+      score: { home: 1, away: 1 },
+      penalty_winner: 'Home',
+      stake_in_match_pool: '1750000000000000',
+      freebet_principal: '0',
+      claimed: false,
+    },
+    {
+      match_id: 201,
+      score: { home: 2, away: 0 },
+      stake_in_match_pool: '900000000000000',
+      freebet_principal: '0',
+      claimed: true,
+    },
+  ];
+}
+
+function buildPreviewPredictionPhases(): PhaseConfig[] {
+  return [
+    { name: 'GROUP_STAGE', start_time: '0', end_time: '0', points_weight: 1 },
+    { name: 'ROUND_OF_16', start_time: '0', end_time: '0', points_weight: 2 },
+    { name: 'FINAL', start_time: '0', end_time: '0', points_weight: 4 },
+    { name: 'SMARTCUP_LEAGUE', start_time: '0', end_time: '0', points_weight: 1 },
+  ];
+}
 
 function normalizeTeamKey(team: string) {
   return (team || '').trim().toUpperCase().replace(/\s+/g, ' ');
@@ -375,6 +480,19 @@ export const QueryBetsByUserComponent: React.FC = () => {
     () => toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? null),
     [account],
   );
+  const previewPredictions = isLocalPredictionsPreview();
+  const visibleMatches = useMemo(
+    () => previewPredictions ? buildPreviewPredictionMatches() : (matches ?? []),
+    [previewPredictions, matches],
+  );
+  const visibleBets = useMemo(
+    () => previewPredictions ? buildPreviewPredictionBets() : (bets ?? []),
+    [previewPredictions, bets],
+  );
+  const visiblePhases = useMemo(
+    () => previewPredictions ? buildPreviewPredictionPhases() : phases,
+    [previewPredictions, phases],
+  );
 
   useEffect(() => {
     void web3Enable('Bolao Bets UI');
@@ -554,32 +672,32 @@ export const QueryBetsByUserComponent: React.FC = () => {
     };
   }, [account, isApiReady, fetchBets, fetchState, fetchPoolStats]);
 
-  const connected = !!account;
+  const connected = !!account || previewPredictions;
 
   const matchById = useMemo(() => {
     const map = new Map<string, MatchInfo>();
-    for (const m of matches ?? []) {
+    for (const m of visibleMatches) {
       const id = String(m.match_id ?? '').trim();
       if (id) map.set(id, m);
     }
     return map;
-  }, [matches]);
+  }, [visibleMatches]);
 
   const staleBetsCount = useMemo(
-    () => (bets ?? []).filter((b) => !matchById.has(String(b.match_id))).length,
-    [bets, matchById],
+    () => visibleBets.filter((b) => !matchById.has(String(b.match_id))).length,
+    [visibleBets, matchById],
   );
 
   const tabCounts = useMemo(() => {
-    const all = matches ?? [];
+    const all = visibleMatches;
     return {
       leagues: all.filter((m) => !isWCPhase(m.phase)).length,
       worldcup: all.filter((m) => isWCPhase(m.phase)).length,
     };
-  }, [matches]);
+  }, [visibleMatches]);
 
   const predictionCounts = useMemo(() => {
-    const all = bets ?? [];
+    const all = visibleBets;
     const leagues = all.filter((b) => {
       const phase = matchById.get(String(b.match_id))?.phase;
       if (phase === undefined) return false;
@@ -591,7 +709,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
       return isWCPhase(phase);
     }).length;
     return { leagues, worldcup };
-  }, [bets, matchById]);
+  }, [visibleBets, matchById]);
 
   const activeTournamentTabs = useMemo(() => TOURNAMENT_TAB_ORDER
     .map((tournament) => ({
@@ -614,16 +732,16 @@ export const QueryBetsByUserComponent: React.FC = () => {
   // Unique phases for filter dropdown
   const availablePhases = useMemo(() => {
     const set = new Set<string>();
-    for (const m of matches ?? []) {
+    for (const m of visibleMatches) {
       const isActiveTournament = tab === 'worldcup' ? isWCPhase(m.phase) : !isWCPhase(m.phase);
       if (!isActiveTournament) continue;
       if (m.phase) set.add(m.phase);
     }
     return Array.from(set).sort();
-  }, [matches, tab]);
+  }, [visibleMatches, tab]);
 
   const wcBets = useMemo(() => {
-    let list = (bets ?? []) as ContractUserBetView[];
+    let list = visibleBets as ContractUserBetView[];
     const isClaimed = (bet: ContractUserBetView) =>
       !!bet.claimed || !!claimedOverrideByMatch[Number(bet.match_id)];
 
@@ -678,7 +796,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
         if (!m.settlement_prepared) return false;
         const betPenalty = parsePenaltyWinner(b.penalty_winner);
         const { score: finalScore, penaltyWinner: finalPenalty } = getFinalizedResult(m.result);
-        const phaseWeight = getPhaseWeight(m.phase, phases);
+        const phaseWeight = getPhaseWeight(m.phase, visiblePhases);
         return eligibleForPayout(b.score, betPenalty, finalScore, finalPenalty, phaseWeight);
       });
     } else if (filterStatus === 'not_eligible') {
@@ -689,7 +807,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
         if (!m.settlement_prepared) return false;
         const betPenalty = parsePenaltyWinner(b.penalty_winner);
         const { score: finalScore, penaltyWinner: finalPenalty } = getFinalizedResult(m.result);
-        const phaseWeight = getPhaseWeight(m.phase, phases);
+        const phaseWeight = getPhaseWeight(m.phase, visiblePhases);
         return !eligibleForPayout(b.score, betPenalty, finalScore, finalPenalty, phaseWeight);
       });
     }
@@ -727,7 +845,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
     });
 
     return list;
-  }, [bets, search, matchById, filterStage, filterDate, sortField, filterStatus, phases, tab]);
+  }, [visibleBets, search, matchById, filterStage, filterDate, sortField, filterStatus, visiblePhases, tab]);
 
   const claim = useCallback(
     async (matchId: number) => {
@@ -935,10 +1053,12 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
             {(filterStage || filterDate || filterStatus || search) && (
               <button
-                className="mpBtn mpBtn--ghost"
+                className="mpBtn mpBtn--ghost mpBtn--icon"
                 type="button"
+                aria-label="Clear filters"
+                title="Clear filters"
                 onClick={() => { setFilterStage(''); setFilterDate(''); setFilterStatus(''); setSearch(''); }}>
-                Clear
+                <PiEraserBold aria-hidden="true" />
               </button>
             )}
           </div>
@@ -1062,7 +1182,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
                           ? estimatedPayoutBn - freebetPrincipalBn
                           : 0n;
 
-                    const phaseWeight = m ? getPhaseWeight(m.phase, phases) : 1;
+                    const phaseWeight = m ? getPhaseWeight(m.phase, visiblePhases) : 1;
                     const { score: finalScore, penaltyWinner: finalPenalty } = m ? getFinalizedResult(m.result) : {};
 
                     const eligible = matchFinal

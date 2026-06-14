@@ -392,8 +392,14 @@ export function Rewards() {
 
             <div className="rewards-referral-link">
               <input className="rewards-input" value={referralLink || 'Connect wallet to generate your link'} readOnly />
-              <button className="rewards-btn rewards-btn--soft" type="button" onClick={copyReferralLink} disabled={!referralLink}>
-                <FaCopy aria-hidden="true" /> Copy
+              <button
+                className="rewards-btn rewards-btn--soft rewards-btn--icon"
+                type="button"
+                onClick={copyReferralLink}
+                disabled={!referralLink}
+                aria-label="Copy referral link"
+                title="Copy referral link">
+                <FaCopy aria-hidden="true" />
               </button>
             </div>
 
@@ -461,8 +467,13 @@ export function Rewards() {
               <div className="rewards-template__top">
                 <span>{activeTask === 'repost' ? 'What to do' : 'Suggested X text'}</span>
                 {activeTask === 'post' && (
-                  <button className="rewards-btn rewards-btn--soft" type="button" onClick={copyTemplate}>
-                    <FaCopy aria-hidden="true" /> Copy
+                  <button
+                    className="rewards-btn rewards-btn--soft rewards-btn--icon"
+                    type="button"
+                    onClick={copyTemplate}
+                    aria-label="Copy task template"
+                    title="Copy task template">
+                    <FaCopy aria-hidden="true" />
                   </button>
                 )}
               </div>

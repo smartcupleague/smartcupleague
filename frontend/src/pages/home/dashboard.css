@@ -285,10 +285,156 @@ body {
   }
 
   .h-user {
+    flex: 0 0 auto;
     width: 100%;
+    max-width: 100%;
     justify-content: flex-start;
   }
 
+}
+
+@media (max-width: 768px) {
+  .h-dash {
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  .h-topbar {
+    padding: var(--mobile-panel-padding-y, 14px) var(--mobile-panel-padding-x, 12px);
+    border-radius: var(--mobile-panel-radius, 14px);
+    overflow: visible;
+  }
+
+  .h-topbar__row {
+    gap: var(--mobile-section-gap, 12px);
+  }
+
+  .h-title h1 {
+    font-size: var(--mobile-page-title-size, 22px);
+    line-height: var(--mobile-page-title-line, 1.08);
+  }
+
+  .h-title p {
+    font-size: var(--mobile-page-copy-size, 12.5px);
+    line-height: var(--mobile-page-copy-line, 1.4);
+  }
+
+  .h-user {
+    min-width: 0;
+  }
+
+  .h-user > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .h-grid,
+  .h-card,
+  .h-card__head,
+  .h-status,
+  .h-perf,
+  .h-prize,
+  .h-next-match,
+  .h-champ-pick {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .h-card__head h3 {
+    font-size: var(--mobile-label-size, 10.5px);
+    line-height: 1.25;
+    letter-spacing: var(--mobile-label-spacing, 0.06em);
+  }
+
+  .h-status__tournament,
+  .h-champ-pick__title,
+  .h-next-match__team,
+  .h-kpi__value,
+  .h-alist__title,
+  .h-team__name {
+    font-size: var(--mobile-card-title-size, 13px);
+    line-height: 1.2;
+  }
+
+  .h-kv,
+  .h-champ-pick__sub,
+  .h-next-match__meta,
+  .h-next-match__closes,
+  .h-prize__note,
+  .h-alist__sub,
+  .h-match__meta,
+  .tiny {
+    font-size: var(--mobile-helper-size, 12px);
+    line-height: 1.35;
+  }
+
+  .h-points__label,
+  .h-wallet__label,
+  .h-next-match__label,
+  .h-thead,
+  .h-kpi__label {
+    font-size: var(--mobile-label-size, 10.5px);
+    letter-spacing: var(--mobile-label-spacing, 0.06em);
+  }
+
+  .h-btn,
+  .h-row,
+  .h-trow,
+  .h-match {
+    font-size: var(--mobile-body-size, 12.5px);
+    line-height: 1.25;
+  }
+
+  .h-btn,
+  .h-tab,
+  .h-card__head h3,
+  .h-points__label,
+  .h-wallet__label,
+  .h-next-match__label,
+  .h-thead,
+  .h-kpi__label,
+  .h-pred-tag {
+    letter-spacing: 0;
+  }
+
+  .h-card__foot .h-btn,
+  .h-prize__cta .h-btn,
+  .h-activity__foot .h-btn {
+    width: 100%;
+  }
+
+  .h-btn,
+  .h-tab,
+  .h-champ-pick__cta {
+    min-height: var(--mobile-control-height, 44px);
+  }
+
+  .h-grid {
+    gap: var(--mobile-section-gap, 12px);
+    margin-top: var(--mobile-section-gap, 12px);
+  }
+
+  .h-card__head,
+  .h-card__foot,
+  .h-status,
+  .h-perf,
+  .h-prize,
+  .h-next-match,
+  .h-champ-pick,
+  .h-kpi,
+  .h-kv__row,
+  .h-alist__item {
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .h-perf__kpis,
+  .h-kv,
+  .h-activity__list,
+  .h-matches,
+  .h-next-match,
+  .h-champ-pick {
+    gap: var(--mobile-card-gap, 10px);
+  }
 }
 
 /* ─── Grid ───────────────────────────────────────────────────── */
@@ -1205,6 +1351,133 @@ body {
 @media (max-width: 720px) {
   .h-topbar { flex-direction: column; align-items: stretch; }
   .h-user   { justify-content: space-between; min-width: 0; }
+
+  .h-table,
+  .h-activity,
+  .h-matches {
+    max-width: 100%;
+    min-width: 0;
+    padding-left: var(--mobile-card-padding-x, 12px);
+    padding-right: var(--mobile-card-padding-x, 12px);
+  }
+
+  .h-table {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .h-thead,
+  .h-trow {
+    width: max-content;
+    min-width: 100%;
+    grid-template-columns: 40px minmax(128px, 1fr) 54px 48px 58px 64px !important;
+  }
+
+  .h-card__head--row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .h-card__head--row .h-btn {
+    width: 100%;
+  }
+
+  .h-card__head,
+  .h-next-match__teamsLine,
+  .h-next-match__timeLine,
+  .h-next-match__actions,
+  .h-champ-pick,
+  .h-row {
+    min-width: 0;
+  }
+
+  .h-next-match__teamsLine,
+  .h-next-match__timeLine,
+  .h-next-match__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .h-next-match__teams {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .h-next-match__team {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .h-next-match__team span,
+  .h-next-match__meta,
+  .h-next-match__closes,
+  .h-row span,
+  .h-prize__note {
+    overflow-wrap: anywhere;
+  }
+
+  .h-next-match__actions .h-btn,
+  .h-champ-pick__cta {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .h-champ-pick {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .h-champ-pick__row {
+    flex-wrap: wrap;
+  }
+
+  .h-match {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--mobile-card-gap, 10px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .h-match__teams {
+    flex-wrap: wrap;
+    gap: 6px var(--mobile-control-gap, 8px);
+  }
+
+  .h-team {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .h-team__name {
+    max-width: min(100%, 180px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .h-match__meta {
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .h-match > .h-btn {
+    width: 100%;
+  }
+
+  .h-empty-state {
+    width: 100%;
+    min-height: 76px;
+    display: grid;
+    place-items: center;
+    padding: var(--mobile-card-padding, 12px);
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.12);
+    text-align: center;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* ── Prediction made tag ──────────────────────────────── */

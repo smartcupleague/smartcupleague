@@ -22,7 +22,7 @@ import {
 } from '@/utils';
 import { UserProfileModal } from './UserProfileModal';
 import { TeamFlag } from '@/components/common/TeamFlag';
-import { PiMagnifyingGlassBold } from 'react-icons/pi';
+import { PiArrowClockwiseBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const MY_LB_KEY = 'scl_my_leaderboard_v1';
@@ -675,8 +675,8 @@ export default function Leaderboards() {
             <button className="lbPage lbPage--ghost" type="button" onClick={handleJumpToMe} disabled={!myWalletHex}>
               Jump to me
             </button>
-            <button className="lbPage" type="button" onClick={fetchLeaderboard}>
-              Refresh
+            <button className="lbPage lbPage--icon" type="button" onClick={fetchLeaderboard} aria-label="Refresh leaderboard" title="Refresh leaderboard">
+              <PiArrowClockwiseBold aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -813,7 +813,7 @@ export default function Leaderboards() {
 
             <div className="lbUpcoming">
               {selectedUpcomingMatches.length === 0 ? (
-                <div className="muted tiny" style={{ padding: '8px 0' }}>No upcoming matches loaded.</div>
+                <div className="lbEmptyState muted tiny">No upcoming matches loaded.</div>
               ) : (
                 selectedUpcomingMatches.map((m) => (
                   <div className="lbUpMatch" key={m.match_id}>

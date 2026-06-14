@@ -288,6 +288,20 @@
   width: 100%;
 }
 
+.rewards-btn--icon {
+  width: 42px;
+  min-width: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.rewards-btn--icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .rewards-icon-btn {
   width: 40px;
   height: 40px;
@@ -558,5 +572,268 @@
 
   .rewards-task__amount {
     text-align: left;
+  }
+}
+
+@media (max-width: 768px) {
+  .rewards-page,
+  .rewards-shell,
+  .rewards-grid,
+  .rewards-panel,
+  .rewards-panel__head,
+  .rewards-task,
+  .rewards-task__main,
+  .rewards-task__side,
+  .rewards-referral-alert,
+  .rewards-referral-link,
+  .rewards-referral-card,
+  .rewards-referral-card__top,
+  .rewards-actions,
+  .rewards-template,
+  .rewards-modal__panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .rewards-shell {
+    padding: 0 0 1.25rem;
+    overflow-x: hidden;
+  }
+
+  .rewards-head {
+    gap: var(--mobile-section-gap, 12px);
+    padding: var(--mobile-panel-padding-y, 14px) var(--mobile-panel-padding-x, 12px);
+    border-radius: var(--mobile-panel-radius, 14px);
+    overflow: visible;
+  }
+
+  .rewards-title h1 {
+    font-size: var(--mobile-page-title-size, 22px);
+    line-height: var(--mobile-page-title-line, 1.08);
+  }
+
+  .rewards-title p {
+    font-size: var(--mobile-page-copy-size, 12.5px);
+    line-height: var(--mobile-page-copy-line, 1.4);
+  }
+
+  .rewards-wallet {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .rewards-wallet > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .rewards-balance {
+    padding: var(--mobile-card-padding, 12px);
+    border-radius: 14px;
+  }
+
+  .rewards-balance__value {
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  .rewards-actions,
+  .rewards-task__side,
+  .rewards-modal__actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .rewards-panel__head,
+  .rewards-task__title {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .rewards-panel__head h2,
+  .rewards-modal__head h2 {
+    font-size: var(--mobile-section-title-size, 17px);
+    line-height: 1.15;
+  }
+
+  .rewards-task__title,
+  .rewards-referral-card__top strong {
+    font-size: var(--mobile-card-title-size, 13px);
+    line-height: 1.2;
+  }
+
+  .rewards-panel__head p,
+  .rewards-task__meta,
+  .rewards-task__side span,
+  .rewards-referral-alert span,
+  .rewards-referral-accepted,
+  .rewards-empty,
+  .rewards-referral-card__top span,
+  .rewards-template,
+  .rewards-modal__step p {
+    font-size: var(--mobile-helper-size, 12px);
+    line-height: 1.35;
+  }
+
+  .rewards-balance__label,
+  .rewards-field label,
+  .rewards-modal__step strong {
+    font-size: var(--mobile-label-size, 10.5px);
+    letter-spacing: var(--mobile-label-spacing, 0.06em);
+  }
+
+  .rewards-input,
+  .rewards-btn,
+  .rewards-task__amount,
+  .rewards-referral-card__top em {
+    font-size: var(--mobile-body-size, 12.5px);
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  .rewards-input,
+  .rewards-btn {
+    min-height: var(--mobile-control-height, 44px);
+  }
+
+  .rewards-icon-btn {
+    width: var(--mobile-control-height, 44px);
+    height: var(--mobile-control-height, 44px);
+  }
+
+  .rewards-actions,
+  .rewards-modal__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--mobile-control-gap, 8px);
+  }
+
+  .rewards-actions .rewards-btn,
+  .rewards-task,
+  .rewards-referral-alert .rewards-btn,
+  .rewards-modal__actions .rewards-btn,
+  .rewards-modal__form .rewards-btn {
+    width: 100%;
+  }
+
+  .rewards-referral-link .rewards-btn--icon,
+  .rewards-template__top .rewards-btn--icon {
+    width: var(--mobile-control-height, 44px);
+    min-width: var(--mobile-control-height, 44px);
+  }
+
+  .rewards-grid {
+    gap: var(--mobile-section-gap, 12px);
+  }
+
+  .rewards-panel__head {
+    gap: var(--mobile-card-gap, 10px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .rewards-task-list,
+  .rewards-referral-list,
+  .rewards-referral-link {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .rewards-task {
+    gap: var(--mobile-card-gap, 10px);
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .rewards-task__title,
+  .rewards-task__meta,
+  .rewards-task__side,
+  .rewards-task__side span,
+  .rewards-referral-alert,
+  .rewards-referral-accepted,
+  .rewards-referral-card,
+  .rewards-referral-card__top,
+  .rewards-referral-card__top strong,
+  .rewards-referral-card__top span,
+  .rewards-referral-card__top em,
+  .rewards-template,
+  .rewards-template__body,
+  .rewards-template__top,
+  .rewards-input {
+    overflow-wrap: anywhere;
+  }
+
+  .rewards-empty {
+    width: 100%;
+    min-height: 76px;
+    display: grid;
+    place-items: center;
+    padding: var(--mobile-card-padding, 12px);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .rewards-task__amount {
+    min-width: 0;
+  }
+
+  .rewards-btn {
+    width: 100%;
+    justify-content: center;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .rewards-icon-btn {
+    flex: 0 0 auto;
+  }
+
+  .rewards-referral-link {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rewards-referral-link .rewards-btn {
+    width: auto;
+    min-width: 42px;
+  }
+
+  .rewards-referral-card__top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .rewards-referral-card__top em {
+    white-space: normal;
+  }
+
+  .rewards-modal {
+    padding: 10px;
+  }
+
+  .rewards-modal__panel {
+    max-height: calc(100dvh - 20px);
+  }
+
+  .rewards-modal__head {
+    grid-template-columns: 1fr;
+    padding: var(--mobile-panel-padding-y, 14px) var(--mobile-panel-padding-x, 12px);
+  }
+
+  .rewards-modal__steps,
+  .rewards-modal__actions,
+  .rewards-modal__form {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .rewards-template {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .rewards-template__top {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--mobile-control-gap, 8px);
   }
 }

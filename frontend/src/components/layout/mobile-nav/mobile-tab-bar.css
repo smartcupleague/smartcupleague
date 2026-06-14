@@ -1,0 +1,99 @@
+.scb-mobile-tabbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .scb-mobile-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: var(--mobile-tabbar-height, 72px);
+    padding: 7px max(8px, env(safe-area-inset-left)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+    border-top: 1px solid rgba(255, 0, 110, 0.28);
+    background:
+      linear-gradient(180deg, rgba(36, 0, 22, 0.92), rgba(11, 0, 7, 0.98)),
+      rgba(11, 0, 7, 0.98);
+    box-shadow:
+      0 -1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 -16px 40px rgba(0, 0, 0, 0.58),
+      0 0 28px rgba(255, 0, 110, 0.12);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+  }
+
+  .scb-mobile-tabbar__item {
+    position: relative;
+    min-width: 0;
+    min-height: 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border-radius: 14px;
+    color: rgba(232, 207, 221, 0.72);
+    text-decoration: none;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0;
+    transition:
+      background 0.18s ease,
+      color 0.18s ease,
+      box-shadow 0.18s ease,
+      transform 0.18s ease;
+  }
+
+  .scb-mobile-tabbar__item span {
+    letter-spacing: 0;
+  }
+
+  .scb-mobile-tabbar__item .scb-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 0;
+    font-size: 1.45rem;
+  }
+
+  .scb-mobile-tabbar__item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scb-mobile-tabbar__item--active {
+    color: #fff;
+    background:
+      radial-gradient(90px 42px at 50% 0%, rgba(255, 79, 156, 0.28), transparent 70%),
+      rgba(255, 0, 110, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 0, 110, 0.22) inset,
+      0 8px 22px rgba(255, 0, 110, 0.13);
+  }
+
+  .scb-mobile-tabbar__item--active .scb-icon {
+    filter: drop-shadow(0 0 8px rgba(255, 0, 110, 0.65));
+  }
+
+  .scb-mobile-tabbar__item:focus-visible {
+    outline: 2px solid rgba(255, 143, 184, 0.78);
+    outline-offset: -2px;
+  }
+}
+
+@media (max-width: 380px) {
+  .scb-mobile-tabbar {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .scb-mobile-tabbar__item {
+    min-height: 52px;
+    font-size: 9.5px;
+  }
+}
