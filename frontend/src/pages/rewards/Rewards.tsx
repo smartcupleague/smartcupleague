@@ -35,6 +35,11 @@ type XTask = {
   cadence: string;
 };
 
+const CAMPAIGN_X_REWARD_AMOUNTS: Record<XTask['taskType'], string> = {
+  repost: '2000',
+  post: '4000',
+};
+
 type RewardTasks = {
   x?: XTask[];
 };
@@ -73,9 +78,19 @@ type ReferralDashboard = {
 function fallbackTasks(): RewardTasks {
   return {
     x: [
-      { taskType: 'repost', amountVara: '100', cadence: 'weekly' },
-      { taskType: 'post', amountVara: '300', cadence: 'weekly' },
+      { taskType: 'repost', amountVara: CAMPAIGN_X_REWARD_AMOUNTS.repost, cadence: 'weekly' },
+      { taskType: 'post', amountVara: CAMPAIGN_X_REWARD_AMOUNTS.post, cadence: 'weekly' },
     ],
+  };
+}
+
+function normalizeCampaignTasks(tasks: RewardTasks): RewardTasks {
+  return {
+    ...tasks,
+    x: (tasks.x ?? fallbackTasks().x ?? []).map((task) => ({
+      ...task,
+      amountVara: CAMPAIGN_X_REWARD_AMOUNTS[task.taskType] ?? task.amountVara,
+    })),
   };
 }
 
@@ -185,7 +200,7 @@ export function Rewards() {
 
     setTasksLoading(true);
     try {
-      setTasks(await apiJson<RewardTasks>('/rewards/tasks'));
+      setTasks(normalizeCampaignTasks(await apiJson<RewardTasks>('/rewards/tasks')));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not load rewards tasks');
       setTasks(fallbackTasks());
