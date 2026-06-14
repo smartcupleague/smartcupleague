@@ -68,6 +68,14 @@ function demoState(matchId: string): IoBolaoState {
   };
 }
 
+function isLocalMatchPreview() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  if (!isLocalhost) return false;
+  return new URLSearchParams(window.location.search).get('previewMatch') === '1';
+}
+
 const VARA_DECIMALS = 12;
 
 function safeBigInt(input: unknown): bigint {
@@ -123,6 +131,7 @@ function Match() {
   const navigate = useNavigate();
 
   const matchId = useMemo(() => String(rawId ?? '').trim(), [rawId]);
+  const previewMatch = isLocalMatchPreview();
 
   const [state, setState] = useState<IoBolaoState | null>(null);
   const [loadingState, setLoadingState] = useState(false);
@@ -143,6 +152,13 @@ function Match() {
   }, [api, isApiReady]);
 
   const fetchState = useCallback(async () => {
+    if (previewMatch) {
+      setState(demoState(matchId));
+      setError(null);
+      setLoadingState(false);
+      return;
+    }
+
     if (!program) {
       if (IS_DEV_PREVIEW) {
         setState(demoState(matchId));
@@ -194,7 +210,7 @@ function Match() {
     } finally {
       setLoadingState(false);
     }
-  }, [matchId, program]);
+  }, [matchId, previewMatch, program]);
 
   useEffect(() => {
     void fetchState();

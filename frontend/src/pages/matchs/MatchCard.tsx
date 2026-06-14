@@ -1344,7 +1344,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               <div className="mcx__formCol">
                 <div className="mcx__label dim">{match.home}</div>
                 <input
-                  className="mcx__inp mcx__inp--wine"
+                  className="mcx__inp mcx__inp--wine mcx__scoreInput"
                   type="text"
                   inputMode="numeric"
                   disabled={txLoadingBet || !isBeforeKickoff}
@@ -1374,7 +1374,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               <div className="mcx__formCol">
                 <div className="mcx__label dim">{match.away}</div>
                 <input
-                  className="mcx__inp mcx__inp--wine"
+                  className="mcx__inp mcx__inp--wine mcx__scoreInput"
                   type="text"
                   inputMode="numeric"
                   disabled={txLoadingBet || !isBeforeKickoff}
@@ -1410,7 +1410,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <div className="mcx__formCol">
                     <div className="mcx__label dim">{match.home}</div>
                     <input
-                      className="mcx__inp mcx__inp--wine"
+                      className="mcx__inp mcx__inp--wine mcx__scoreInput"
                       type="text"
                       inputMode="numeric"
                       disabled={txLoadingBet || !isBeforeKickoff}
@@ -1440,7 +1440,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <div className="mcx__formCol">
                     <div className="mcx__label dim">{match.away}</div>
                     <input
-                      className="mcx__inp mcx__inp--wine"
+                      className="mcx__inp mcx__inp--wine mcx__scoreInput"
                       type="text"
                       inputMode="numeric"
                       disabled={txLoadingBet || !isBeforeKickoff}
@@ -1499,14 +1499,31 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
               <div className="mcx__formCol">
                 <div className="mcx__label dim">Currency</div>
-                <select
-                  className="mcx__sel mcx__sel--wine"
-                  value={betCurrency}
-                  onChange={(e) => setBetCurrency(e.target.value as BetCurrency)}
-                >
-                  <option value="VARA">VARA</option>
-                  <option value="FREEBET">Freebet</option>
-                </select>
+                <div className="mcx__currencyField">
+                  <select
+                    className="mcx__sel mcx__sel--wine mcx__currencySelect"
+                    value={betCurrency}
+                    onChange={(e) => setBetCurrency(e.target.value as BetCurrency)}
+                  >
+                    <option value="VARA">VARA</option>
+                    <option value="FREEBET">Freebet</option>
+                  </select>
+
+                  <div className="mcx__currencySwitch" role="radiogroup" aria-label="Prediction currency">
+                    {(['VARA', 'FREEBET'] as BetCurrency[]).map((currency) => (
+                      <button
+                        key={currency}
+                        className={'mcx__currencyChoice' + (betCurrency === currency ? ' is-active' : '')}
+                        type="button"
+                        role="radio"
+                        aria-checked={betCurrency === currency}
+                        onClick={() => setBetCurrency(currency)}
+                      >
+                        {currency === 'VARA' ? 'VARA' : 'Freebet'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="mcx__stakeFeedbackRow">

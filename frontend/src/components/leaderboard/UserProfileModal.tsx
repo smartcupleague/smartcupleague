@@ -36,6 +36,13 @@ const Backdrop = styled.div`
   justify-content: center;
   z-index: 9999;
   padding: 16px;
+
+  @media (max-width: 600px) {
+    align-items: center;
+    padding: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 `;
 
 /* ── Card ── */
@@ -86,6 +93,18 @@ const Card = styled.div`
     background: linear-gradient(90deg, transparent, rgba(255, 46, 118, 0.70), rgba(255, 180, 220, 0.50), rgba(255, 46, 118, 0.70), transparent);
     border-radius: 999px;
   }
+
+  @media (max-width: 600px) {
+    width: min(440px, 96vw);
+    max-height: calc(100dvh - 20px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    gap: 14px;
+    padding: 16px 14px 14px;
+    border-radius: 16px;
+  }
 `;
 
 /* ── Close ── */
@@ -108,6 +127,22 @@ const CloseBtn = styled.button`
     color: rgba(255, 180, 200, 0.95);
     transform: scale(1.08);
   }
+
+  @media (max-width: 600px) {
+    position: sticky;
+    top: 0;
+    right: auto;
+    z-index: 3;
+    align-self: flex-end;
+    width: 44px;
+    height: 44px;
+    margin: -6px -4px -36px 0;
+    border-radius: 12px;
+    background: rgba(28, 0, 16, 0.82);
+    color: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
 `;
 
 /* ── Header ── */
@@ -116,12 +151,23 @@ const Header = styled.div`
   align-items: center;
   gap: 18px;
   padding-right: 30px;
+
+  @media (max-width: 600px) {
+    min-width: 0;
+    gap: 12px;
+    padding-right: 48px;
+  }
 `;
 
 const AvatarWrap = styled.div<{ $isMe: boolean }>`
   flex-shrink: 0;
   position: relative;
   width: 62px; height: 62px;
+
+  @media (max-width: 600px) {
+    width: 48px;
+    height: 48px;
+  }
 `;
 
 const AvatarBg = styled.div<{ $isMe: boolean }>`
@@ -153,6 +199,11 @@ const AvatarBg = styled.div<{ $isMe: boolean }>`
     transform: skewX(-16deg);
     animation: ${shimmer} 3s ease-in-out 0.8s infinite;
   }
+
+  @media (max-width: 600px) {
+    font-size: 16px;
+    letter-spacing: 0;
+  }
 `;
 
 const HeaderInfo = styled.div`
@@ -166,6 +217,11 @@ const PlayerName = styled.div`
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   letter-spacing: 0.01em;
   text-shadow: 0 2px 12px rgba(255, 46, 118, 0.25);
+
+  @media (max-width: 600px) {
+    font-size: 17px;
+    letter-spacing: 0;
+  }
 `;
 
 const BadgeRow = styled.div`
@@ -181,6 +237,11 @@ const RankBadge = styled.span`
   border: 1px solid rgba(255, 200, 50, 0.24);
   border-radius: 999px;
   padding: 3px 10px;
+
+  @media (max-width: 600px) {
+    min-height: 28px;
+    letter-spacing: 0;
+  }
 `;
 
 const MeBadge = styled.span`
@@ -192,6 +253,11 @@ const MeBadge = styled.span`
   border: 1px solid rgba(255, 46, 118, 0.38);
   border-radius: 999px;
   padding: 2px 9px;
+
+  @media (max-width: 600px) {
+    min-height: 28px;
+    letter-spacing: 0;
+  }
 `;
 
 /* ── Divider ── */
@@ -208,6 +274,14 @@ const AddressBlock = styled.div`
   border: 1px solid rgba(255, 46, 118, 0.14);
   border-radius: 14px;
   padding: 11px 14px;
+
+  @media (max-width: 600px) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+  }
 `;
 
 const AddressText = styled.span`
@@ -216,8 +290,15 @@ const AddressText = styled.span`
   font-size: 11.5px;
   color: rgba(255, 220, 235, 0.55);
   word-break: break-all;
+  overflow-wrap: anywhere;
   line-height: 1.55;
   letter-spacing: 0.02em;
+
+  @media (max-width: 600px) {
+    font-size: 10.5px;
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
 `;
 
 const CopyBtn = styled.button<{ $copied: boolean }>`
@@ -233,6 +314,13 @@ const CopyBtn = styled.button<{ $copied: boolean }>`
   color: ${({ $copied }) => $copied ? 'rgba(110, 255, 190, 0.92)' : 'rgba(255, 150, 190, 0.88)'};
   letter-spacing: 0.04em;
   &:hover { filter: brightness(1.18); transform: scale(1.03); }
+
+  @media (max-width: 600px) {
+    min-width: 64px;
+    height: 44px;
+    padding: 0 10px;
+    letter-spacing: 0;
+  }
 `;
 
 /* ── Stats grid ── */
@@ -240,6 +328,10 @@ const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+
+  @media (max-width: 600px) {
+    gap: 8px;
+  }
 `;
 
 const StatCard = styled.div`
@@ -263,6 +355,12 @@ const StatCard = styled.div`
     border-color: rgba(255, 46, 118, 0.30);
     background: rgba(122, 19, 73, 0.15);
   }
+
+  @media (max-width: 600px) {
+    min-width: 0;
+    border-radius: 12px;
+    padding: 12px;
+  }
 `;
 
 const StatLabel = styled.div`
@@ -270,6 +368,12 @@ const StatLabel = styled.div`
   letter-spacing: 0.16em; text-transform: uppercase;
   color: rgba(255, 180, 210, 0.45);
   position: relative;
+
+  @media (max-width: 600px) {
+    font-size: 10px;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
 `;
 
 const StatValue = styled.div<{ $gold?: boolean; $green?: boolean; $plain?: boolean }>`
@@ -293,6 +397,11 @@ const StatValue = styled.div<{ $gold?: boolean; $green?: boolean; $plain?: boole
   ${({ $plain }) => $plain && `
     color: rgba(255, 220, 235, 0.88);
   `}
+
+  @media (max-width: 600px) {
+    font-size: 22px;
+    letter-spacing: 0;
+  }
 `;
 
 const StatSuffix = styled.span`
@@ -300,12 +409,22 @@ const StatSuffix = styled.span`
   color: rgba(255, 180, 210, 0.45);
   letter-spacing: 0.08em;
   margin-left: 3px;
+
+  @media (max-width: 600px) {
+    font-size: 11px;
+    letter-spacing: 0;
+  }
 `;
 
 /* ── Actions ── */
 const Actions = styled.div`
   display: flex; gap: 10px;
   padding-top: 4px;
+
+  @media (max-width: 600px) {
+    gap: 8px;
+    padding-top: 0;
+  }
 `;
 
 const FollowBtn = styled.button<{ $following: boolean }>`
@@ -345,6 +464,12 @@ const FollowBtn = styled.button<{ $following: boolean }>`
   &:hover::after { animation: ${shimmer} 1.8s ease-in-out; }
   &:hover { transform: translateY(-1px); filter: brightness(1.10); }
   &:active { transform: translateY(0); filter: brightness(0.97); }
+
+  @media (max-width: 600px) {
+    min-height: 44px;
+    height: auto;
+    letter-spacing: 0;
+  }
 `;
 
 const CloseAction = styled.button`
@@ -362,6 +487,13 @@ const CloseAction = styled.button`
     background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.82);
     border-color: rgba(255,255,255,0.18);
+  }
+
+  @media (max-width: 600px) {
+    min-height: 44px;
+    height: auto;
+    padding: 0 14px;
+    letter-spacing: 0;
   }
 `;
 
@@ -417,7 +549,7 @@ export function UserProfileModal({ row, isMe, isFollowed, onFollow, onClose }: P
 
   return ReactDOM.createPortal(
     <Backdrop onClick={onClose}>
-      <Card onClick={(e) => e.stopPropagation()}>
+      <Card onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`${displayLabel} leaderboard profile`}>
         <CloseBtn type="button" onClick={onClose} aria-label="Close">✕</CloseBtn>
 
         {/* ── Header ── */}

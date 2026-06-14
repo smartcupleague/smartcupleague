@@ -29,6 +29,15 @@ const MY_LB_KEY = 'scl_my_leaderboard_v1';
 const INDEXER_URL = import.meta.env.VITE_INDEXER_GRAPHQL_URL as string | undefined;
 const INDEXER_TIMEOUT_MS = 4_000;
 
+function isLocalLeaderboardPreview() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  if (!isLocalhost) return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('previewLeaderboard') === '1';
+}
+
 type ApiStatsRow = {
   wallet_address: string;
   display_name?: string | null;
@@ -47,6 +56,63 @@ type LbRow = {
   exact: number;
   outcomes: number;
 };
+
+const PREVIEW_WALLETS = [
+  '0x1111111111111111111111111111111111111111111111111111111111111111',
+  '0x2222222222222222222222222222222222222222222222222222222222222222',
+  '0x3333333333333333333333333333333333333333333333333333333333333333',
+  '0x4444444444444444444444444444444444444444444444444444444444444444',
+  '0x5555555555555555555555555555555555555555555555555555555555555555',
+  '0x6666666666666666666666666666666666666666666666666666666666666666',
+];
+
+function buildPreviewRows(): LbRow[] {
+  return [
+    { rank: 1, wallet: PREVIEW_WALLETS[0], displayName: 'Machtura FC', totalPoints: 184, matches: 18, exact: 7, outcomes: 12 },
+    { rank: 2, wallet: PREVIEW_WALLETS[1], displayName: 'Vara Victor', totalPoints: 171, matches: 17, exact: 6, outcomes: 13 },
+    { rank: 3, wallet: PREVIEW_WALLETS[2], displayName: 'Cup Oracle', totalPoints: 163, matches: 16, exact: 5, outcomes: 12 },
+    { rank: 4, wallet: PREVIEW_WALLETS[3], displayName: 'Penalty King', totalPoints: 139, matches: 15, exact: 4, outcomes: 11 },
+    { rank: 5, wallet: PREVIEW_WALLETS[4], displayName: 'Golden Boot', totalPoints: 126, matches: 14, exact: 3, outcomes: 10 },
+    { rank: 6, wallet: PREVIEW_WALLETS[5], displayName: 'Clean Sheet', totalPoints: 112, matches: 13, exact: 3, outcomes: 9 },
+  ];
+}
+
+function previewKickoff(offsetDays: number) {
+  return String(Math.floor((Date.now() + offsetDays * 24 * 60 * 60 * 1000) / 1000));
+}
+
+function buildPreviewMatches(): LeaderboardMatch[] {
+  const participants = PREVIEW_WALLETS.map((wallet) => wallet.toLowerCase());
+  return [
+    {
+      match_id: '901',
+      phase: 'GROUP_STAGE',
+      home: 'Mexico',
+      away: 'Canada',
+      kick_off: previewKickoff(1),
+      result: null,
+      participants,
+    },
+    {
+      match_id: '902',
+      phase: 'ROUND_OF_16',
+      home: 'Brazil',
+      away: 'Belgium',
+      kick_off: previewKickoff(3),
+      result: null,
+      participants,
+    },
+    {
+      match_id: '903',
+      phase: 'FINAL',
+      home: 'Spain',
+      away: 'France',
+      kick_off: previewKickoff(-1),
+      result: { finalized: { score: { home: 2, away: 1 } } },
+      participants,
+    },
+  ];
+}
 
 // Tabs — removed Match Performance, R32 Bonus (Picks), Earnings/ROI per spec
 const tabs = ['Global Leaderboard', 'My Leaderboard'] as const;
@@ -334,6 +400,7 @@ export default function Leaderboards() {
   const [activeTab, setActiveTab] = useState<Tab>('Global Leaderboard');
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
+  const previewLeaderboard = isLocalLeaderboardPreview();
 
   const { api, isApiReady } = useApi();
   const toast = useToast();
@@ -378,6 +445,16 @@ export default function Leaderboards() {
   }, []);
 
   const fetchLeaderboard = useCallback(async () => {
+    if (previewLeaderboard) {
+      const previewMatches = buildPreviewMatches();
+      setLoading(false);
+      setRows(buildPreviewRows());
+      setStateMatches(previewMatches);
+      setUpcomingMatches(previewMatches.filter((match) => kickOffToMs(Number(match.kick_off)) > Date.now()));
+      setPredictedMatchIds(new Set(['901']));
+      return;
+    }
+
     if (!api || !isApiReady) return;
 
     setLoading(true);
@@ -505,7 +582,7 @@ export default function Leaderboards() {
     } finally {
       setLoading(false);
     }
-  }, [api, connectedDisplayName, isApiReady, myWalletHex, toast]);
+  }, [api, connectedDisplayName, isApiReady, myWalletHex, previewLeaderboard, toast]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -625,6 +702,11 @@ export default function Leaderboards() {
   };
 
   const displayRows = activeTab === 'My Leaderboard' ? myLbRows : filtered;
+  const openProfileFromKeyboard = (event: React.KeyboardEvent<HTMLDivElement>, row: LbRow) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    setProfileRow(row);
+  };
 
   return (
     <div className="lb lb--full">
@@ -699,7 +781,7 @@ export default function Leaderboards() {
       </section>
 
       <main className="lbGrid">
-        <section className="lbCard lbCard--table" aria-label="Leaderboard table">
+        <section className="lbCard lbCard--table" aria-label="Leaderboard table" aria-busy={loading}>
           <div className="lbTable" ref={listRef}>
             {/* Table header */}
             <div className="lbTHead lbTHead--6col">
@@ -711,20 +793,21 @@ export default function Leaderboards() {
               <div className="lbTH--num lbTH--points">Points</div>
             </div>
 
-            <div className="lbTBody">
+            <div className="lbTBody" aria-live="polite">
               {activeTab === 'My Leaderboard' && !followedWallets.length ? (
-                <div className="lbTable__foot muted tiny">
-                  No wallets followed yet. Click <b>+</b> next to any player in Global Leaderboard to add them.
+                <div className="lbTable__foot muted tiny" role="status">
+                  No wallets followed yet. Use the follow button next to any player in Global Leaderboard to add them.
                 </div>
               ) : loading ? (
-                <div className="lbTable__foot muted tiny">Loading on-chain leaderboard…</div>
+                <div className="lbTable__foot muted tiny" role="status">Loading on-chain leaderboard…</div>
               ) : displayRows.length === 0 ? (
-                <div className="lbTable__foot muted tiny">No wallets found.</div>
+                <div className="lbTable__foot muted tiny" role="status">No wallets found.</div>
               ) : (
                 displayRows.map((r) => {
                   const isMe = !!myWalletHex && r.wallet.toLowerCase() === myWalletHex.toLowerCase();
                   const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : '•';
                   const isFollowed = followedWallets.includes(r.wallet.toLowerCase());
+                  const playerLabel = r.displayName ?? shortHex(r.wallet);
 
                   return (
                     <div
@@ -732,7 +815,10 @@ export default function Leaderboards() {
                       id={`lb-row-${r.wallet.toLowerCase()}`}
                       className={'lbTRow lbTRow--6col ' + (isMe ? 'lbTRow--me' : '')}
                       onClick={() => setProfileRow(r)}
-                      style={{ cursor: 'pointer' }}>
+                      onKeyDown={(event) => openProfileFromKeyboard(event, r)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View profile for ${playerLabel}, rank ${r.rank}, ${r.totalPoints} points`}>
                       <div className="lbRank">
                         <span className="lbMedal" aria-hidden="true">
                           {medal}
@@ -743,15 +829,17 @@ export default function Leaderboards() {
                       <div className="lbWalletCell" title={r.wallet}>
                         <span className="lbAvatar" aria-hidden="true" />
                         <span className="lbWalletCell__text">
-                          {r.displayName ?? shortHex(r.wallet)}
+                          {playerLabel}
                         </span>
                         {isMe ? <span className="lbMe">YOU</span> : null}
                         {/* Add to My Leaderboard button */}
                         <button
                           className={'lbFollowBtn ' + (isFollowed ? 'lbFollowBtn--active' : '')}
                           type="button"
-                          title={isFollowed ? 'Remove from My Leaderboard' : 'Add to My Leaderboard'}
-                          aria-label={isFollowed ? 'Remove from My Leaderboard' : 'Add to My Leaderboard'}
+                          title={isFollowed ? `Remove ${playerLabel} from My Leaderboard` : `Follow ${playerLabel}`}
+                          aria-label={isFollowed ? `Remove ${playerLabel} from My Leaderboard` : `Follow ${playerLabel}`}
+                          aria-pressed={isFollowed}
+                          onKeyDown={(e) => e.stopPropagation()}
                           onClick={(e) => { e.stopPropagation(); toggleFollow(r.wallet.toLowerCase()); }}>
                           {isFollowed ? '✓' : '+'}
                         </button>

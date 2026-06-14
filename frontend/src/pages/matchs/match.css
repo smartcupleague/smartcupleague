@@ -247,6 +247,129 @@
   .arena__grid { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 768px) {
+  .arena {
+    min-height: 100dvh;
+    padding: 0 0 calc(var(--mobile-tabbar-height, 76px) + var(--mobile-safe-bottom, env(safe-area-inset-bottom, 0px)) + 14px);
+    overflow-x: hidden;
+  }
+
+  .arena__frame {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    overflow: visible;
+  }
+
+  .arena__topbar {
+    position: relative;
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--mobile-section-gap, 12px);
+    padding: var(--mobile-panel-padding-y, 14px) var(--mobile-panel-padding-x, 12px);
+  }
+
+  .arena__topbarLeft,
+  .arena__topbarRight,
+  .arena__walletGroup {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .arena__topbarLeft {
+    justify-content: space-between;
+  }
+
+  .arena__topbarRight,
+  .arena__walletGroup {
+    align-items: stretch;
+  }
+
+  .arena__walletGroup > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .arena__address {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .arena__grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mobile-section-gap, 12px);
+    padding: var(--mobile-page-padding-x, 10px);
+    min-width: 0;
+  }
+
+  .main-column {
+    order: 1;
+  }
+
+  .left-column {
+    order: 2;
+    gap: var(--mobile-section-gap, 12px);
+  }
+
+  .main-column,
+  .left-column,
+  .mainPanel,
+  .matchCardWrap,
+  .sideCard {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mainPanel,
+  .sideCard {
+    border-radius: var(--mobile-panel-radius, 14px);
+  }
+
+  .sideCard {
+    padding: var(--mobile-card-padding, 12px);
+  }
+
+  .sideCard__title {
+    margin-bottom: 10px;
+    font-size: var(--mobile-label-size, 10.5px);
+    letter-spacing: var(--mobile-label-spacing, 0.06em);
+    line-height: 1.25;
+  }
+
+  .sideRow,
+  .sideCallout,
+  .checkList,
+  .barRow,
+  .sideHint {
+    font-size: var(--mobile-helper-size, 12px);
+    line-height: 1.35;
+  }
+
+  .sideRow,
+  .barRow,
+  .mcx__bdRow {
+    gap: 10px;
+    overflow-wrap: anywhere;
+  }
+
+  .sideRow b,
+  .barRow span,
+  .mcx__bdRow b {
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .match-footer.app-footer {
+    display: none;
+  }
+}
+
 /* ============================================================
    LEFT COLUMN / SIDEBAR
    ============================================================ */
