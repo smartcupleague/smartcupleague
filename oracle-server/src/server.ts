@@ -1139,29 +1139,28 @@ app.get("/sports/match-crests", async (_req, res) => {
   type TeamInfo = { name: string; shortName: string; crest: string };
   const result: Record<string, { home: TeamInfo; away: TeamInfo }> = {};
 
-  const fetches = Array.from(matchIdToSportsId.entries()).map(async ([bolaoId, sportsId]) => {
-    try {
-      const cacheKey = `fixture-full:${sportsId}`;
-      let fixture = getCached<WCFixture>(cacheKey);
-      if (!fixture) {
-        const r = await fetch(`${SPORTS_BASE_URL}/matches/${sportsId}`, { headers: buildSportsHeaders() });
-        if (!r.ok) throw new Error(`sports-api /matches/${sportsId} → ${r.status}`);
-        fixture = (await r.json()) as WCFixture;
-        setCached(cacheKey, fixture, FIXTURES_TTL_MS);
-        populateCrests([fixture]);
-      }
-      if (fixture.homeTeam && fixture.awayTeam) {
+  try {
+    // Single bulk request instead of one per match. football-data.org free tier is
+    // 10 req/min, so fanning out one /matches/{id} call per registered match (70+)
+    // instantly gets the server rate-limited. The bulk /competitions/WC/matches
+    // response already carries each fixture's id + homeTeam/awayTeam crests, so we
+    // resolve every mapping entry from a single (cached) request via in-memory lookup.
+    const fixtures = await fetchWCFixtures();
+    const byId = new Map(fixtures.map((f) => [f.id, f]));
+
+    for (const [bolaoId, sportsId] of matchIdToSportsId.entries()) {
+      const fixture = byId.get(sportsId);
+      if (fixture?.homeTeam && fixture?.awayTeam) {
         result[String(bolaoId)] = {
           home: { name: fixture.homeTeam.name ?? '', shortName: fixture.homeTeam.shortName ?? '', crest: fixture.homeTeam.crest ?? '' },
           away: { name: fixture.awayTeam.name ?? '', shortName: fixture.awayTeam.shortName ?? '', crest: fixture.awayTeam.crest ?? '' },
         };
       }
-    } catch (e: any) {
-      console.warn(`[match-crests] Failed for sportsId=${sportsId}:`, e?.message);
     }
-  });
+  } catch (e: any) {
+    console.warn(`[match-crests] bulk fixtures fetch failed:`, e?.message);
+  }
 
-  await Promise.allSettled(fetches);
   return res.json({ ok: true, count: Object.keys(result).length, matches: result });
 });
 
