@@ -92,6 +92,17 @@ type ApiLeaderboardRow = {
   total_claimed_planck: string;
 };
 
+type Score = { home: number; away: number };
+type PenaltyWinner = 'Home' | 'Away' | null;
+type AccuracyStats = { exact: number; outcomes: number };
+type HomeLeaderboardRow = {
+  wallet: string;
+  displayName: string | null;
+  points: number;
+  matches: number;
+  exact: number;
+  outcomes: number;
+};
 
 function shortHex(addr: string) {
   if (!addr) return '-';
@@ -179,6 +190,43 @@ function isFinalized(m: CoreMatch) {
   return !!((m.result as any)?.finalized || (m.result as any)?.Finalized);
 }
 
+function normalizePenaltyWinner(value: unknown): PenaltyWinner {
+  if (!value) return null;
+  if (value === 'Home' || value === 'Away') return value;
+  if (typeof value === 'object') {
+    if ('Home' in (value as Record<string, unknown>)) return 'Home';
+    if ('Away' in (value as Record<string, unknown>)) return 'Away';
+  }
+  return null;
+}
+
+function getFinalizedResult(result: unknown): { score?: Score; penaltyWinner: PenaltyWinner } {
+  const finalized = (result as any)?.Finalized ?? (result as any)?.finalized;
+  const score = finalized?.score;
+  if (!score) return { penaltyWinner: null };
+  return {
+    score: {
+      home: Number(score.home ?? 0) || 0,
+      away: Number(score.away ?? 0) || 0,
+    },
+    penaltyWinner: normalizePenaltyWinner(finalized?.penalty_winner),
+  };
+}
+
+function outcome(score: Score, penaltyWinner: PenaltyWinner = null): 'home' | 'draw' | 'away' {
+  if (score.home > score.away) return 'home';
+  if (score.home < score.away) return 'away';
+  if (penaltyWinner === 'Home') return 'home';
+  if (penaltyWinner === 'Away') return 'away';
+  return 'draw';
+}
+
+function isExactPrediction(betScore: Score, betPenalty: PenaltyWinner, finalScore: Score, finalPenalty: PenaltyWinner) {
+  if (betScore.home !== finalScore.home || betScore.away !== finalScore.away) return false;
+  const finalDrawWithPenalty = finalScore.home === finalScore.away && !!finalPenalty;
+  return !finalDrawWithPenalty || (!!betPenalty && betPenalty === finalPenalty);
+}
+
 function matchPool(m: CoreMatch): bigint {
   const tp = safeBigInt((m as any)?.total_pool);
   if (tp > 0n) return tp;
@@ -222,6 +270,7 @@ export default function Home() {
   const [claimLoading, setClaimLoading] = useState(false);
   const [apiLeaderboardRow, setApiLeaderboardRow] = useState<ApiLeaderboardRow | null>(null);
   const [apiLeaderboardRows, setApiLeaderboardRows] = useState<ApiLeaderboardRow[]>([]);
+  const [derivedAccuracyByWallet, setDerivedAccuracyByWallet] = useState<Map<string, AccuracyStats>>(new Map());
 
   useEffect(() => {
     void (async () => {
@@ -454,7 +503,7 @@ export default function Home() {
       : matches.filter((m) => !isWCPhase(m.phase));
   }, [activeTournamentKey, coreState?.matches]);
 
-  const sortedLeaderboard = useMemo(() => {
+  const baseLeaderboardRows = useMemo<HomeLeaderboardRow[]>(() => {
     const pointsMap = new Map<string, number>();
     for (const [wallet, points] of coreState?.user_points ?? []) {
       const key = addressKey(String(wallet ?? ''));
@@ -500,6 +549,88 @@ export default function Home() {
       })
       .sort((a, b) => (b.points !== a.points ? b.points - a.points : a.wallet.localeCompare(b.wallet)));
   }, [activeMatches, apiLeaderboardRows, connectedDisplayName, coreState?.user_points, myWalletHex]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function deriveAccuracyFallback() {
+      if (!coreProgram || !baseLeaderboardRows.length) {
+        setDerivedAccuracyByWallet(new Map());
+        return;
+      }
+
+      const finalizedById = new Map<string, { score: Score; penaltyWinner: PenaltyWinner }>();
+      for (const match of activeMatches) {
+        const finalized = getFinalizedResult(match.result);
+        if (finalized.score) {
+          finalizedById.set(String(match.match_id), {
+            score: finalized.score,
+            penaltyWinner: finalized.penaltyWinner,
+          });
+        }
+      }
+
+      if (!finalizedById.size) {
+        setDerivedAccuracyByWallet(new Map());
+        return;
+      }
+
+      const rowsNeedingFallback = baseLeaderboardRows.filter(
+        (row) => row.matches > 0 && row.exact === 0 && row.outcomes === 0,
+      );
+
+      if (!rowsNeedingFallback.length) {
+        setDerivedAccuracyByWallet(new Map());
+        return;
+      }
+
+      const svc = new CoreService(coreProgram);
+      const next = new Map<string, AccuracyStats>();
+
+      await Promise.allSettled(rowsNeedingFallback.map(async (row) => {
+        const wallet = addressKey(row.wallet);
+        if (!wallet) return;
+
+        const bets = (await (svc as any).queryBetsByUser(wallet)) as any[];
+        let exact = 0;
+        let outcomes = 0;
+
+        for (const bet of bets ?? []) {
+          const finalized = finalizedById.get(String(bet?.match_id ?? ''));
+          const betScore = bet?.score;
+          if (!finalized || !betScore) continue;
+
+          const score = {
+            home: Number(betScore.home ?? 0) || 0,
+            away: Number(betScore.away ?? 0) || 0,
+          };
+          const betPenalty = normalizePenaltyWinner(bet?.penalty_winner);
+          const exactHit = isExactPrediction(score, betPenalty, finalized.score, finalized.penaltyWinner);
+          if (exactHit) exact += 1;
+          if (!exactHit && outcome(score, betPenalty) === outcome(finalized.score, finalized.penaltyWinner)) {
+            outcomes += 1;
+          }
+        }
+
+        if (exact > 0 || outcomes > 0) next.set(wallet, { exact, outcomes });
+      }));
+
+      if (!cancelled) setDerivedAccuracyByWallet(next);
+    }
+
+    void deriveAccuracyFallback();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMatches, baseLeaderboardRows, coreProgram]);
+
+  const sortedLeaderboard = useMemo(() => {
+    return baseLeaderboardRows.map((row) => {
+      const wallet = addressKey(row.wallet);
+      const derived = wallet ? derivedAccuracyByWallet.get(wallet) : null;
+      return derived ? { ...row, ...derived } : row;
+    });
+  }, [baseLeaderboardRows, derivedAccuracyByWallet]);
 
   const myRankInfo = useMemo(() => {
     const totalPlayers = sortedLeaderboard.length;
