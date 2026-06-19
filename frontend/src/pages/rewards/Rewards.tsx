@@ -37,7 +37,7 @@ type XTask = {
 
 const CAMPAIGN_X_REWARD_AMOUNTS: Record<XTask['taskType'], string> = {
   repost: '2000',
-  post: '4000',
+  post: '5000',
 };
 
 type RewardTasks = {

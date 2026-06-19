@@ -70,8 +70,8 @@ export default () => ({
   smartCupXUsername: process.env.SMARTCUP_X_USERNAME || 'SmartCupLeague',
   smartCupAppUrl: process.env.SMARTCUP_APP_URL || 'https://app.smartcupleague.com/',
   adminApiKey: process.env.ADMIN_API_KEY || '',
-  xRepostAmountVara: positiveBigInt('X_REPOST_AMOUNT_VARA', 100n),
-  xPostAmountVara: positiveBigInt('X_POST_AMOUNT_VARA', 300n),
+  xRepostAmountVara: positiveBigInt('X_REPOST_AMOUNT_VARA', 2000n),
+  xPostAmountVara: positiveBigInt('X_POST_AMOUNT_VARA', 5000n),
   referralMilestoneReferrerVara: positiveBigInt('REFERRAL_MILESTONE_REFERRER_VARA', 150n),
   referralMilestoneFriendVara: nonNegativeBigInt('REFERRAL_MILESTONE_FRIEND_VARA', 0n),
 });
