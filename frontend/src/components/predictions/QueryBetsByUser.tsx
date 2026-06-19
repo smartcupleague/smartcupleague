@@ -1164,7 +1164,8 @@ export const QueryBetsByUserComponent: React.FC = () => {
                     const supabasePoolStats = poolStatsByMatchId.get(String(b.match_id));
                     const supabaseMatchPoolBn = toBn(supabasePoolStats?.total_planck ?? 0);
                     const contractMatchPoolBn = toBn(m?.match_prize_pool ?? 0);
-                    const matchPoolBn = supabaseMatchPoolBn > 0n ? supabaseMatchPoolBn : contractMatchPoolBn;
+                    const matchPoolBn =
+                      supabaseMatchPoolBn > contractMatchPoolBn ? supabaseMatchPoolBn : contractMatchPoolBn;
                     const poolHuman = matchPoolBn > 0n ? `${formatAmount(matchPoolBn, 12)} VARA` : m ? totalPoolVara(m) : '—';
 
                     const current = m ? getCurrentScore(m.result) : { home: 0, away: 0, tag: 'OPEN' as const };
@@ -1174,7 +1175,9 @@ export const QueryBetsByUserComponent: React.FC = () => {
                     const totalWinnerStakeBn = toBn(m?.total_winner_stake ?? 0);
                     const predictedOutcome = predictionOutcomeKey(b.score);
                     const predictedOutcomePoolBn = poolForOutcome(supabasePoolStats, predictedOutcome);
-                    const estimatedPayoutBn = estimatePayoutBn(stakeBn, predictedOutcomePoolBn, matchPoolBn);
+                    const estimatedOutcomePoolBn =
+                      predictedOutcomePoolBn > stakeBn ? predictedOutcomePoolBn : stakeBn;
+                    const estimatedPayoutBn = estimatePayoutBn(stakeBn, estimatedOutcomePoolBn, matchPoolBn);
                     const estimatedWalletPayoutBn =
                       estimatedPayoutBn === null
                         ? null
@@ -1191,7 +1194,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
                     const realBn =
                       matchFinal && settlementPrepared && eligible
-                        ? estimatedPayoutBn ?? computeDeterministicShareBn(stakeBn, matchPoolBn, totalWinnerStakeBn)
+                        ? computeDeterministicShareBn(stakeBn, matchPoolBn, totalWinnerStakeBn)
                         : 0n;
                     const walletRealBn =
                       realBn > freebetPrincipalBn ? realBn - freebetPrincipalBn : 0n;
