@@ -20,6 +20,46 @@
   --shadow-deep: 0 20px 60px rgba(0, 0, 0, 0.9);
 }
 
+@media (min-width: 769px) and (max-width: 1440px),
+       (min-width: 769px) and (max-height: 850px) {
+  :root {
+    --compact-sidebar-width: 238px;
+    --compact-sidebar-padding-y: 1rem;
+    --compact-sidebar-padding-x: 0.85rem;
+    --compact-sidebar-radius: 20px;
+    --compact-sidebar-nav-gap: 0.45rem;
+    --compact-sidebar-item-padding-y: 0.72rem;
+    --compact-sidebar-item-padding-x: 0.78rem;
+    --compact-sidebar-item-min-height: 42px;
+    --compact-sidebar-icon-size: 20px;
+    --compact-sidebar-label-size: 0.86rem;
+    --compact-shell-gap: 1rem;
+    --compact-shell-padding-top: 1rem;
+    --compact-shell-padding-x: 1rem;
+    --compact-shell-padding-bottom: 1.25rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1366px),
+       (min-width: 769px) and (max-height: 768px) {
+  :root {
+    --compact-sidebar-width: 224px;
+    --compact-sidebar-padding-y: 0.85rem;
+    --compact-sidebar-padding-x: 0.75rem;
+    --compact-sidebar-radius: 18px;
+    --compact-sidebar-nav-gap: 0.35rem;
+    --compact-sidebar-item-padding-y: 0.62rem;
+    --compact-sidebar-item-padding-x: 0.68rem;
+    --compact-sidebar-item-min-height: 38px;
+    --compact-sidebar-icon-size: 18px;
+    --compact-sidebar-label-size: 0.82rem;
+    --compact-shell-gap: 0.8rem;
+    --compact-shell-padding-top: 0.8rem;
+    --compact-shell-padding-x: 0.8rem;
+    --compact-shell-padding-bottom: 1rem;
+  }
+}
+
 /* ─── Keyframes ─────────────────────────────────────────────── */
 @keyframes sidebarGlow {
   0%, 100% { box-shadow: 0 0 35px rgba(255, 0, 110, 0.18), 0 20px 60px rgba(0, 0, 0, 0.9); }
@@ -379,6 +419,71 @@
 .scb-sidebar__social:focus-visible {
   outline: 2px solid rgba(255, 143, 184, 0.7);
   outline-offset: 5px;
+}
+
+@media (min-width: 769px) and (max-width: 1440px),
+       (min-width: 769px) and (max-height: 850px) {
+  .scb-shell {
+    gap: var(--compact-shell-gap);
+    padding:
+      var(--compact-shell-padding-top)
+      var(--compact-shell-padding-x)
+      var(--compact-shell-padding-bottom);
+  }
+
+  .scb-sidebar {
+    width: var(--compact-sidebar-width);
+    border-radius: var(--compact-sidebar-radius);
+    padding:
+      var(--compact-sidebar-padding-y)
+      var(--compact-sidebar-padding-x);
+  }
+
+  .scb-sidebar__brand {
+    margin-bottom: 1.1rem;
+  }
+
+  .logo-small img {
+    width: min(160px, 100%);
+  }
+
+  .scb-sidebar__nav {
+    gap: var(--compact-sidebar-nav-gap);
+  }
+
+  .scb-sidebar__item {
+    min-height: var(--compact-sidebar-item-min-height);
+    gap: 0.62rem;
+    padding:
+      var(--compact-sidebar-item-padding-y)
+      var(--compact-sidebar-item-padding-x);
+    border-radius: 12px;
+    font-size: var(--compact-sidebar-label-size);
+  }
+
+  .scb-sidebar__item--ghost {
+    margin-top: 0.3rem;
+  }
+
+  .scb-icon {
+    width: var(--compact-sidebar-icon-size);
+    height: var(--compact-sidebar-icon-size);
+    border-radius: 8px;
+    font-size: calc(var(--compact-sidebar-icon-size) * 0.78);
+  }
+
+  .scb-sidebar__bottom {
+    margin-top: 1rem;
+  }
+
+  .scb-sidebar__socials {
+    gap: 0.75rem;
+  }
+
+  .scb-sidebar__social svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 

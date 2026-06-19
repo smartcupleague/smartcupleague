@@ -2019,3 +2019,368 @@
     font-weight: 950;
   }
 }
+
+/* ─── Compact desktop density ────────────────────────────────────── */
+
+@media (min-width: 981px) and (max-width: 1440px), (min-width: 981px) and (max-height: 850px) {
+  .mxShell {
+    padding: var(--compact-desktop-page-padding-top, 14px) var(--compact-desktop-page-padding-x, 14px);
+  }
+
+  .mxTop {
+    padding: 14px 16px 12px;
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .mxTop__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
+    gap: 12px;
+  }
+
+  .mxTitle h1 {
+    font-size: 23px;
+    line-height: 1.06;
+  }
+
+  .mxTitle p {
+    margin-top: 4px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.25;
+  }
+
+  .mxSearch {
+    height: 40px;
+    margin-top: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .mxSearch input {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mxWalletWrap {
+    width: min(100%, 620px);
+    max-width: 620px;
+  }
+
+  .mxTabs,
+  .mxInfo,
+  .mxFilters {
+    margin-top: 10px;
+  }
+
+  .mxTabs,
+  .mxShortcuts,
+  .mxFilters__right {
+    gap: 8px;
+  }
+
+  .mxTab {
+    padding: 7px 11px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mxInfoGrid {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .mxInfoCard {
+    min-height: 48px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    gap: 2px;
+  }
+
+  .mxInfoCard span,
+  .mxFilterField span {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+
+  .mxInfoCard strong {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.2;
+  }
+
+  .mxFilters {
+    padding-top: 10px;
+  }
+
+  .mxFilterField {
+    gap: 5px;
+    min-width: 188px;
+  }
+
+  .mxFilterSelect {
+    height: var(--compact-desktop-control-height, 36px);
+    padding-inline: 12px 34px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mxBtn {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .mxBtn--icon {
+    width: var(--compact-desktop-control-height, 36px);
+    min-width: var(--compact-desktop-control-height, 36px);
+  }
+
+  .mxChampPick {
+    min-height: 68px;
+    margin-top: 10px;
+    padding: 14px 16px;
+    border-radius: 14px;
+  }
+
+  .mxChampPick__title {
+    font-size: 16px;
+  }
+
+  .mxChampPick__icon {
+    font-size: 19px;
+  }
+
+  .mxChampPick p {
+    margin-top: 3px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.25;
+  }
+
+  .mxChampPick__cta {
+    min-width: 118px;
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding-inline: 14px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .mxSection__main {
+    font-size: 16px;
+  }
+
+  .mxSection__sub {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .mxList {
+    margin-top: 8px;
+    gap: 7px;
+  }
+
+  .mxCard {
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .mxCard__top {
+    padding: 9px 12px 6px;
+    gap: 8px;
+  }
+
+  .mxTeams {
+    gap: 8px;
+  }
+
+  .mxTeam {
+    gap: 6px;
+  }
+
+  .mxTeam__name {
+    max-width: 150px;
+    font-size: var(--compact-desktop-card-title-size, 13px);
+  }
+
+  .mxFlag {
+    width: 26px;
+    height: 18px;
+    border-radius: 5px;
+  }
+
+  .mxVs {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0;
+  }
+
+  .mxCard__topRight {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: min(100%, 520px);
+  }
+
+  .mxStatus,
+  .mxPill,
+  .mxCard__topRight .mxBtn,
+  .mxCard__topRight .mxBtn--static {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    line-height: 1.1;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .mxStatus--predicted {
+    margin-left: 0;
+    font-weight: 900;
+  }
+
+  .mxTopAction,
+  .mxRewardBadge {
+    min-width: 92px;
+  }
+
+  .mxStatusLine {
+    padding: 0 12px 3px;
+    margin-top: -4px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.25;
+  }
+
+  .mxCard__mid {
+    padding: 7px 12px 9px;
+    gap: 8px;
+  }
+
+  .mxMeta {
+    gap: 5px;
+  }
+
+  .mxMeta__chip {
+    padding: 4px 8px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.15;
+  }
+
+  .mxYourPick {
+    min-height: 27px;
+    border-radius: 999px;
+  }
+
+  .mxYourPick__label,
+  .mxYourPick__score,
+  .mxScore__label,
+  .mxPool__k {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0;
+  }
+
+  .mxYourPick__label {
+    padding-inline: 8px;
+  }
+
+  .mxYourPick__score {
+    min-width: 38px;
+    padding-inline: 8px;
+  }
+
+  .mxScore {
+    padding: 4px 10px;
+    gap: 5px;
+  }
+
+  .mxScore__value {
+    font-size: 14px;
+    line-height: 1.05;
+  }
+
+  .mxPools {
+    gap: 6px;
+  }
+
+  .mxPool {
+    min-width: 150px;
+    padding: 5px 10px;
+    border-radius: 13px;
+    gap: 2px;
+  }
+
+  .mxPool__v {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mxPool__usd {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1366px), (min-width: 981px) and (max-height: 768px) {
+  .mxTop {
+    padding: 12px 14px 10px;
+  }
+
+  .mxTitle h1 {
+    font-size: 22px;
+  }
+
+  .mxInfoGrid {
+    margin-top: 8px;
+  }
+
+  .mxInfoCard {
+    min-height: 44px;
+    padding: 7px 9px;
+  }
+
+  .mxFilters {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .mxChampPick {
+    min-height: 62px;
+    padding: 12px 14px;
+  }
+
+  .mxList {
+    gap: 6px;
+  }
+
+  .mxCard__top {
+    padding: 8px 10px 5px;
+  }
+
+  .mxCard__mid {
+    padding: 6px 10px 8px;
+    gap: 7px;
+  }
+
+  .mxTeam__name {
+    max-width: 132px;
+  }
+
+  .mxCard__topRight {
+    gap: 5px;
+  }
+
+  .mxStatus,
+  .mxPill,
+  .mxCard__topRight .mxBtn,
+  .mxCard__topRight .mxBtn--static {
+    min-height: 28px;
+    padding: 4px 8px;
+  }
+
+  .mxStatusLine {
+    padding-inline: 10px;
+  }
+
+  .mxMeta {
+    gap: 4px;
+  }
+
+  .mxPool {
+    min-width: 138px;
+  }
+}

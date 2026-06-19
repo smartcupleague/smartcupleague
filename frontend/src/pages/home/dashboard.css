@@ -1347,6 +1347,403 @@ body {
   gap: 10px;
 }
 
+/* ─── Compact desktop density ───────────────────────────────── */
+@media (min-width: 981px) and (max-width: 1440px), (min-width: 981px) and (max-height: 850px) {
+  .h-dash {
+    padding: var(--compact-desktop-page-padding-top, 14px) var(--compact-desktop-page-padding-x, 14px);
+  }
+
+  .h-topbar {
+    padding: 14px 16px 12px;
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .h-topbar__row {
+    gap: 12px;
+  }
+
+  .h-title h1 {
+    font-size: 23px;
+    line-height: 1.06;
+  }
+
+  .h-title p {
+    margin-top: 4px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.25;
+  }
+
+  .h-tabs {
+    margin-top: 10px;
+    gap: 8px;
+  }
+
+  .h-tab {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 11px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-grid {
+    gap: var(--compact-desktop-section-gap, 12px);
+    margin-top: var(--compact-desktop-section-gap, 12px);
+  }
+
+  .h-card {
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .h-card__head {
+    padding: 11px 13px 7px;
+  }
+
+  .h-card__head h3 {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0.08em;
+  }
+
+  .h-card__foot {
+    padding: 8px 13px 11px;
+    gap: 8px;
+  }
+
+  .h-card__foot--bottomCenter {
+    padding-top: 12px;
+  }
+
+  .h-card--perf .h-card__foot--bottomCenter {
+    padding-top: 8px;
+    padding-bottom: 5px;
+  }
+
+  .h-btn {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 11px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-btn--sm {
+    min-height: 32px;
+    padding: 5px 9px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+
+  .h-status {
+    padding: 0 13px 7px;
+  }
+
+  .h-status__top {
+    gap: 10px;
+  }
+
+  .h-status__tournament {
+    font-size: var(--compact-desktop-card-title-size, 13px);
+  }
+
+  .h-rank__trophy {
+    font-size: 21px;
+    margin-bottom: 0;
+  }
+
+  .h-rank__no {
+    font-size: 16px;
+  }
+
+  .h-rank__all,
+  .h-rank__hint,
+  .h-points__label,
+  .h-wallet__label,
+  .h-kpi__label,
+  .h-prize__note,
+  .h-split__legend,
+  .h-alist__sub,
+  .h-match__meta {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-status__mid {
+    gap: 10px;
+    margin-top: 9px;
+    padding: 10px;
+    border-radius: 13px;
+  }
+
+  .h-points--featured .h-points__value {
+    font-size: 28px;
+  }
+
+  .h-wallet__value {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-kv {
+    margin-top: 9px;
+    gap: 6px;
+  }
+
+  .h-kv__row {
+    padding: 8px 10px;
+    border-radius: 11px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-perf {
+    min-height: 250px;
+    padding: 0 13px 8px;
+  }
+
+  .h-perf__kpis {
+    gap: 6px;
+  }
+
+  .h-kpi {
+    padding: 8px 10px;
+    border-radius: 11px;
+  }
+
+  .h-kpi__value {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-champ-pick {
+    min-height: 46px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .h-champ-pick__title {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-champ-pick__status,
+  .h-champ-pick__sub,
+  .h-champ-pick__cta {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-champ-pick__sub {
+    margin-top: 3px;
+  }
+
+  .h-champ-pick__cta {
+    min-width: 86px;
+    min-height: 28px;
+    padding-inline: 10px;
+    border-radius: 8px;
+  }
+
+  .h-prize {
+    padding: 0 13px 12px;
+  }
+
+  .h-prize--with-trophy {
+    min-height: 250px;
+    padding: 6px 13px 14px;
+  }
+
+  .h-prize__trophy {
+    top: 28px;
+    right: 20px;
+    width: min(34%, 150px);
+  }
+
+  .h-prize__big {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .h-prize__value {
+    font-size: 27px;
+  }
+
+  .h-prize__unit {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-prize__rows {
+    gap: 6px;
+    margin-bottom: 9px;
+  }
+
+  .h-row {
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-prize__note {
+    margin: 6px 0 8px;
+  }
+
+  .h-split {
+    margin: 8px 0 10px;
+  }
+
+  .h-split__bar {
+    height: 8px;
+  }
+
+  .h-table {
+    padding: 0 13px 12px;
+    gap: 5px;
+  }
+
+  .h-thead {
+    grid-template-columns: 36px 1fr 54px 48px 56px 62px;
+    gap: 7px;
+    padding: 5px 10px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0.04em;
+  }
+
+  .h-trow {
+    grid-template-columns: 36px 1fr 54px 48px 56px 62px !important;
+    gap: 7px;
+    padding: 8px 10px;
+    border-radius: 11px;
+  }
+
+  .h-tcell--rank,
+  .h-tcell--player,
+  .h-th--num,
+  .h-tcell--num {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-pts {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-activity {
+    padding: 0 13px 12px;
+  }
+
+  .h-ok {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 11px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .h-activity__list {
+    gap: 6px;
+  }
+
+  .h-alist {
+    grid-template-columns: 24px 1fr;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 11px;
+  }
+
+  .h-alist__ico {
+    font-size: 14px;
+  }
+
+  .h-alist__title {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-activity__foot {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .h-matches {
+    padding: 0 13px 13px;
+    gap: 8px;
+  }
+
+  .h-match {
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .h-match__teams {
+    gap: 6px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-match__meta {
+    margin-top: 4px;
+  }
+
+  .h-team__name {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1366px), (min-width: 981px) and (max-height: 768px) {
+  .h-topbar {
+    padding: 12px 14px 10px;
+  }
+
+  .h-grid {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .h-card__head {
+    padding: 10px 12px 6px;
+  }
+
+  .h-card__foot {
+    padding: 7px 12px 10px;
+  }
+
+  .h-status {
+    padding-inline: 12px;
+  }
+
+  .h-status__mid {
+    margin-top: 8px;
+    padding: 9px;
+  }
+
+  .h-points--featured .h-points__value {
+    font-size: 25px;
+  }
+
+  .h-kv {
+    margin-top: 8px;
+  }
+
+  .h-perf {
+    min-height: 230px;
+    padding-inline: 12px;
+  }
+
+  .h-champ-pick {
+    min-height: 42px;
+    padding: 7px 9px;
+  }
+
+  .h-prize--with-trophy {
+    min-height: 230px;
+  }
+
+  .h-prize__value {
+    font-size: 24px;
+  }
+
+  .h-thead {
+    padding: 5px 9px;
+  }
+
+  .h-trow {
+    padding: 7px 9px;
+  }
+
+  .h-matches {
+    gap: 7px;
+  }
+}
+
 /* ─── Mobile topbar ──────────────────────────────────────────── */
 @media (max-width: 720px) {
   .h-topbar { flex-direction: column; align-items: stretch; }

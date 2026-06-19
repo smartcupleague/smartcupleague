@@ -1339,6 +1339,336 @@
   height: 18px;
 }
 
+/* ─── Compact desktop density ────────────────────────────────────── */
+
+@media (min-width: 981px) and (max-width: 1440px), (min-width: 981px) and (max-height: 850px) {
+  .mpShell {
+    padding: var(--compact-desktop-page-padding-top, 14px) var(--compact-desktop-page-padding-x, 14px);
+  }
+
+  .mpTop {
+    padding: 14px 16px 12px;
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .mpTop__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
+    gap: 12px;
+  }
+
+  .mpTitle h1 {
+    font-size: 23px;
+    line-height: 1.06;
+  }
+
+  .mpTitle p {
+    margin-top: 4px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.25;
+  }
+
+  .mpSearch {
+    height: 40px;
+    margin-top: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .mpSearch input {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mpWalletWrap {
+    width: min(100%, 620px);
+    max-width: 620px;
+  }
+
+  .mpTabs,
+  .mpHintbar,
+  .mpFilters,
+  .mpSection {
+    margin-top: 10px;
+  }
+
+  .mpTabs,
+  .mpTabGroup,
+  .mpTools {
+    gap: 6px;
+  }
+
+  .mpTab {
+    padding: 7px 11px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mpInfoGrid {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .mpInfoCard {
+    min-height: 48px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    gap: 2px;
+  }
+
+  .mpInfoCard span {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+
+  .mpInfoCard strong {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.2;
+  }
+
+  .mpFilters {
+    padding-top: 10px;
+  }
+
+  .mpFilters__right {
+    gap: 8px;
+  }
+
+  .mpFilterField {
+    gap: 5px;
+    min-width: 188px;
+  }
+
+  .mpFilterSelect {
+    height: var(--compact-desktop-control-height, 36px);
+    padding-inline: 12px 34px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mpBtn {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .mpBtn--icon {
+    width: var(--compact-desktop-control-height, 36px);
+    min-width: var(--compact-desktop-control-height, 36px);
+  }
+
+  .mpSection__main {
+    font-size: 16px;
+  }
+
+  .mpCard {
+    margin-top: 10px;
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .mpCard__head,
+  .mpCard__foot {
+    padding: 10px 12px;
+  }
+
+  .mpCard__head {
+    gap: 10px;
+  }
+
+  .mpCup {
+    width: 30px;
+    height: 30px;
+    border-radius: 11px;
+  }
+
+  .mpCard__ttl .t {
+    font-size: var(--compact-desktop-card-title-size, 13px);
+  }
+
+  .mpCard__ttl .s,
+  .mpMini,
+  .mpSection__sub {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .mpMini {
+    padding: 5px 10px;
+  }
+
+  .mpTable {
+    padding: 8px 10px 10px;
+  }
+
+  .mpTHead,
+  .mpRow {
+    grid-template-columns: minmax(430px, 2.4fr) minmax(102px, 0.78fr) minmax(102px, 0.78fr) minmax(116px, 0.86fr) minmax(100px, 0.72fr) minmax(106px, 0.74fr);
+    gap: 8px;
+  }
+
+  .mpTHead {
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+
+  .mpTBody {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .mpRow {
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .mpMatch {
+    gap: 10px;
+  }
+
+  .mpIdx {
+    width: 24px;
+    height: 24px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+
+  .mpMatch__main {
+    gap: 6px;
+  }
+
+  .mpTeams {
+    gap: 8px;
+  }
+
+  .mpFlag {
+    width: 22px;
+    height: 15px;
+    border-radius: 5px;
+  }
+
+  .mpName {
+    max-width: 180px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mpTag,
+  .mpChip,
+  .mpStatus {
+    padding: 4px 8px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0;
+  }
+
+  .mpMeta {
+    gap: 5px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .mpNum__main,
+  .mpWin__main {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mpNum__usd,
+  .mpWin__usd,
+  .mpNum__sub,
+  .mpWin__sub {
+    margin-top: 3px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+
+  .mpPick {
+    padding: 7px 8px;
+    border-radius: 12px;
+  }
+
+  .mpPick__label,
+  .mpPick__hint {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0;
+  }
+
+  .mpPick__score {
+    margin-top: 2px;
+    font-size: 19px;
+    line-height: 1.05;
+  }
+
+  .mpClaim {
+    width: 100%;
+    min-width: 96px;
+    height: var(--compact-desktop-control-height, 36px);
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+    letter-spacing: 0;
+  }
+
+  .mpClaim__dot {
+    width: 8px;
+    height: 8px;
+    margin-right: 6px;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1366px), (min-width: 981px) and (max-height: 768px) {
+  .mpTop {
+    padding: 12px 14px 10px;
+  }
+
+  .mpTitle h1 {
+    font-size: 22px;
+  }
+
+  .mpInfoGrid {
+    margin-top: 8px;
+  }
+
+  .mpInfoCard {
+    min-height: 44px;
+    padding: 7px 9px;
+  }
+
+  .mpFilters {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .mpSection {
+    margin-top: 8px;
+  }
+
+  .mpCard__head,
+  .mpCard__foot {
+    padding: 9px 10px;
+  }
+
+  .mpTable {
+    padding: 7px 8px 8px;
+  }
+
+  .mpTHead,
+  .mpRow {
+    grid-template-columns: minmax(390px, 2.25fr) minmax(96px, 0.74fr) minmax(96px, 0.74fr) minmax(104px, 0.8fr) minmax(92px, 0.68fr) minmax(102px, 0.72fr);
+    gap: 7px;
+  }
+
+  .mpTHead {
+    padding: 7px 9px;
+  }
+
+  .mpTBody {
+    gap: 7px;
+  }
+
+  .mpRow {
+    padding: 8px 9px;
+  }
+
+  .mpMeta {
+    gap: 4px;
+  }
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────── */
 
 @media (max-width: 980px) {

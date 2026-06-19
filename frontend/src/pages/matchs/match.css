@@ -764,6 +764,98 @@
   box-shadow: 0 0 14px rgba(255, 0, 110, 0.22);
 }
 
+/* ── Compact desktop density ─────────────────────────────── */
+@media (min-width: 981px) and (max-width: 1440px), (min-width: 981px) and (max-height: 850px) {
+  .arena {
+    padding: var(--compact-desktop-page-padding-top, 14px) var(--compact-desktop-page-padding-x, 14px);
+  }
+
+  .arena__frame {
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .arena__topbar {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .arena__topbarLeft,
+  .arena__topbarRight {
+    gap: 8px;
+  }
+
+  .arena__crumb {
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0.14em;
+  }
+
+  .arena__address,
+  .arena__statPill {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .arena__statPill {
+    padding: 6px 10px;
+  }
+
+  .arena__grid {
+    grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .mainPanel {
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .mcx__inp--wine,
+  .mcx__sel--wine {
+    min-height: var(--compact-desktop-control-height, 36px) !important;
+    padding: 8px 11px !important;
+    border-radius: 10px !important;
+    font-size: var(--compact-desktop-body-size, 12.5px) !important;
+  }
+
+  .mcx__inp--amount {
+    font-size: 16px !important;
+  }
+
+  .mcx__amountWrap {
+    gap: 8px;
+  }
+
+  .mcx__quickRow {
+    gap: 8px;
+  }
+
+  .mcx__qBtn {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 11px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1366px), (min-width: 981px) and (max-height: 768px) {
+  .arena {
+    padding: 10px 12px;
+  }
+
+  .arena__topbar {
+    padding: 8px 12px;
+  }
+
+  .arena__grid {
+    grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .mcx__quickRow {
+    gap: 7px;
+  }
+}
+
 /* ── Penalty box ─────────────────────────────────────────── */
 .mcx__penBox--wine {
   border-radius: 16px;

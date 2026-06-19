@@ -1478,6 +1478,405 @@
   justify-content: flex-end;
 }
 
+/* ─── Compact desktop density ────────────────────────────────────── */
+@media (min-width: 981px) and (max-width: 1440px), (min-width: 981px) and (max-height: 850px) {
+  .lb {
+    padding: var(--compact-desktop-page-padding-top, 14px) var(--compact-desktop-page-padding-x, 14px);
+  }
+
+  .lbTop {
+    margin-bottom: 10px;
+    padding: 14px 16px 12px;
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .lbTop__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
+    gap: 12px;
+  }
+
+  .lbTitle h1 {
+    font-size: 23px;
+    line-height: 1.06;
+  }
+
+  .lbTitle p {
+    margin-top: 4px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.25;
+  }
+
+  .lbWallet,
+  .lbWalletWrap {
+    width: min(100%, 620px);
+    max-width: 620px;
+  }
+
+  .lbSearch {
+    height: 40px;
+    margin-top: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .lbSearch__input {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .lbTop__controls {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .lbTop__left {
+    gap: 7px;
+  }
+
+  .lbChip {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 11px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .lbSubnav {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .lbTabs {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .lbTab {
+    min-height: 32px;
+    padding: 6px 11px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .lbPage {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 11px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .lbPage--icon {
+    width: var(--compact-desktop-control-height, 36px);
+    min-width: var(--compact-desktop-control-height, 36px);
+  }
+
+  .lbGrid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: var(--compact-desktop-section-gap, 12px);
+    padding-bottom: 22px;
+  }
+
+  .lbCard {
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+  }
+
+  .lbCard__head {
+    padding: 10px 12px 8px;
+    gap: 8px;
+  }
+
+  .lbCard__title,
+  .lbTitle__main {
+    font-size: var(--compact-desktop-card-title-size, 13px);
+  }
+
+  .lbCard__sub,
+  .lbTitle__sub,
+  .lbTable__foot,
+  .lbChampState p,
+  .lbChampState span,
+  .lbChampPotential,
+  .lbChampTotal,
+  .lbUpMatch__meta,
+  .lbBottom__detail {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+    line-height: 1.3;
+  }
+
+  .lbCard__foot {
+    padding: 9px 12px 11px;
+  }
+
+  .lbRight {
+    gap: 8px;
+  }
+
+  .lbTable {
+    padding: 8px;
+  }
+
+  .lbTHead {
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0.04em;
+  }
+
+  .lbTHead--6col {
+    grid-template-columns: 58px minmax(0, 1fr) 58px 54px 62px 70px;
+  }
+
+  .lbTBody {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .lbTRow {
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .lbTRow--6col {
+    grid-template-columns: 58px minmax(0, 1fr) 58px 54px 62px 70px;
+  }
+
+  .lbRank {
+    gap: 7px;
+  }
+
+  .lbMedal {
+    width: 24px;
+    height: 24px;
+    border-radius: 9px;
+    font-size: 12px;
+  }
+
+  .lbRank__no,
+  .lbWalletCell__text,
+  .lbNum__main,
+  .lbEarnWallet,
+  .lbEarnNum,
+  .lbEarnRoi,
+  .lbChampPickRow span,
+  .lbChampPickRow b,
+  .lbUpMatch__teams {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+    line-height: 1.25;
+  }
+
+  .lbWalletCell {
+    gap: 8px;
+  }
+
+  .lbAvatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 7px;
+  }
+
+  .lbMe {
+    margin-left: 4px;
+    padding: 3px 7px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+    letter-spacing: 0.04em;
+  }
+
+  .lbFollowBtn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    margin-left: 4px;
+    font-size: 13px;
+  }
+
+  .lbNum {
+    gap: 6px;
+  }
+
+  .lbNum--points .lbNum__main {
+    font-size: 14px;
+  }
+
+  .lbPickList,
+  .lbEarnings {
+    padding: 8px 10px 10px;
+    gap: 7px;
+  }
+
+  .lbPick {
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .lbPick__teams {
+    gap: 8px;
+  }
+
+  .lbPick__team {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .lbEarnRow {
+    grid-template-columns: 36px 1fr auto auto;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .lbEarnRank {
+    font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .lbChampState {
+    gap: 8px;
+    padding: 9px 10px 11px;
+  }
+
+  .lbChampState--empty {
+    gap: 9px;
+  }
+
+  .lbChampPickRow {
+    min-height: 32px;
+    padding: 7px 9px;
+    border-radius: 10px;
+  }
+
+  .lbUpcoming {
+    gap: 6px;
+  }
+
+  .lbUpMatch {
+    gap: 3px;
+    padding: 7px 9px;
+    border-radius: 12px;
+  }
+
+  .lbUpMatch__teams {
+    gap: 6px;
+  }
+
+  .lbUpMatch__team {
+    gap: 5px;
+  }
+
+  .lbUpMatch__flag {
+    width: 18px;
+    height: 13px;
+    flex-basis: 18px;
+  }
+
+  .lbBtn {
+    min-height: var(--compact-desktop-control-height, 36px);
+    padding: 7px 11px;
+    border-radius: 10px;
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+
+  .lbBtn--sm {
+    min-height: 30px;
+    margin-top: 3px;
+    padding: 5px 9px;
+    font-size: var(--compact-desktop-label-size, 9.5px);
+  }
+
+  .lbBottom {
+    margin-top: 6px;
+    padding: 9px 14px;
+    border-radius: var(--compact-desktop-panel-radius, 14px);
+    gap: 12px;
+  }
+
+  .lbBottom__left {
+    gap: 2px;
+  }
+
+  .lbBottom__value {
+    gap: 6px;
+  }
+
+  .lbBottom__rank,
+  .lbBottom__pts {
+    font-size: 17px;
+  }
+
+  .lbBottom__ptsLabel,
+  .lbBottom__label,
+  .lbBottom__hint {
+    font-size: var(--compact-desktop-helper-size, 11.5px);
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1366px), (min-width: 981px) and (max-height: 768px) {
+  .lbTop {
+    padding: 12px 14px 10px;
+  }
+
+  .lbTitle h1 {
+    font-size: 22px;
+  }
+
+  .lbSearch {
+    margin-top: 8px;
+  }
+
+  .lbTop__controls {
+    margin-top: 8px;
+  }
+
+  .lbSubnav {
+    margin-bottom: 8px;
+  }
+
+  .lbGrid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 10px;
+    padding-bottom: 18px;
+  }
+
+  .lbTable {
+    padding: 7px;
+  }
+
+  .lbTHead--6col,
+  .lbTRow--6col {
+    grid-template-columns: 54px minmax(0, 1fr) 54px 50px 58px 66px;
+  }
+
+  .lbTHead {
+    padding: 7px 9px;
+  }
+
+  .lbTBody {
+    gap: 5px;
+  }
+
+  .lbTRow {
+    padding: 7px 9px;
+  }
+
+  .lbRight {
+    gap: 7px;
+  }
+
+  .lbCard__head {
+    padding: 9px 10px 7px;
+  }
+
+  .lbChampState {
+    padding: 8px 9px 10px;
+  }
+
+  .lbUpMatch {
+    padding: 7px 8px;
+  }
+
+  .lbBottom {
+    padding: 8px 12px;
+  }
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {

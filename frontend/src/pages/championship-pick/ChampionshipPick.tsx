@@ -598,16 +598,18 @@ export function ChampionshipPick() {
           </main>
         </div>
 
-        <footer className="match-footer">
-          <span>© 2026 SmartCup League</span>
-          <span className="match-footer__sep">·</span>
-          <Link to="/terms-of-use" className="match-footer__link">Terms of Use</Link>
-          <span className="match-footer__sep">·</span>
-          <Link to="/rules" className="match-footer__link">Rules</Link>
-          <span className="match-footer__sep">·</span>
-          <Link to="/dao-constitution" className="match-footer__link">DAO Constitution</Link>
+        <footer className="match-footer cpFooter">
+          <div className="cpFooter__links">
+            <span className="match-footer__copy">© 2026 SmartCup League</span>
+            <span className="match-footer__sep">·</span>
+            <Link to="/terms-of-use" className="match-footer__link">Terms of Use</Link>
+            <span className="match-footer__sep">·</span>
+            <Link to="/rules" className="match-footer__link">Rules</Link>
+            <span className="match-footer__sep">·</span>
+            <Link to="/dao-constitution" className="match-footer__link">DAO Constitution</Link>
+          </div>
+          <GetVaraModal placement="footer" />
         </footer>
-        <GetVaraModal placement="floating" />
       </div>
     </div>
   );
