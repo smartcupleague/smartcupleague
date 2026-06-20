@@ -59,8 +59,8 @@ Small-phone breakpoint:
 8. [x] Match Detail
 9. [x] Championship Pick
 10. [x] Landing page
-11. [ ] Legal pages
-12. [ ] Shared components
+11. [x] Shared components
+12. [ ] Legal pages
 13. [ ] Admin Fixtures
 14. [ ] Simulator pages
 15. [ ] DAO/Governance future-proofing
@@ -470,12 +470,12 @@ Target files:
 
 Tasks:
 
-- [ ] Improve readable line length on mobile.
-- [ ] Use comfortable document padding.
-- [ ] Reduce heading sizes.
-- [ ] Ensure legal nav and back links are visible.
-- [ ] Prevent long URLs, addresses, and terms from overflowing.
-- [ ] Add `overflow-wrap: anywhere` for long technical strings.
+- [x] Improve readable line length on mobile.
+- [x] Use comfortable document padding.
+- [x] Reduce heading sizes.
+- [x] Ensure legal nav and back links are visible.
+- [x] Prevent long URLs, addresses, and terms from overflowing.
+- [x] Add `overflow-wrap: anywhere` for long technical strings.
 
 Acceptance criteria:
 
@@ -493,9 +493,9 @@ Target file:
 Tasks:
 
 - [x] Create or style a compact mobile wallet variant.
-- [ ] Shorten address display on mobile.
+- [x] Shorten address display on mobile.
 - [x] Avoid wallet pill pushing page headers wider than viewport.
-- [ ] Make wallet menus viewport-safe.
+- [x] Make wallet menus viewport-safe.
 
 ### Onboarding Modal
 
@@ -506,10 +506,10 @@ Target files:
 
 Tasks:
 
-- [ ] Fit modal to `calc(100dvh - 32px)` on mobile.
-- [ ] Make modal content scroll internally.
-- [ ] Ensure inputs and buttons are not hidden by mobile keyboard.
-- [ ] Use full-width primary action on mobile.
+- [x] Fit modal to `calc(100dvh - 32px)` on mobile.
+- [x] Make modal content scroll internally.
+- [x] Ensure inputs and buttons are not hidden by mobile keyboard.
+- [x] Use full-width primary action on mobile.
 
 ### Footer
 
@@ -520,14 +520,15 @@ Target files:
 
 Tasks:
 
-- [ ] Simplify or hide authenticated app footer on mobile if it competes with bottom nav.
-- [ ] Keep public footer readable on landing and legal pages.
-- [ ] Ensure footer links wrap cleanly.
+- [x] Simplify or hide authenticated app footer on mobile if it competes with bottom nav.
+- [x] Keep public footer readable on landing.
+- [x] Keep public footer readable on legal pages.
+- [x] Ensure footer links wrap cleanly.
 
 Acceptance criteria:
 
-- [ ] Shared components do not create mobile overflow.
-- [ ] Shared component desktop appearance is preserved.
+- [x] Shared components do not create mobile overflow.
+- [x] Shared component desktop appearance is preserved.
 
 ## 15. Admin Fixtures
 
@@ -654,17 +655,29 @@ Regression checks:
 
 Use this section to log decisions, tradeoffs, and completed batches.
 
+- 2026-06-20: Proved Shared Components acceptance criteria:
+  - Opened local mobile review pages for Legal footer, Championship Pick footer/Get VARA, and Match Detail wallet/footer paths on Vite `http://127.0.0.1:5178/`.
+  - Verified source constraints are mobile-only for wallet menu, onboarding modal, legal footer, Match Detail footer, and Championship Pick footer.
+  - `git diff --check` passed.
+  - `npm run build` passed with the known existing warnings only: pyenv rehash permission warning, Polkadot Rollup PURE comment warning, runtime `gear.svg`, stale baseline-browser-mapping, store eval warning, and bundle-size warning.
+  - Next phase to resume: Legal Pages mobile readability and spacing.
+- 2026-06-20: Advanced quick shared-component mobile safety pass:
+  - Shortened mobile address display in the shared arena wallet/header pattern for Match Detail and Championship Pick while preserving desktop address length.
+  - Made Gear wallet connect menus/modals viewport-safe on mobile with `100vw`/`100dvh` bounds, internal scrolling, safer padding, 44px touch-height account actions, and ellipsis protection for long account labels.
+  - Build status: `npm run build` passed; `git diff --check` passed.
+  - Desktop protection: wallet menu changes are scoped to `@media (max-width: 768px)`.
+  - Next phase to resume: Shared Components, starting with Onboarding Modal and authenticated App Footer before moving into Legal Pages.
 - 2026-06-20: Pushed mobile UI enhancement checkpoint to `origin/main`:
   - Commit: `47b95ea Polish mobile UI and landing experience`.
   - Completed and user-approved: Match Detail mobile state/freebet safety, Championship Pick mobile layout/state/keyboard flow, standalone bottom nav on Match Detail and Championship Pick, mobile wallet header polish, and Landing Page mobile hero/footer/tournament/highlight pass.
   - Build status before push: `npm run build` passed; `git diff --check` passed.
   - Local-only artifact intentionally left uncommitted: `frontend/tmp-mobile-visual-pass/`.
-  - Next phase to resume: Legal Pages mobile readability and spacing.
+  - Previous next phase was Legal Pages, but Shared Components now comes first so onboarding/footer safety is handled before document pages.
   - Next planned tasks:
-    - Review `TermsOfUse`, `Rules`, and `DaoConstitution` on mobile.
-    - Ensure legal headings, paragraphs, lists, and technical strings wrap cleanly.
-    - Make legal page anchor/footer/navigation links readable and tappable.
-    - Verify no document-level horizontal scroll at `360px`, `375px`, and `390px`.
+    - Make onboarding modal fit mobile viewport and scroll internally.
+    - Verify onboarding inputs/actions are not hidden by the mobile keyboard.
+    - Review authenticated app footer behavior with mobile bottom nav.
+    - Then review `TermsOfUse`, `Rules`, and `DaoConstitution` on mobile.
 - 2026-06-13: Created the initial mobile tracking plan.
 - 2026-06-13: Added shared app navigation config, mobile-only bottom tab bar, and mobile app shell rules. Production build passed. Vite dev server is running at `http://localhost:3000/`. ESLint could not run because the frontend has no ESLint config file.
 - 2026-06-13: Added mobile-only All Matches layout overrides for filters, match cards, team names, pool chips, status/action rows, and small-phone behavior.

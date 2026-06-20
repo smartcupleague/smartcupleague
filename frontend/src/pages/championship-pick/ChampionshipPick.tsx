@@ -133,6 +133,8 @@ export function ChampionshipPick() {
   const { api, isApiReady } = useApi();
   const toast = useToast();
   const effectiveWalletAddress = account?.decodedAddress ?? getPreviewWalletAddress();
+  const addressDisplay = effectiveWalletAddress ? formatAddress(effectiveWalletAddress) : "Not connected";
+  const mobileAddressDisplay = effectiveWalletAddress ? formatAddress(effectiveWalletAddress, 3, 3) : "Not connected";
   const walletReady = !!effectiveWalletAddress;
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
   const { varaToUsd } = useVaraPrice();
@@ -488,7 +490,14 @@ export function ChampionshipPick() {
             <span className="arena__statPill">Locks: {loadingState ? "Loading..." : formatLockTime(lockMs)}</span>
             <div className="arena__walletGroup">
               <div className="arena__address dim">
-                {effectiveWalletAddress ? formatAddress(effectiveWalletAddress) : "Not connected"}
+                {effectiveWalletAddress ? (
+                  <>
+                    <span className="arena__addressDesktop">{addressDisplay}</span>
+                    <span className="arena__addressMobile">{mobileAddressDisplay}</span>
+                  </>
+                ) : (
+                  addressDisplay
+                )}
               </div>
               <StyledWallet />
             </div>

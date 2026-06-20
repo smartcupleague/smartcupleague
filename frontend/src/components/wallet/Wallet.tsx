@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
+import styled, { createGlobalStyle, keyframes } from 'styled-components';
 import { useAccount, useBalance } from '@gear-js/react-hooks';
 import { Wallet as GearWallet } from '@gear-js/wallet-connect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
@@ -22,6 +22,102 @@ const breathe = keyframes`
 
 const PLAK_DECIMALS = 12n;
 const PREVIEW_WALLET_ADDRESS = '0x32a06f5e0a0e5b66c3bce45d3cb90a77278d048b1c71257ad22ddac2b1a8800b';
+
+const WalletMenuViewportGuard = createGlobalStyle`
+  @media (max-width: 768px) {
+    [class*="Modal-module_overlay"] {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+      align-items: center !important;
+      overflow: hidden !important;
+    }
+
+    [class*="Modal-module_modal"] {
+      width: min(100%, 420px) !important;
+      max-width: calc(100vw - 24px) !important;
+      max-height: calc(100dvh - 24px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      min-width: 0 !important;
+    }
+
+    [class*="Modal-module_header"],
+    [class*="Modal-module_body"],
+    [class*="Modal-module_footer"] {
+      min-width: 0 !important;
+      padding-left: 18px !important;
+      padding-right: 18px !important;
+    }
+
+    [class*="Modal-module_header"] {
+      flex: 0 0 auto !important;
+      padding-top: 16px !important;
+      padding-bottom: 16px !important;
+    }
+
+    [class*="Modal-module_heading"] {
+      min-width: 0 !important;
+      font-size: 20px !important;
+      line-height: 1.15 !important;
+      overflow-wrap: anywhere !important;
+    }
+
+    [class*="Modal-module_body"] {
+      flex: 1 1 auto !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      overscroll-behavior: contain !important;
+      padding-top: 18px !important;
+      padding-bottom: 18px !important;
+    }
+
+    [class*="Modal-module_footer"] {
+      flex: 0 0 auto !important;
+      padding-top: 14px !important;
+      padding-bottom: 14px !important;
+    }
+
+    [class*="_list_142au"],
+    [class*="_account_142au"],
+    [class*="_footer_142au"] {
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+
+    [class*="_list_142au"] {
+      gap: 10px !important;
+    }
+
+    [class*="_account_142au"],
+    [class*="_footer_142au"] {
+      align-items: stretch !important;
+      gap: 8px !important;
+    }
+
+    [class*="_account_142au"] > *,
+    [class*="_footer_142au"] > * {
+      min-width: 0 !important;
+    }
+
+    [class*="_account_142au"] button,
+    [class*="_footer_142au"] button {
+      min-height: 44px !important;
+      max-width: 100% !important;
+    }
+
+    [class*="_account_142au"] button span,
+    [class*="_footer_142au"] button span,
+    [class*="_text_142au"] {
+      min-width: 0 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+  }
+`;
 
 function getPreviewWalletParam(name: string) {
   if (!import.meta.env.DEV || typeof window === 'undefined') return null;
@@ -581,7 +677,9 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
   const walletDisplayName = previewWallet ? (getPreviewWalletParam('previewWalletName') ?? 'SmartPredictor_01') : displayName;
 
   return (
-    <Row>
+    <>
+      <WalletMenuViewportGuard />
+      <Row>
       {showHeader ? (
         <Left>
           {connected ? (
@@ -627,6 +725,7 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
           )}
         </InlineWrap>
       </WalletSlot>
-    </Row>
+      </Row>
+    </>
   );
 }

@@ -370,6 +370,7 @@ function Match() {
 
   const effectiveWalletAddress = account?.decodedAddress ?? getPreviewWalletAddress();
   const addressDisplay = formatAddress(effectiveWalletAddress ?? undefined);
+  const mobileAddressDisplay = formatAddress(effectiveWalletAddress ?? undefined, 3, 3);
 
   const homeName = selectedMatch?.home ?? '—';
   const awayName = selectedMatch?.away ?? '—';
@@ -406,7 +407,14 @@ function Match() {
             <div className="arena__topbarRight">
               <div className="arena__walletGroup">
                 <div className="arena__address dim">
-                  {addressDisplay !== '—' ? addressDisplay : 'Not connected'}
+                  {addressDisplay !== '—' ? (
+                    <>
+                      <span className="arena__addressDesktop">{addressDisplay}</span>
+                      <span className="arena__addressMobile">{mobileAddressDisplay}</span>
+                    </>
+                  ) : (
+                    'Not connected'
+                  )}
                 </div>
                 <StyledWallet />
               </div>
