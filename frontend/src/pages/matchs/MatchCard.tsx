@@ -107,6 +107,12 @@ type PreviewMatchState =
   | 'final-predicted'
   | 'final-reward-ready';
 
+type PreviewFreebetState =
+  | 'configured-balance'
+  | 'configured-low'
+  | 'not-configured'
+  | null;
+
 function isLocalMatchPreview() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
@@ -127,6 +133,15 @@ function getPreviewMatchState(): PreviewMatchState {
     return raw;
   }
   return 'open-not-predicted';
+}
+
+function getPreviewFreebetState(): PreviewFreebetState {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('previewFreebetState');
+  if (raw === 'configured-balance' || raw === 'configured-low' || raw === 'not-configured') {
+    return raw;
+  }
+  return null;
 }
 
 function demoMatch(matchId: string): MatchInfo {
@@ -475,6 +490,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const matchId = useMemo(() => String(id ?? '').trim(), [id]);
   const isPreviewMatch = isLocalMatchPreview();
   const previewMatchState = useMemo(() => getPreviewMatchState(), []);
+  const previewFreebetState = useMemo(() => getPreviewFreebetState(), []);
   const isDemoPreview = IS_DEV_PREVIEW && (isPreviewMatch || !api || !isApiReady);
 
   const betAmountNumber = useMemo(() => {
@@ -483,7 +499,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [betAmount]);
 
   const betValuePlanck = useMemo(() => toPlanck(betAmountNumber), [betAmountNumber]);
-  const freebetBalanceBn = useMemo(() => toBnSafe(freebetBalance), [freebetBalance]);
+  const rawFreebetBalanceBn = useMemo(() => toBnSafe(freebetBalance), [freebetBalance]);
+  const isEffectiveFreebetConfigured = isDemoPreview && previewFreebetState
+    ? previewFreebetState !== 'not-configured'
+    : isFreebetConfigured;
+  const freebetBalanceBn = useMemo(() => {
+    if (!isDemoPreview || !previewFreebetState) return rawFreebetBalanceBn;
+    if (previewFreebetState === 'configured-balance') return 8_500n * PLANCK;
+    if (previewFreebetState === 'configured-low') return 125n * PLANCK;
+    return 0n;
+  }, [isDemoPreview, previewFreebetState, rawFreebetBalanceBn]);
   const isFreebetBet = betCurrency === 'FREEBET';
   const liveUsdMinimumPlanck = useMemo(() => {
     if (!Number.isFinite(varaUsdRate) || varaUsdRate <= 0) return 0n;
@@ -498,7 +523,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isOnChainPriceFresh = IS_DEV_PREVIEW || onChainMinimumBet.isBettingAvailable;
   const isPredictionPricingAvailable = isConversionAvailable && isOnChainPriceFresh;
   const betDisabledByAmount = isConversionAvailable && betValuePlanck < liveUsdMinimumPlanck;
-  const betDisabledByFreebet = isFreebetBet && (!isFreebetConfigured || freebetBalanceBn < betValuePlanck);
+  const betDisabledByFreebet = isFreebetBet && (!isEffectiveFreebetConfigured || freebetBalanceBn < betValuePlanck);
   const convertedStakeLabel = useMemo(() => {
     if (betAmountNumber <= 0) return '';
     const liveLabel = varaToUsd(betAmountNumber);
@@ -518,6 +543,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   useEffect(() => {
     void web3Enable('Vara Bolao MatchCard');
   }, []);
+
+  useEffect(() => {
+    if (!isDemoPreview || !previewFreebetState) return;
+    setBetCurrency('FREEBET');
+    setBetAmount('6000');
+  }, [isDemoPreview, previewFreebetState]);
 
   const fetchState = useCallback(async () => {
     if (isDemoPreview) {
@@ -903,7 +934,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
 
     if (isFreebetBet) {
-      if (!isFreebetConfigured || !FREEBET_LEDGER_ID) {
+      if (!isEffectiveFreebetConfigured || !FREEBET_LEDGER_ID) {
         toast.error('Freebet ledger is not configured');
         return;
       }
@@ -1026,7 +1057,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     isPredictionPricingAvailable,
     betDisabledByAmount,
     isFreebetBet,
-    isFreebetConfigured,
+    isEffectiveFreebetConfigured,
     freebetBalanceBn,
     betValuePlanck,
     stakeInMatchPoolBn,
@@ -1618,7 +1649,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 {isFreebetBet && (
                   <div className={(betDisabledByFreebet ? 'mcx__stakeMinimumWarn' : 'mcx__stakeUsd') + ' mcx__freebetHint mcx__freebetHint--mobile'} role={betDisabledByFreebet ? 'alert' : undefined}>
                     <span>Freebet balance: {formatVaraFromPlanck(freebetBalanceBn)} VARA</span>
-                    <span>{isFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
+                    <span>{isEffectiveFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
                   </div>
                 )}
               </div>
@@ -1667,7 +1698,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 {isFreebetBet && (
                   <div className={(betDisabledByFreebet ? 'mcx__stakeMinimumWarn' : 'mcx__stakeUsd') + ' mcx__freebetHint mcx__freebetHint--desktop'} role={betDisabledByFreebet ? 'alert' : undefined}>
                     <span>Freebet balance: {formatVaraFromPlanck(freebetBalanceBn)} VARA</span>
-                    <span>{isFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
+                    <span>{isEffectiveFreebetConfigured ? 'Freebet stake goes fully into this match pool; principal returns on a winning claim.' : 'Freebet ledger is not configured.'}</span>
                   </div>
                 )}
               </div>

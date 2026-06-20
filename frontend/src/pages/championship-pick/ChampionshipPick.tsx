@@ -7,7 +7,8 @@ import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/us
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 import { GetVaraModal } from '@/components/get-vara';
-import { StyledWallet } from '@/components/wallet/Wallet';
+import { StyledWallet, getPreviewWalletAddress } from '@/components/wallet/Wallet';
+import { MobileTabBar } from '@/components/layout/mobile-nav';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { useToast } from '@/hooks/useToast';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
@@ -21,6 +22,8 @@ import './championship-pick.css';
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
 const VARA_DECIMALS = 12n;
 const VARA_PLANCK = 10n ** VARA_DECIMALS;
+
+type ChampionshipPreviewState = 'setup-pending' | 'locked' | 'submitted' | 'price-off' | null;
 
 type PickKey = 'champion' | 'runnerUp' | 'thirdPlace';
 
@@ -118,14 +121,23 @@ function formatVaraAmount(amount: number): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getChampionshipPreviewState(): ChampionshipPreviewState {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  const value = new URLSearchParams(window.location.search).get('previewChampionshipState');
+  return value === 'setup-pending' || value === 'locked' || value === 'submitted' || value === 'price-off' ? value : null;
+}
+
 export function ChampionshipPick() {
   const navigate = useNavigate();
   const { account } = useAccount();
   const { api, isApiReady } = useApi();
   const toast = useToast();
+  const effectiveWalletAddress = account?.decodedAddress ?? getPreviewWalletAddress();
+  const walletReady = !!effectiveWalletAddress;
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
   const { varaToUsd } = useVaraPrice();
   const podiumPick = usePodiumPick();
+  const previewChampionshipState = getChampionshipPreviewState();
 
   const [picks, setPicks] = useState<Record<PickKey, string>>({ champion: '', runnerUp: '', thirdPlace: '' });
   const [coreState, setCoreState] = useState<CoreState | null>(null);
@@ -134,13 +146,14 @@ export function ChampionshipPick() {
   const [submitting, setSubmitting] = useState(false);
   const [stakeAmount, setStakeAmount] = useState('');
   const [userBets, setUserBets] = useState<any[]>([]);
-  const submitted = podiumPick.submitted;
+  const [mobilePicker, setMobilePicker] = useState<PickKey | null>(null);
+  const submitted = previewChampionshipState === 'submitted' || podiumPick.submitted;
 
   const selectedTeams = useMemo(() => Object.values(picks).filter(Boolean), [picks]);
   const complete = pickSlots.every((slot) => picks[slot.key]);
   const lockMs = timestampToMs(coreState?.r32_lock_time ?? null);
-  const hasR32Lock = lockMs !== null;
-  const isLocked = !!lockMs && Date.now() >= lockMs;
+  const hasR32Lock = previewChampionshipState === 'setup-pending' ? false : lockMs !== null;
+  const isLocked = previewChampionshipState === 'locked' || (!!lockMs && Date.now() >= lockMs);
   const hasDuplicate = new Set(selectedTeams).size !== selectedTeams.length;
   const stakeAmountNumber = useMemo(() => {
     const amount = Number(String(stakeAmount).replace(',', '.'));
@@ -148,12 +161,17 @@ export function ChampionshipPick() {
   }, [stakeAmount]);
   const stakeValuePlanck = useMemo(() => toPlanck(stakeAmountNumber), [stakeAmountNumber]);
   const stakeBelowMinimum = stakeValuePlanck < minimumBet.minPlanck;
+  const isStakePricingAvailable = minimumBet.isBettingAvailable && previewChampionshipState !== 'price-off';
+  const stakeMinimumLabel = isStakePricingAvailable
+    ? `Minimum required: ${minimumBet.minVaraText} VARA (${minimumBet.targetUsdText})`
+    : 'Minimum unavailable until the VARA/USD price feed reconnects.';
+  const stakePlaceholder = isStakePricingAvailable ? `Min ${minimumBet.minVaraText}` : 'Min unavailable';
 
   const canSubmit =
     !!account &&
     isApiReady &&
     hasR32Lock &&
-    minimumBet.isBettingAvailable &&
+    isStakePricingAvailable &&
     complete &&
     !hasDuplicate &&
     !isLocked &&
@@ -210,20 +228,98 @@ export function ChampionshipPick() {
   const submitLabel = useMemo(() => {
     if (submitting) return 'Submitting Pick...';
     if (submitted) return 'Championship Pick Submitted';
-    if (!account) return 'Connect wallet to submit';
+    if (!walletReady) return 'Connect wallet to submit';
     if (!isApiReady) return 'Node API not ready';
     if (!hasR32Lock) return 'Waiting for R32 setup';
     if (isLocked) return 'Championship Pick Locked';
-    if (!minimumBet.isBettingAvailable) return 'Price feed reconnecting';
+    if (!isStakePricingAvailable) return 'Price feed reconnecting';
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
     if (stakeBelowMinimum) return minimumBet.shortLabel;
     return `Submit Championship Pick (${formatVaraAmount(stakeAmountNumber)} VARA)`;
-  }, [account, complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting]);
+  }, [complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting, walletReady]);
+
+  const stateNotice = useMemo(() => {
+    if (submitted) {
+      return {
+        tone: 'success',
+        title: 'Championship Pick submitted',
+        body: 'Your Top 3 pick is saved. Team selectors and stake controls are locked for this wallet.',
+      };
+    }
+    if (!walletReady) {
+      return {
+        tone: 'warn',
+        title: 'Wallet required',
+        body: 'Connect your wallet to submit your Championship Pick on-chain.',
+      };
+    }
+    if (!isApiReady) {
+      return {
+        tone: 'warn',
+        title: 'Node API not ready',
+        body: 'The page is waiting for the Vara node connection before submission can start.',
+      };
+    }
+    if (!hasR32Lock) {
+      return {
+        tone: 'warn',
+        title: 'Setup pending',
+        body: 'Championship Pick opens after the Round of 32 schedule is registered.',
+      };
+    }
+    if (isLocked) {
+      return {
+        tone: 'locked',
+        title: 'Championship Pick locked',
+        body: 'The Round of 32 lock has passed. Team selectors and stake controls are now read-only.',
+      };
+    }
+    if (!isStakePricingAvailable) {
+      return {
+        tone: 'warn',
+        title: 'Price feed reconnecting',
+        body: 'Submission is paused while the $3 minimum stake can be calculated safely.',
+      };
+    }
+    if (!complete) {
+      return {
+        tone: 'info',
+        title: 'Select all three teams',
+        body: 'Choose Champion, Runner-Up, and 3rd Place before submitting.',
+      };
+    }
+    if (hasDuplicate) {
+      return {
+        tone: 'warn',
+        title: 'Choose different teams',
+        body: 'Champion, Runner-Up, and 3rd Place must be three different teams.',
+      };
+    }
+    if (stakeAmountNumber > 0 && stakeBelowMinimum) {
+      return {
+        tone: 'warn',
+        title: 'Stake below minimum',
+        body: minimumBet.label,
+      };
+    }
+    return {
+      tone: 'success',
+      title: 'Ready to submit',
+      body: 'Review your Top 3 teams and submit the Championship Pick transaction.',
+    };
+  }, [complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, minimumBet.label, stakeAmountNumber, stakeBelowMinimum, submitted, walletReady]);
 
   function updatePick(key: PickKey, team: string) {
     setPicks((current) => ({ ...current, [key]: team }));
   }
+
+  function chooseMobilePick(key: PickKey, team: string) {
+    updatePick(key, team);
+    setMobilePicker(null);
+  }
+
+  const mobilePickerSlot = mobilePicker ? pickSlots.find((slot) => slot.key === mobilePicker) ?? null : null;
 
   const fetchCoreState = useCallback(async () => {
     if (!api || !isApiReady || !PROGRAM_ID) return;
@@ -317,7 +413,7 @@ export function ChampionshipPick() {
       toast.error('Championship Pick is locked');
       return;
     }
-    if (!minimumBet.isBettingAvailable) {
+    if (!isStakePricingAvailable) {
       toast.error('Championship Pick is paused while the VARA/USD price feed reconnects.');
       return;
     }
@@ -363,7 +459,9 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, minimumBet.isBettingAvailable, minimumBet.label, picks, podiumPick, stakeBelowMinimum, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, minimumBet.label, picks, podiumPick, previewChampionshipState, stakeBelowMinimum, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
+
+  const controlsLocked = submitted || submitting || isLocked;
 
   return (
     <div className="cpArena">
@@ -390,7 +488,7 @@ export function ChampionshipPick() {
             <span className="arena__statPill">Locks: {loadingState ? "Loading..." : formatLockTime(lockMs)}</span>
             <div className="arena__walletGroup">
               <div className="arena__address dim">
-                {account?.decodedAddress ? formatAddress(account.decodedAddress) : "Not connected"}
+                {effectiveWalletAddress ? formatAddress(effectiveWalletAddress) : "Not connected"}
               </div>
               <StyledWallet />
             </div>
@@ -510,11 +608,17 @@ export function ChampionshipPick() {
                   </div>
                 </div>
 
+                <div className={`cpStateNotice cpStateNotice--${stateNotice.tone}`} role="status" aria-live="polite">
+                  <strong>{stateNotice.title}</strong>
+                  <span>{stateNotice.body}</span>
+                </div>
+
                 <div className="cpPickList">
                   {pickSlots.map((slot) => {
                     const value = picks[slot.key];
+                    const disabled = controlsLocked;
                     return (
-                      <label className="cpPick" key={slot.key}>
+                      <div className="cpPick" key={slot.key}>
                         <span className="cpPick__meta">
                           <span className="cpPick__medal" aria-hidden="true">{slot.medal}</span>
                           <span>
@@ -526,10 +630,11 @@ export function ChampionshipPick() {
                         <span className="cpSelect">
                           {value ? <TeamFlag className="cpSelect__flag" team={value} alt="" /> : <span className="cpSelect__empty" />}
                           <select
+                            className="cpSelect__native"
                             value={value}
                             onChange={(event) => updatePick(slot.key, event.target.value)}
                             aria-label={slot.title}
-                            disabled={submitted || submitting || isLocked}>
+                            disabled={disabled}>
                             <option value="">Select Team</option>
                             {WORLD_CUP_TEAMS.map((team) => (
                               <option
@@ -541,11 +646,61 @@ export function ChampionshipPick() {
                               </option>
                             ))}
                           </select>
+                          <button
+                            className="cpSelect__mobileBtn"
+                            type="button"
+                            onClick={() => setMobilePicker(slot.key)}
+                            disabled={disabled}
+                            aria-label={`Select ${slot.title} team`}>
+                            <span>{value ? displayTeamName(value) : 'Select Team'}</span>
+                            <span aria-hidden="true">v</span>
+                          </button>
                         </span>
-                      </label>
+                      </div>
                     );
                   })}
                 </div>
+
+                {mobilePickerSlot ? (
+                  <div className="cpTeamSheet" role="dialog" aria-modal="true" aria-label={`Select ${mobilePickerSlot.title} team`}>
+                    <button className="cpTeamSheet__backdrop" type="button" aria-label="Close team selector" onClick={() => setMobilePicker(null)} />
+                    <div className="cpTeamSheet__panel">
+                      <div className="cpTeamSheet__head">
+                        <div>
+                          <span>Choose team</span>
+                          <strong>{mobilePickerSlot.title}</strong>
+                        </div>
+                        <button type="button" onClick={() => setMobilePicker(null)}>Close</button>
+                      </div>
+
+                      <div className="cpTeamSheet__list">
+                        <button
+                          className={!picks[mobilePickerSlot.key] ? 'is-selected' : ''}
+                          type="button"
+                          onClick={() => chooseMobilePick(mobilePickerSlot.key, '')}>
+                          <span className="cpSelect__empty" />
+                          <span>Select Team</span>
+                        </button>
+                        {WORLD_CUP_TEAMS.map((team) => {
+                          const selectedInThisSlot = picks[mobilePickerSlot.key] === team.value;
+                          const disabledByOtherSlot = !selectedInThisSlot && selectedTeams.includes(team.value);
+                          return (
+                            <button
+                              className={selectedInThisSlot ? 'is-selected' : ''}
+                              key={team.value}
+                              type="button"
+                              onClick={() => chooseMobilePick(mobilePickerSlot.key, team.value)}
+                              disabled={disabledByOtherSlot}>
+                              <TeamFlag className="cpSelect__flag" team={team.value} alt="" />
+                              <span>{displayTeamName(team.value)}</span>
+                              {selectedInThisSlot ? <b>Selected</b> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="cpStakeBox">
                   <div className="cpStakeBox__main">
@@ -557,17 +712,18 @@ export function ChampionshipPick() {
                           inputMode="decimal"
                           value={stakeAmount}
                           onChange={(event) => setStakeAmount(normalizeAmountInput(event.target.value))}
-                          placeholder="3"
-                          disabled={submitted || submitting || isLocked}
+                          placeholder={stakePlaceholder}
+                          disabled={controlsLocked}
                         />
                       </span>
+                      <span className="cpStakeField__minimum">{stakeMinimumLabel}</span>
                     </label>
 
                     <div className="cpQuickRow" aria-label="Quick stake amount controls">
-                      <button type="button" disabled={!minimumBet.isBettingAvailable} onClick={() => setStakeAmount(minimumBet.minVaraText)}>Min</button>
-                      <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 1))}>+1</button>
-                      <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 10))}>+10</button>
-                      <button type="button" onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 50))}>+50</button>
+                      <button type="button" disabled={controlsLocked || !isStakePricingAvailable} onClick={() => setStakeAmount(minimumBet.minVaraText)}>Min</button>
+                      <button type="button" disabled={controlsLocked} onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 1))}>+1</button>
+                      <button type="button" disabled={controlsLocked} onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 10))}>+10</button>
+                      <button type="button" disabled={controlsLocked} onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 50))}>+50</button>
                     </div>
                   </div>
 
@@ -575,7 +731,7 @@ export function ChampionshipPick() {
                     {stakeAmountNumber > 0 && varaToUsd(stakeAmountNumber) ? (
                       <span className="cpStakeBox__converted">{varaToUsd(stakeAmountNumber)}</span>
                     ) : null}
-                    <span>95% Final Prize • 5% Protocol Fee</span>
+                    <span className="cpStakeBox__payout">95% Final Prize Pool • 5% Protocol Fee</span>
                   </div>
                 </div>
 
@@ -585,7 +741,7 @@ export function ChampionshipPick() {
                   </button>
                   {!hasR32Lock ? (
                     <span className="cpWarn">Championship Pick opens after the Round of 32 schedule is registered.</span>
-                  ) : !minimumBet.isBettingAvailable ? (
+                  ) : !isStakePricingAvailable ? (
                     <span className="cpWarn">Championship Pick is paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.</span>
                   ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (
                     <span className="cpWarn">{minimumBet.label}</span>
@@ -611,6 +767,7 @@ export function ChampionshipPick() {
           <GetVaraModal placement="footer" />
         </footer>
       </div>
+      <MobileTabBar />
     </div>
   );
 }

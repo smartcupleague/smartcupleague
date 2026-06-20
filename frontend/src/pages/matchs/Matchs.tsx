@@ -6,8 +6,9 @@ import { useAccount, useApi } from '@gear-js/react-hooks';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { HexString } from '@gear-js/api';
-import { StyledWallet } from '@/components/wallet/Wallet';
+import { StyledWallet, getPreviewWalletAddress } from '@/components/wallet/Wallet';
 import { AppFooter } from '@/components/layout/footer/AppFooter';
+import { MobileTabBar } from '@/components/layout/mobile-nav';
 import { API_BASE_URL } from '@/utils/api';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -367,7 +368,8 @@ function Match() {
     }
   }, [selectedMatch]);
 
-  const addressDisplay = formatAddress(account?.decodedAddress);
+  const effectiveWalletAddress = account?.decodedAddress ?? getPreviewWalletAddress();
+  const addressDisplay = formatAddress(effectiveWalletAddress ?? undefined);
 
   const homeName = selectedMatch?.home ?? '—';
   const awayName = selectedMatch?.away ?? '—';
@@ -632,6 +634,7 @@ function Match() {
 
           <AppFooter className="match-footer" />
       </div>
+      <MobileTabBar />
     </div>
   );
 }

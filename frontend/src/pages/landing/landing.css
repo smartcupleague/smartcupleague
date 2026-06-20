@@ -637,7 +637,9 @@ a:hover {
 
 .scb-tournament-card img {
   width: 100%;
-  height: 188px;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 188px;
   object-fit: cover;
   display: block;
   filter: saturate(1.02) contrast(1.05);
@@ -1015,13 +1017,342 @@ a:hover {
   }
 }
 
+@media (max-width: 768px) {
+  :root {
+    --scroll-offset: 64px;
+  }
+
+  .scb-nav {
+    min-height: 58px;
+    padding: 9px 14px;
+    gap: 10px;
+  }
+
+  .scb-nav__left,
+  .scb-nav__right {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .scb-nav__links {
+    min-width: 0;
+    gap: 0;
+    flex-wrap: nowrap;
+  }
+
+  .scb-nav__links > a:not(.scb-brand) {
+    display: none;
+  }
+
+  .scb-brand {
+    padding: 6px 0;
+  }
+
+  .scb-brand__logo {
+    width: 116px;
+  }
+
+  .scb-nav__right .scb-btn {
+    min-height: 38px;
+    padding: 9px 13px;
+    white-space: nowrap;
+  }
+
+  .scb-carousel {
+    width: 100%;
+    max-width: 100%;
+    height: clamp(500px, calc(100svh - 58px), 620px);
+    min-height: 0;
+    overflow: hidden;
+    contain: layout paint;
+  }
+
+  .scb-slide,
+  .scb-slide__content,
+  .scb-hero__headline,
+  .scb-hero__headline-main,
+  .scb-hero__headline-line,
+  .scb-hero__cta-row,
+  .scb-hero__badges {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .scb-slide__gradient {
+    background:
+      linear-gradient(180deg, rgba(7, 3, 10, 0.16) 0%, rgba(7, 3, 10, 0.52) 44%, rgba(7, 3, 10, 0.94) 100%),
+      radial-gradient(620px 360px at 26% 48%, rgba(255, 46, 118, 0.17), transparent 66%);
+  }
+
+  .scb-slide__img {
+    object-fit: cover;
+  }
+
+  .scb-slide--1 .scb-slide__img {
+    object-position: 26% center;
+  }
+
+  .scb-slide--2 .scb-slide__img {
+    object-position: 54% center;
+  }
+
+  .scb-slide--3 .scb-slide__img {
+    object-position: 50% center;
+  }
+
+  .scb-slide--4 .scb-slide__img {
+    object-position: 28% center;
+  }
+
+  .scb-slide__content,
+  .scb-slide--2 .scb-slide__content,
+  .scb-slide--4 .scb-slide__content {
+    left: 18px;
+    right: 18px;
+    bottom: 44px;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .scb-slide--2 .scb-hero__headline-line,
+  .scb-slide--4 .scb-hero__headline-line {
+    max-width: none;
+    margin-left: 0;
+  }
+
+  .scb-slide--2 .scb-hero__cta-row,
+  .scb-slide--2 .scb-hero__badges,
+  .scb-slide--4 .scb-hero__cta-row,
+  .scb-slide--4 .scb-hero__badges {
+    justify-content: flex-start;
+  }
+
+  .scb-hero__kicker {
+    margin-top: 8px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+  }
+
+  .scb-hero__headline {
+    margin-top: 8px;
+    line-height: 1.03;
+  }
+
+  .scb-hero__headline-main {
+    font-size: clamp(1.82rem, 9.6vw, 2.38rem);
+    letter-spacing: 0;
+  }
+
+  .scb-hero__headline-line {
+    margin-top: 8px;
+    font-size: 0.98rem;
+    line-height: 1.34;
+  }
+
+  .scb-hero__cta-row {
+    width: min(100%, 360px);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .scb-hero__cta-row .scb-btn {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    text-align: center;
+  }
+
+  .scb-hero__cta {
+    width: 100%;
+  }
+
+  .scb-hero__badges {
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .scb-pill {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .scb-carousel__dots {
+    bottom: 12px;
+  }
+
+  .scb-carousel__arrow {
+    display: none;
+  }
+
+  .scb-tournament-card {
+    border-radius: 14px;
+  }
+
+  .scb-tournament-card img {
+    aspect-ratio: 16 / 10;
+    min-height: 0;
+    max-height: 220px;
+  }
+
+  .scb-highlights {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .scb-highlight {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 210px;
+    transform: none;
+  }
+
+  .scb-highlight:hover {
+    transform: none;
+  }
+
+  .scb-highlight__flags,
+  .scb-highlight__flagPane {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .scb-highlight__overlay {
+    left: 12px;
+    right: 12px;
+    min-width: 0;
+    max-width: calc(100% - 24px);
+    gap: 4px 6px;
+    font-size: 0.9rem;
+    letter-spacing: 0;
+  }
+
+  .scb-highlight__overlay span {
+    min-width: 0;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .scb-highlight__overlay b {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+  }
+
+  .scb-highlight__overlay small {
+    flex: 0 0 auto;
+  }
+
+  .scb-highlight__overlay em {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .scb-footer {
+    gap: 16px;
+    padding: 28px 16px 34px;
+    font-size: 0.9rem;
+  }
+
+  .scb-footer__legal {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .scb-footer__legal > span:first-child {
+    flex: 0 0 100%;
+    margin-bottom: 2px;
+  }
+
+  .scb-footer__sep {
+    display: none;
+  }
+
+  .scb-footer__link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.78);
+    line-height: 1.15;
+  }
+
+  .scb-footer__socials {
+    gap: 12px;
+  }
+
+  .scb-footer__social {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+  }
+}
+
 @media (max-width: 560px) {
   .scb-lang {
     display: none;
   }
-  .scb-carousel__arrow {
-    width: 40px;
-    height: 40px;
-    line-height: 40px;
+  .scb-carousel {
+    height: clamp(500px, calc(100svh - 58px), 590px);
+  }
+  .scb-highlight {
+    min-height: 198px;
+  }
+  .scb-slide--1 .scb-slide__img {
+    object-position: 24% center;
+  }
+  .scb-slide--2 .scb-slide__img {
+    object-position: 58% center;
+  }
+  .scb-slide--3 .scb-slide__img {
+    object-position: 50% center;
+  }
+  .scb-slide--4 .scb-slide__img {
+    object-position: 26% center;
+  }
+  .scb-slide__content,
+  .scb-slide--2 .scb-slide__content,
+  .scb-slide--4 .scb-slide__content {
+    bottom: 38px;
+  }
+  .scb-hero__headline-main {
+    font-size: clamp(1.66rem, 9.2vw, 2.12rem);
+  }
+  .scb-hero__headline-line {
+    font-size: 0.92rem;
+    line-height: 1.3;
+  }
+  .scb-hero__cta-row {
+    width: 100%;
+  }
+  .scb-hero__cta {
+    width: 100%;
+  }
+  .scb-hero__badges {
+    display: none;
+  }
+  .scb-tournament-card img {
+    aspect-ratio: 4 / 3;
+    max-height: 210px;
+  }
+  .scb-footer__legal {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .scb-footer__link {
+    width: 100%;
   }
 }

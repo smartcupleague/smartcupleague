@@ -21,6 +21,17 @@ const breathe = keyframes`
 `;
 
 const PLAK_DECIMALS = 12n;
+const PREVIEW_WALLET_ADDRESS = '0x32a06f5e0a0e5b66c3bce45d3cb90a77278d048b1c71257ad22ddac2b1a8800b';
+
+function getPreviewWalletParam(name: string) {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+export function getPreviewWalletAddress() {
+  if (getPreviewWalletParam('previewWallet') !== '1') return null;
+  return getPreviewWalletParam('previewWalletAddress') ?? PREVIEW_WALLET_ADDRESS;
+}
 
 function getLocaleSeparators(locale: string) {
   const parts = new Intl.NumberFormat(locale).formatToParts(1000.1);
@@ -118,6 +129,7 @@ const BalanceCluster = styled.div`
 
   @media (max-width: 520px) {
     flex-direction: column;
+    gap: 8px;
   }
 `;
 
@@ -236,8 +248,22 @@ const InlineWrap = styled.div<{ $connected?: boolean }>`
 
   @media (max-width: 768px) {
     button {
+      min-height: 54px;
+      padding: 0 12px;
       font-size: var(--mobile-body-size, 12.5px);
       letter-spacing: 0;
+    }
+
+    .walletPreviewIcon {
+      flex: 0 0 auto;
+    }
+
+    .walletPreviewName {
+      min-width: 0;
+      max-width: 100%;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: nowrap;
     }
   }
 `;
@@ -275,6 +301,7 @@ const BalancePill = styled.div`
     max-width: 100%;
     min-height: 54px;
     justify-content: center;
+    padding: 10px 12px;
   }
 `;
 
@@ -292,6 +319,7 @@ const NameRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   min-width: 0;
 `;
 
@@ -303,6 +331,14 @@ const DisplayName = styled.span`
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: clamp(96px, 12vw, 170px);
+
+  @media (max-width: 768px) {
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    font-size: 12.5px;
+    line-height: 1.2;
+  }
 `;
 
 /** Fila inferior: cantidad + símbolo + badge USD, todos centrados verticalmente */
@@ -313,6 +349,11 @@ const BalanceRow = styled.div`
   width: 100%;
   max-width: 100%;
   min-width: 0;
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 5px 7px;
+  }
 `;
 
 const AmountGold = styled.span`
@@ -381,6 +422,15 @@ const UsdValue = styled.span`
   @media (max-width: 1380px) {
     display: none;
   }
+
+  @media (max-width: 768px) {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 2px 6px;
+    font-size: 10px;
+    letter-spacing: 0;
+  }
 `;
 
 const FreebetPill = styled(Link)`
@@ -425,6 +475,7 @@ const FreebetPill = styled(Link)`
     min-width: 0;
     max-width: 100%;
     min-height: 54px;
+    padding: 10px 12px;
   }
 `;
 
@@ -487,10 +538,12 @@ type StyledWalletProps = {
 
 export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStatus = false }: StyledWalletProps) {
   const { account } = useAccount();
-  const connected = !!account;
+  const previewWalletAddress = getPreviewWalletAddress();
+  const previewWallet = !!previewWalletAddress;
+  const connected = !!account || previewWallet;
 
-  const address = connected ? account!.decodedAddress : undefined;
-  const { balance, isBalanceReady } = useBalance(address);
+  const address = account?.decodedAddress ?? previewWalletAddress ?? undefined;
+  const { balance, isBalanceReady } = useBalance(account?.decodedAddress);
   const { planckToUsd, source: priceSource, updatedAt: priceUpdatedAt } = useVaraPrice();
   const { displayName } = useWalletProfile();
   const {
@@ -501,26 +554,31 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
   } = useFreebetBalance();
 
   const amount = useMemo(() => {
+    if (previewWallet) return getPreviewWalletParam('previewWalletBalance') ?? '22,320.7689';
     if (!connected || !isBalanceReady) return null;
     return formatPlak(balance?.toString(), 4, 'es-MX');
-  }, [connected, isBalanceReady, balance]);
+  }, [connected, isBalanceReady, balance, previewWallet]);
 
   const usdLabel = useMemo(() => {
+    if (previewWallet) return getPreviewWalletParam('previewWalletUsd') ?? '≈ $11.17';
     if (!connected || !isBalanceReady || !balance) return null;
     return planckToUsd(balance.toString());
-  }, [connected, isBalanceReady, balance, planckToUsd]);
+  }, [connected, isBalanceReady, balance, planckToUsd, previewWallet]);
 
   const requestOnboarding = () => {
     window.dispatchEvent(new Event(ONBOARDING_CONNECT_EVENT));
   };
 
   const freebetLabel = useMemo(() => {
+    if (previewWallet) return getPreviewWalletParam('previewFreebetBalance') ?? '8,500 VARA';
     if (!connected) return 'Connect wallet';
     if (!isFreebetConfigured) return 'Not configured';
     if (isFreebetLoading) return 'Loading';
     if (freebetError) return 'Unavailable';
     return `${formatPlak(freebetBalance, 2, 'es-MX') ?? '0'} VARA`;
-  }, [connected, freebetBalance, freebetError, isFreebetConfigured, isFreebetLoading]);
+  }, [connected, freebetBalance, freebetError, isFreebetConfigured, isFreebetLoading, previewWallet]);
+
+  const walletDisplayName = previewWallet ? (getPreviewWalletParam('previewWalletName') ?? 'SmartPredictor_01') : displayName;
 
   return (
     <Row>
@@ -530,8 +588,8 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
             <BalanceCluster>
               <BalancePill>
                 <NameRow>
-                  <DisplayName title={displayName ?? address}>
-                    {displayName ?? <BalanceLabel>BALANCE</BalanceLabel>}
+                  <DisplayName title={walletDisplayName ?? address}>
+                    {walletDisplayName ?? <BalanceLabel>BALANCE</BalanceLabel>}
                   </DisplayName>
                 </NameRow>
                 <BalanceRow>
@@ -558,8 +616,15 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
       ) : null}
 
       <WalletSlot>
-        <InlineWrap $connected={connected} onClickCapture={requestOnboarding}>
-          <GearWallet theme="vara" displayBalance={false} />
+        <InlineWrap $connected={connected} onClickCapture={previewWallet ? undefined : requestOnboarding}>
+          {previewWallet ? (
+            <button type="button" aria-label="Preview connected wallet">
+              <span className="walletPreviewIcon" aria-hidden="true">S</span>
+              <span className="walletPreviewName">{walletDisplayName}</span>
+            </button>
+          ) : (
+            <GearWallet theme="vara" displayBalance={false} />
+          )}
         </InlineWrap>
       </WalletSlot>
     </Row>

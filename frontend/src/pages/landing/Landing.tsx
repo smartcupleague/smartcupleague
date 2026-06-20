@@ -158,6 +158,10 @@ export const Landing: React.FC = () => {
 
   const goPrev = () => setActive((i) => (i - 1 + slides.length) % slides.length);
   const goNext = () => setActive((i) => (i + 1) % slides.length);
+  const pauseDesktopCarousel = () => {
+    if (window.innerWidth > 768) setPaused(true);
+  };
+  const resumeCarousel = () => setPaused(false);
 
   return (
     <div className="scb-page">
@@ -202,8 +206,8 @@ export const Landing: React.FC = () => {
         <section
           id="top"
           className="scb-hero-carousel"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}>
+          onMouseEnter={pauseDesktopCarousel}
+          onMouseLeave={resumeCarousel}>
           <div className="scb-carousel" role="region" aria-label="Hero carousel">
             {slides.map((s, idx) => (
               <div key={s.src} className={`scb-slide scb-slide--${idx + 1} ${idx === active ? 'is-active' : ''}`}>

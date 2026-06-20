@@ -294,6 +294,7 @@
 @media (max-width: 768px) {
   .mcx {
     min-width: 0;
+    max-width: 100%;
     height: auto;
     min-height: 0;
     padding: var(--mobile-card-padding, 12px);
@@ -377,11 +378,38 @@
   .mcx__warn--info {
     font-size: var(--mobile-helper-size, 12px);
     line-height: 1.35;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .mcx__since,
+  .mcx__resultLine,
+  .mcx__closed,
+  .mcx__claimSub,
+  .mcx__meta {
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .mcx__meta {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    text-align: left;
+  }
+
+  .mcx__meta b {
+    display: inline;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 900;
+    overflow-wrap: anywhere;
   }
 
   .mcx__body,
   .mcx__predSection {
     padding: 10px 0 0;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .mcx__predTitle {
@@ -392,6 +420,8 @@
 
   .mcx__formGrid {
     gap: var(--mobile-card-gap, 10px);
+    min-width: 0;
+    max-width: 100%;
   }
 
   .mcx__amountWrap,
@@ -459,6 +489,14 @@
   .mcx__existingPredictionGrid {
     grid-template-columns: 1fr;
     gap: var(--mobile-card-gap, 10px);
+    min-width: 0;
+  }
+
+  .mcx__existingPrediction,
+  .mcx__existingPredictionValue {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .mcx__miniBadge {
@@ -613,6 +651,113 @@
   .mcx__stakeMinimumWarn.mcx__freebetHint {
     align-items: center;
     color: rgba(255, 142, 184, 0.96);
+  }
+
+  .mcx__prizeEst {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .mcx__prizeEst__title,
+  .mcx__prizeEst__value,
+  .mcx__prizeEst__note {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .mcx__infoOverlay {
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  .mcx__infoPanel {
+    width: min(100%, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    max-height: min(88dvh, 720px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 18px 14px;
+  }
+
+  .mcx__infoPanel,
+  .mcx__infoPanel * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mcx__infoIntro,
+  .mcx__infoSection,
+  .mcx__infoSectionTitle,
+  .mcx__infoList,
+  .mcx__infoList li,
+  .mcx__infoLink {
+    overflow-wrap: anywhere;
+  }
+
+  .mcx__infoBadge {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .mcx table,
+  .mcx [role='table'],
+  .mcx__infoPanel table,
+  .mcx__infoPanel [role='table'] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mcx > .mcx__body.dim {
+    padding: 14px 10px !important;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .mcx__betBtn,
+  .mcx__claimBtn,
+  .mcx__ghostBtn {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .mcx__betBtn:disabled,
+  .mcx__claimBtn:disabled,
+  .mcx__claimBtn.is-disabled,
+  .mcx__inp:disabled,
+  .mcx__sel:disabled {
+    opacity: 0.62;
+    cursor: not-allowed;
+    filter: grayscale(0.18);
+  }
+
+  .mcx__betSucceeded {
+    width: 100%;
+    padding: 14px 0;
+  }
+
+  .mcx__betSucceeded__msg {
+    max-width: 100%;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .mcx__infoClose {
+    top: 8px;
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .mcx__infoTitle {
+    padding-right: 42px;
+    line-height: 1.25;
   }
 }
 
@@ -1677,7 +1822,7 @@
 
   .mcx__scoreInput {
     min-height: 40px !important;
-    text-align: center;
+    text-align: left;
   }
 
   .mcx__currencySwitch {

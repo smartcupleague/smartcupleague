@@ -10,7 +10,7 @@ Primary objective: improve the SmartCup League mobile experience across every pu
 
 Current next phase:
 
-- [~] Match Detail mobile layout and prediction flow
+- [~] Championship Pick mobile layout
 
 Primary desktop protection rule:
 
@@ -45,6 +45,7 @@ Small-phone breakpoint:
 - [x] Long team names, wallet names, task labels, and technical strings do not break layouts on the five primary app pages.
 - [x] Loading, empty, connected wallet, disconnected wallet, error, and modal states are checked on the five primary app pages.
 - [ ] Public pages and authenticated app pages behave intentionally differently where needed.
+- [x] Match Detail and Championship Pick use the approved mobile bottom nav as standalone app/action pages.
 
 ## Execution Order
 
@@ -55,9 +56,9 @@ Small-phone breakpoint:
 5. [x] Leaderboard
 6. [x] My Progress
 7. [x] Rewards
-8. [ ] Match Detail
-9. [ ] Championship Pick
-10. [ ] Landing page
+8. [x] Match Detail
+9. [~] Championship Pick
+10. [~] Landing page
 11. [ ] Legal pages
 12. [ ] Shared components
 13. [ ] Admin Fixtures
@@ -96,11 +97,19 @@ Tasks:
 - [x] Hide desktop sidebar at or below `768px`.
 - [x] Add mobile bottom padding to app content so content does not sit behind the tab bar.
 - [x] Verify mobile nav on `/all-matches`, `/my-predictions`, `/leaderboard`, `/rewards`, and `/progress`.
+- [x] Add the same mobile-only bottom nav to standalone app/action routes:
+  - Match Detail
+  - Championship Pick
+- [x] Keep standalone app/action route desktop layouts unchanged after adding the mobile nav.
+- [x] Add enough mobile bottom padding so Match Detail claim/submit content and Championship Pick submit/footer content are not hidden by the nav.
+- [x] Keep existing top back buttons on Match Detail and Championship Pick.
+- [x] Keep legal/public pages without the app bottom nav unless intentionally moved into the app shell later.
 - [x] Verify desktop sidebar still appears unchanged at `1440x900`.
 
 Acceptance criteria:
 
 - [x] The five primary app sections are always visible and tappable on mobile.
+- [x] Standalone app/action pages keep the same mobile navigation pattern as the primary app pages.
 - [x] Desktop keeps the existing left sidebar.
 - [x] No desktop route changes visually because of the mobile nav.
 
@@ -375,28 +384,33 @@ Tasks:
 - [x] Separate mobile prediction stake, USD conversion, quick amount buttons, currency, and freebet messaging into a clear vertical flow.
 - [x] Keep desktop currency selector/stake controls visually refined without changing desktop match layout behavior.
 - [x] Reduce mobile footer legal link type size so page links fit more discreetly.
-- [ ] Verify all match states fit the approved mobile layout:
+- [x] Verify all match states fit the approved mobile layout:
   - open, not predicted
   - open, predicted
   - closed, awaiting result
   - final, predicted
   - final, reward ready
-- [ ] Verify freebet states fit without stretching the stake widget:
+  - [x] Local preview routes support all five states via `previewMatchState`.
+  - [x] User visual approval on mobile viewport.
+- [x] Verify freebet states fit without stretching the stake widget:
   - freebet configured with balance
   - freebet configured without enough balance
   - freebet ledger not configured
-- [ ] Prevent odds/info tables from squeezing or causing horizontal page scroll.
-- [ ] Use contained horizontal scroll only when a table cannot be simplified safely.
-- [ ] Keep toast messages within viewport width.
-- [ ] Ensure match metadata remains readable without aggressive truncation.
-- [ ] Confirm modal/dialog/loading/disabled transaction states are usable on mobile.
-- [ ] Verify no accidental horizontal scroll at `360px`, `375px`, and `390px`.
+  - [x] Local preview routes support all three states via `previewFreebetState`.
+  - [x] User visual approval on mobile viewport.
+- [x] Preserve the current desktop Match Detail layout exactly while continuing mobile-only safety work.
+- [x] Prevent odds/info tables from squeezing or causing horizontal page scroll.
+- [x] Use contained horizontal scroll only when a table cannot be simplified safely.
+- [x] Keep toast messages within viewport width.
+- [x] Ensure match metadata remains readable without aggressive truncation.
+- [x] Confirm modal/dialog/loading/disabled transaction states are usable on mobile.
+- [x] Verify no accidental horizontal scroll at `360px`, `375px`, and `390px`.
 
 Acceptance criteria:
 
 - [x] User can place a prediction with one hand in the approved mobile flow.
 - [x] Score controls are easy to tap.
-- [ ] No match panel is wider than the viewport.
+- [x] No match panel is wider than the viewport.
 
 ## 11. Championship Pick
 
@@ -407,19 +421,19 @@ Target files:
 
 Tasks:
 
-- [ ] Stack pick selector and stake panel.
-- [ ] Make team select full-width.
-- [ ] Ensure flag/select rows fit narrow screens.
-- [ ] Make quick amount buttons wrap cleanly.
-- [ ] Make submit button full-width.
-- [ ] Keep potential reward content readable.
-- [ ] Ensure disabled and locked states are clear on mobile.
-- [ ] Confirm mobile keyboard does not hide the submit action.
+- [x] Stack pick selector and stake panel.
+- [x] Make team select full-width with a mobile-only team picker sheet while preserving desktop native select behavior.
+- [x] Ensure flag/select rows fit narrow screens.
+- [x] Make quick amount buttons wrap cleanly.
+- [x] Make submit button full-width.
+- [x] Keep potential reward content readable.
+- [x] Ensure disabled and locked states are clear on mobile.
+- [x] Confirm mobile keyboard does not hide the submit action.
 
 Acceptance criteria:
 
-- [ ] User can choose a champion and stake without zooming.
-- [ ] Select controls do not truncate flags or team names badly.
+- [x] User can choose a champion and stake without zooming.
+- [x] Select controls do not truncate flags or team names badly.
 
 ## 12. Landing Page
 
@@ -430,15 +444,14 @@ Target files:
 
 Tasks:
 
-- [ ] Ensure hero fits the first mobile viewport with primary CTA visible.
-- [ ] Reduce hero heading size on mobile.
-- [ ] Stack hero content vertically.
-- [ ] Make primary CTA full-width or near-full-width on small phones.
-- [ ] Keep brand/product signal strong in the first viewport.
-- [ ] Ensure hero image/media remains inspectable and not overly cropped.
-- [ ] Maintain stable aspect ratios for tournament cards and images.
-- [ ] Prevent carousel/highlight sections from overflowing.
-- [ ] Make public footer links readable and tappable.
+- [x] Ensure hero fits the first mobile viewport with primary CTA visible.
+- [x] Reduce hero heading size on mobile.
+- [x] Stack hero content vertically.
+- [x] Make primary CTA full-width or near-full-width on small phones.
+- [x] Ensure hero image/media remains inspectable and not overly cropped.
+- [x] Maintain stable aspect ratios for tournament cards and images.
+- [x] Prevent carousel/highlight sections from overflowing.
+- [x] Make public footer links readable and tappable.
 
 Acceptance criteria:
 
@@ -685,6 +698,11 @@ Use this section to log decisions, tradeoffs, and completed batches.
   - Enlarged the follow control for mobile, separated row/profile activation from follow/unfollow activation, and added keyboard access.
   - Added specific accessible labels, `aria-pressed`, `aria-busy`, `aria-live`, and `role="status"` where appropriate.
   - Decision: defer Playwright/Cypress setup until the broader mobile UI polish pass is complete; continue using production build plus manual viewport checks during active layout iteration.
+- 2026-06-15: Advanced Match Detail mobile safety QA:
+  - Added localhost-only match-state previews for open/not predicted, open/predicted, closed/awaiting result, final/predicted, and final/reward-ready via `previewMatchState`.
+  - Added localhost-only Freebet previews for configured with balance, configured without enough balance, and ledger not configured via `previewFreebetState`.
+  - Kept preview overrides inside the existing local `previewMatch=1` path so production data, real ledger checks, and desktop behavior remain unchanged.
+  - Verified Vite TypeScript watcher reports zero errors and `git diff --check` passes for the preview-state work.
 - 2026-06-13: Restored the All Matches mobile wallet header and fixed Rewards/My Progress wallet wrapper flex-basis so the shared wallet sits tightly like My Predictions and Leaderboard.
 - 2026-06-13: Normalized My Predictions and Leaderboard mobile shell/header spacing to match the other menu pages.
 - 2026-06-13: User verified the mobile bottom navigation on the primary app pages and confirmed the desktop sidebar navigation remains unchanged.

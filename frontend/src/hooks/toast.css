@@ -206,3 +206,58 @@
   border-color: rgba(255, 255, 255, 0.2);
   transform: scale(1.1);
 }
+
+@media (max-width: 768px) {
+  .toast-viewport {
+    top: max(12px, env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    width: auto;
+    max-width: none;
+    gap: 8px;
+  }
+
+  .toast {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border-radius: 14px;
+  }
+
+  .toast__body {
+    min-width: 0;
+    padding: 12px 12px 12px 16px;
+    gap: 10px;
+  }
+
+  .toast__icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .toast__content,
+  .toast__top,
+  .toast__title,
+  .toast__msg {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .toast__title,
+  .toast__msg {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  .toast__msg {
+    font-size: var(--mobile-helper-size, 12px);
+    line-height: 1.35;
+  }
+
+  .toast__close {
+    width: 30px;
+    height: 30px;
+  }
+}

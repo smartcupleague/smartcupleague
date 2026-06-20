@@ -354,7 +354,43 @@
   .barRow,
   .mcx__bdRow {
     gap: 10px;
+    max-width: 100%;
+    min-width: 0;
     overflow-wrap: anywhere;
+  }
+
+  .sideRows,
+  .barGroup,
+  .mcx__breakdown,
+  .sideUserBet {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sideRow {
+    align-items: flex-start;
+  }
+
+  .sideRow > span,
+  .sideRow > b,
+  .barRow > span,
+  .mcx__bdRow > span,
+  .mcx__bdRow > b {
+    min-width: 0;
+  }
+
+  .sideRow > span,
+  .barRow > span:first-child,
+  .mcx__bdRow > span {
+    flex: 1 1 auto;
+    overflow-wrap: anywhere;
+  }
+
+  .sideRow > b,
+  .barRow > span:last-child,
+  .mcx__bdRow > b {
+    flex: 0 1 auto;
+    max-width: 58%;
   }
 
   .sideRow b,
@@ -363,6 +399,29 @@
     min-width: 0;
     text-align: right;
     overflow-wrap: anywhere;
+  }
+
+  .sideCallout,
+  .checkList,
+  .sideHint {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .arena__phaseCenter {
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .sideCard table,
+  .sideCard [role='table'] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .match-footer.app-footer {
