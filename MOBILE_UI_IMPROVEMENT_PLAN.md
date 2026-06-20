@@ -10,7 +10,7 @@ Primary objective: improve the SmartCup League mobile experience across every pu
 
 Current next phase:
 
-- [~] Championship Pick mobile layout
+- [ ] Legal pages mobile readability and spacing
 
 Primary desktop protection rule:
 
@@ -57,8 +57,8 @@ Small-phone breakpoint:
 6. [x] My Progress
 7. [x] Rewards
 8. [x] Match Detail
-9. [~] Championship Pick
-10. [~] Landing page
+9. [x] Championship Pick
+10. [x] Landing page
 11. [ ] Legal pages
 12. [ ] Shared components
 13. [ ] Admin Fixtures
@@ -455,9 +455,9 @@ Tasks:
 
 Acceptance criteria:
 
-- [ ] Landing page has no clipped headline.
-- [ ] CTA is visible without awkward scrolling.
-- [ ] Images are not distorted.
+- [x] Landing page has no clipped headline.
+- [x] CTA is visible without awkward scrolling.
+- [x] Images are not distorted.
 
 ## 13. Legal Pages
 
@@ -654,6 +654,17 @@ Regression checks:
 
 Use this section to log decisions, tradeoffs, and completed batches.
 
+- 2026-06-20: Pushed mobile UI enhancement checkpoint to `origin/main`:
+  - Commit: `47b95ea Polish mobile UI and landing experience`.
+  - Completed and user-approved: Match Detail mobile state/freebet safety, Championship Pick mobile layout/state/keyboard flow, standalone bottom nav on Match Detail and Championship Pick, mobile wallet header polish, and Landing Page mobile hero/footer/tournament/highlight pass.
+  - Build status before push: `npm run build` passed; `git diff --check` passed.
+  - Local-only artifact intentionally left uncommitted: `frontend/tmp-mobile-visual-pass/`.
+  - Next phase to resume: Legal Pages mobile readability and spacing.
+  - Next planned tasks:
+    - Review `TermsOfUse`, `Rules`, and `DaoConstitution` on mobile.
+    - Ensure legal headings, paragraphs, lists, and technical strings wrap cleanly.
+    - Make legal page anchor/footer/navigation links readable and tappable.
+    - Verify no document-level horizontal scroll at `360px`, `375px`, and `390px`.
 - 2026-06-13: Created the initial mobile tracking plan.
 - 2026-06-13: Added shared app navigation config, mobile-only bottom tab bar, and mobile app shell rules. Production build passed. Vite dev server is running at `http://localhost:3000/`. ESLint could not run because the frontend has no ESLint config file.
 - 2026-06-13: Added mobile-only All Matches layout overrides for filters, match cards, team names, pool chips, status/action rows, and small-phone behavior.
