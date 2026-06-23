@@ -10,6 +10,7 @@ import { StyledWallet, getPreviewWalletAddress } from '@/components/wallet/Walle
 import { AppFooter } from '@/components/layout/footer/AppFooter';
 import { MobileTabBar } from '@/components/layout/mobile-nav';
 import { API_BASE_URL } from '@/utils/api';
+import { PREDICTION_PLACED_EVENT, type PredictionPlacedDetail } from '@/utils/predictionEvents';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
 
@@ -34,6 +35,9 @@ type MatchInfo = {
   participants?: string[];
   has_bets?: boolean;
 };
+
+type PoolAmounts = { home: bigint; draw: bigint; away: bigint };
+type PoolPercentages = { home: number; draw: number; away: number };
 
 type IoBolaoState = {
   matches: MatchInfo[];
@@ -114,6 +118,24 @@ function safeBigInt(input: unknown): bigint {
   } catch {
     return 0n;
   }
+}
+
+function toPoolPercentages(home: number, draw: number, away: number): PoolPercentages | null {
+  const total = home + draw + away;
+  if (!Number.isFinite(total) || total <= 0) return null;
+
+  const homePct = Math.round((home / total) * 100);
+  const drawPct = Math.round((draw / total) * 100);
+  return {
+    home: Math.max(0, Math.min(100, homePct)),
+    draw: Math.max(0, Math.min(100, drawPct)),
+    away: Math.max(0, Math.min(100, 100 - homePct - drawPct)),
+  };
+}
+
+function poolAmountsToPercentages(amounts: PoolAmounts | null): PoolPercentages | null {
+  if (!amounts) return null;
+  return toPoolPercentages(Number(amounts.home), Number(amounts.draw), Number(amounts.away));
 }
 
 function formatToken(val: string | number | bigint, decimals = VARA_DECIMALS) {
@@ -276,21 +298,23 @@ function Match() {
   const [breakdown, setBreakdown] = useState<BreakdownData>({ show: false, matchPool: 0n, finalPrize: 0n, protocolFee: 0n });
 
   // Pool distribution from API (home/draw/away bets)
-  const [apiPoolPercentages, setApiPoolPercentages] = useState<{ home: number; draw: number; away: number } | null>(null);
+  const [apiPoolAmounts, setApiPoolAmounts] = useState<PoolAmounts | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
     fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!data || Number(data.total_bets) === 0) { setApiPoolPercentages(null); return; }
-        const total = Number(data.total_planck) || 0;
-        if (total === 0) { setApiPoolPercentages(null); return; }
-        const homePct = Math.round((Number(data.home_planck) / total) * 100);
-        const drawPct = Math.round((Number(data.draw_planck) / total) * 100);
-        setApiPoolPercentages({ home: homePct, draw: drawPct, away: 100 - homePct - drawPct });
+        if (!data || Number(data.total_bets) === 0) { setApiPoolAmounts(null); return; }
+        const amounts = {
+          home: safeBigInt(data.home_planck),
+          draw: safeBigInt(data.draw_planck),
+          away: safeBigInt(data.away_planck),
+        };
+        const total = amounts.home + amounts.draw + amounts.away;
+        setApiPoolAmounts(total > 0n ? amounts : null);
       })
-      .catch(() => setApiPoolPercentages(null));
+      .catch(() => setApiPoolAmounts(null));
   }, [matchId]);
 
   const myWalletHex = useMemo(() => {
@@ -349,7 +373,7 @@ function Match() {
   }, [userBets, matchId]);
 
   // Pool percentages for bars — only show if breakdown data is available from contract
-  const poolPercentages = useMemo(() => {
+  const contractPoolAmounts = useMemo<PoolAmounts | null>(() => {
     if (!selectedMatch) return null;
     try {
       const h = BigInt(String(selectedMatch.pool_home ?? '0').trim() || '0');
@@ -357,16 +381,58 @@ function Match() {
       const a = BigInt(String(selectedMatch.pool_away ?? '0').trim() || '0');
       const total = h + d + a;
       if (total <= 0n) return null; // no breakdown data from contract
-      const t = Number(total);
-      return {
-        home: Math.round((Number(h) / t) * 100),
-        draw: Math.round((Number(d) / t) * 100),
-        away: 100 - Math.round((Number(h) / t) * 100) - Math.round((Number(d) / t) * 100),
-      };
+      return { home: h, draw: d, away: a };
     } catch {
       return null;
     }
   }, [selectedMatch]);
+
+  const poolPercentages = useMemo(() => poolAmountsToPercentages(contractPoolAmounts), [contractPoolAmounts]);
+  const apiPoolPercentages = useMemo(() => poolAmountsToPercentages(apiPoolAmounts), [apiPoolAmounts]);
+
+  useEffect(() => {
+    if (!matchId) return;
+
+    const onPredictionPlaced = (event: Event) => {
+      const detail = (event as CustomEvent<PredictionPlacedDetail>).detail;
+      if (!detail || detail.matchId !== String(matchId)) return;
+
+      if (detail.predictedOutcome && detail.matchPoolAmountPlanck) {
+        const amount = safeBigInt(detail.matchPoolAmountPlanck);
+        if (amount > 0n) {
+          setApiPoolAmounts((current) => {
+            const base = current ?? contractPoolAmounts;
+            if (!base) return current;
+            return {
+              ...base,
+              [detail.predictedOutcome!]: base[detail.predictedOutcome!] + amount,
+            };
+          });
+        }
+      }
+
+      void fetchUserBets();
+      window.setTimeout(() => {
+        fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (!data || Number(data.total_bets) === 0) return;
+            const amounts = {
+              home: safeBigInt(data.home_planck),
+              draw: safeBigInt(data.draw_planck),
+              away: safeBigInt(data.away_planck),
+            };
+            const total = amounts.home + amounts.draw + amounts.away;
+            if (total > 0n) setApiPoolAmounts(amounts);
+          })
+          .catch(() => {});
+        void fetchUserBets();
+      }, 1200);
+    };
+
+    window.addEventListener(PREDICTION_PLACED_EVENT, onPredictionPlaced);
+    return () => window.removeEventListener(PREDICTION_PLACED_EVENT, onPredictionPlaced);
+  }, [matchId, contractPoolAmounts, fetchUserBets]);
 
   const effectiveWalletAddress = account?.decodedAddress ?? getPreviewWalletAddress();
   const addressDisplay = formatAddress(effectiveWalletAddress ?? undefined);
@@ -382,6 +448,13 @@ function Match() {
     Boolean(selectedMatch?.has_bets) ||
     Boolean(selectedMatch?.participants?.length) ||
     Boolean(userBetForThisMatch);
+  const distributionPercentages = apiPoolPercentages ?? poolPercentages;
+  const displayedDistribution = distributionPercentages ?? { home: 0, draw: 0, away: 0 };
+  const isDistributionSyncing = !distributionPercentages && hasCurrentMatchPoolActivity;
+  const distributionLabel = (value: number) => {
+    if (distributionPercentages) return `${value}%`;
+    return isDistributionSyncing ? 'Syncing' : '0%';
+  };
 
   return (
     <div className="arena">
@@ -474,42 +547,39 @@ function Match() {
                   </b>
                 </div>
 
-                {(apiPoolPercentages ?? poolPercentages) ? (() => {
-                  const pct = (apiPoolPercentages ?? poolPercentages)!;
-                  return (
-                    <div className="barGroup">
-                      <div className="barRow">
-                        <span>{homeName}</span>
-                        <span className="dim">{pct.home}%</span>
-                      </div>
-                      <div className="bar">
-                        <i style={{ width: `${pct.home}%` }} />
-                      </div>
-
-                      <div className="barRow">
-                        <span>Draw</span>
-                        <span className="dim">{pct.draw}%</span>
-                      </div>
-                      <div className="bar">
-                        <i style={{ width: `${pct.draw}%` }} />
-                      </div>
-
-                      <div className="barRow">
-                        <span>{awayName}</span>
-                        <span className="dim">{pct.away}%</span>
-                      </div>
-                      <div className="bar">
-                        <i style={{ width: `${pct.away}%` }} />
-                      </div>
-                    </div>
-                  );
-                })() : (
-                  <div className="sideHint dim" style={{ marginTop: 8 }}>
-                    {hasCurrentMatchPoolActivity
-                      ? 'Predictions already placed — pool split syncing'
-                      : 'No predictions yet — be the first!'}
+                <div className="barGroup">
+                  <div className="barRow">
+                    <span>{homeName}</span>
+                    <span className="dim">{distributionLabel(displayedDistribution.home)}</span>
                   </div>
-                )}
+                  <div className={`bar${isDistributionSyncing ? ' bar--pending' : ''}`}>
+                    <i style={{ width: `${isDistributionSyncing ? 100 : displayedDistribution.home}%` }} />
+                  </div>
+
+                  <div className="barRow">
+                    <span>Draw</span>
+                    <span className="dim">{distributionLabel(displayedDistribution.draw)}</span>
+                  </div>
+                  <div className={`bar${isDistributionSyncing ? ' bar--pending' : ''}`}>
+                    <i style={{ width: `${isDistributionSyncing ? 100 : displayedDistribution.draw}%` }} />
+                  </div>
+
+                  <div className="barRow">
+                    <span>{awayName}</span>
+                    <span className="dim">{distributionLabel(displayedDistribution.away)}</span>
+                  </div>
+                  <div className={`bar${isDistributionSyncing ? ' bar--pending' : ''}`}>
+                    <i style={{ width: `${isDistributionSyncing ? 100 : displayedDistribution.away}%` }} />
+                  </div>
+
+                  {!distributionPercentages && (
+                    <div className="sideHint dim">
+                      {hasCurrentMatchPoolActivity
+                        ? 'Predictions already placed — pool split syncing'
+                        : 'No predictions yet — be the first!'}
+                    </div>
+                  )}
+                </div>
 
                 <div className="sideHint dim">Larger pool → lower payout per winner</div>
 

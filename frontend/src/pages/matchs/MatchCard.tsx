@@ -1015,11 +1015,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       setUserClaimed(false);
       setUserBetScore({ home: h, away: a });
       setUserBetPenaltyWinner(penaltyWinnerToSend);
-      dispatchPredictionPlaced(match.match_id);
       window.dispatchEvent(new Event(FREEBET_BALANCE_CHANGED_EVENT));
 
       // Report bet to stats backend (fire-and-forget, non-fatal)
       const outcome = h > a ? 'home' : h < a ? 'away' : 'draw';
+      dispatchPredictionPlaced(match.match_id, {
+        predictedOutcome: outcome,
+        matchPoolAmountPlanck: stakeInMatchPoolBn.toString(),
+      });
       reportBet(
         account.decodedAddress,
         String(match.match_id),
