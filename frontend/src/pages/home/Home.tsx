@@ -769,11 +769,20 @@ export default function Home() {
 
   const predictionFinancials = useMemo(() => {
     if (!account || !activeUserBets.length) {
-      return { totalStakedBn: 0n, totalEarnedBn: 0n, netPerformancePct: null as number | null };
+      return {
+        totalStakedBn: 0n,
+        settledStakedBn: 0n,
+        pendingStakedBn: 0n,
+        totalEarnedBn: 0n,
+        netResultBn: 0n,
+        netPerformancePct: null as number | null,
+      };
     }
 
     const matchById = new Map(activeMatches.map((m) => [String(m.match_id), m]));
     let totalStakedBn = 0n;
+    let settledStakedBn = 0n;
+    let pendingStakedBn = 0n;
     let deterministicEarnedBn = 0n;
 
     for (const bet of activeUserBets) {
@@ -782,7 +791,13 @@ export default function Home() {
       totalStakedBn += stakeBn;
 
       const match = matchById.get(String(bet?.match_id ?? ''));
-      if (!match || !isFinalized(match) || !match.settlement_prepared) continue;
+      const isSettled = !!match && isFinalized(match) && !!match.settlement_prepared;
+      if (isSettled) {
+        settledStakedBn += stakeBn;
+      } else {
+        pendingStakedBn += stakeBn;
+        continue;
+      }
 
       const finalized = getFinalizedResult(match.result);
       const betScore = bet?.score
@@ -805,18 +820,31 @@ export default function Home() {
 
     const backendClaimedBn = safeBigInt(apiLeaderboardRow?.total_claimed_planck ?? 0);
     const totalEarnedBn = backendClaimedBn > deterministicEarnedBn ? backendClaimedBn : deterministicEarnedBn;
+    const netResultBn = totalEarnedBn - settledStakedBn;
     const netPerformancePct =
-      totalStakedBn > 0n
-        ? (Number(totalEarnedBn - totalStakedBn) / Number(totalStakedBn)) * 100
+      settledStakedBn > 0n
+        ? (Number(netResultBn) / Number(settledStakedBn)) * 100
         : null;
 
-    return { totalStakedBn, totalEarnedBn, netPerformancePct };
+    return { totalStakedBn, settledStakedBn, pendingStakedBn, totalEarnedBn, netResultBn, netPerformancePct };
   }, [account, activeUserBets, activeMatches, apiLeaderboardRow]);
+
+  const totalStakedText = useMemo(() => {
+    if (!account) return '—';
+    return formatTokenCompact(predictionFinancials.totalStakedBn, VARA_DECIMALS);
+  }, [account, predictionFinancials.totalStakedBn]);
 
   const totalEarnedText = useMemo(() => {
     if (!account) return '—';
     return formatTokenCompact(predictionFinancials.totalEarnedBn, VARA_DECIMALS);
   }, [account, predictionFinancials.totalEarnedBn]);
+
+  const netResultText = useMemo(() => {
+    if (!account) return '—';
+    const value = predictionFinancials.netResultBn;
+    const sign = value > 0n ? '+' : value < 0n ? '-' : '';
+    return `${sign}${formatTokenCompact(value < 0n ? -value : value, VARA_DECIMALS)}`;
+  }, [account, predictionFinancials.netResultBn]);
 
   const netPerformanceText = useMemo(() => {
     if (!account) return '—';
@@ -1092,15 +1120,26 @@ export default function Home() {
               </div>
 
               <div className="h-kpi">
+                <div className="h-kpi__label">Total Staked</div>
+                <div className="h-kpi__value">
+                  {totalStakedText} <span className="muted">{usdcLabel}</span>
+                </div>
+              </div>
+
+              <div className="h-kpi">
                 <div className="h-kpi__label">Total Earned</div>
                 <div className="h-kpi__value">
                   {totalEarnedText} <span className="muted">{usdcLabel}</span>
                 </div>
               </div>
 
-              <div className="h-kpi">
-                <div className="h-kpi__label">Net Performance</div>
-                <div className="h-kpi__value">{netPerformanceText}</div>
+              <div className="h-kpi h-kpi--wide h-kpi--net">
+                <div className="h-kpi__label">Net Result / Net Performance</div>
+                <div className="h-kpi__value">
+                  {netResultText} <span className="muted">{usdcLabel}</span>
+                  <span className="h-kpi__separator">/</span>
+                  <span>{netPerformanceText}</span>
+                </div>
               </div>
             </div>
 

@@ -740,16 +740,22 @@ body {
   flex-direction: column;
   flex: 1;
 }
-.h-perf__kpis { display: grid; gap: 8px; }
+.h-perf__kpis {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .h-kpi {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding: 11px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.2);
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  min-width: 0;
 }
 .h-kpi:hover {
   border-color: rgba(255, 46, 118, 0.18);
@@ -757,8 +763,54 @@ body {
   transform: translateX(3px);
 }
 .h-kpi--wide { grid-column: 1 / -1; }
-.h-kpi__label { color: rgba(255, 255, 255, 0.6); font-size: 12px; }
-.h-kpi__value { font-weight: 980; letter-spacing: -0.01em; font-size: 15px; }
+.h-kpi--net {
+  background: rgba(255, 46, 118, 0.045);
+  align-items: center;
+}
+.h-kpi__label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  line-height: 1.25;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.h-kpi__value {
+  font-weight: 980;
+  letter-spacing: -0.01em;
+  font-size: 15px;
+  text-align: right;
+  flex: 0 1 auto;
+  max-width: 62%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  min-width: 0;
+}
+
+.h-kpi__separator {
+  display: inline-block;
+  margin: 0 7px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.h-kpi--net .muted {
+  margin-left: 4px;
+}
+
+.h-kpi--net .h-kpi__label {
+  max-width: 42%;
+  line-height: 1.25;
+}
+
+.h-kpi--net .h-kpi__value {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  max-width: 58%;
+  line-height: 1.25;
+  white-space: normal;
+}
 
 
 /* ─── Championship Picks row ─────────────────────────────────── */
@@ -768,7 +820,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 8px;
   padding: 10px 12px;
   min-height: 54px;
   overflow: hidden;
@@ -974,7 +1026,7 @@ body {
 }
 .h-next-match__head { display: flex; align-items: center; }
 .h-next-match__label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1000,7 +1052,8 @@ body {
   flex-wrap: wrap;
   gap: 6px;
   font-weight: 900;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .h-next-match__team {
@@ -1026,7 +1079,7 @@ body {
 .h-next-match__phase,
 .h-next-match__meta,
 .h-next-match__closes {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -1503,8 +1556,20 @@ body {
     border-radius: 11px;
   }
 
+  .h-kpi__label {
+    font-size: var(--compact-desktop-helper-size, 11px);
+  }
+
   .h-kpi__value {
     font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .h-kpi--net .h-kpi__label {
+    max-width: 38%;
+  }
+
+  .h-kpi--net .h-kpi__value {
+    max-width: 62%;
   }
 
   .h-champ-pick {
@@ -1714,8 +1779,26 @@ body {
   }
 
   .h-perf {
-    min-height: 230px;
+    min-height: 0;
     padding-inline: 12px;
+  }
+
+  .h-perf__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .h-kpi__value {
+    white-space: normal;
+  }
+
+  .h-kpi--net {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .h-kpi--net .h-kpi__label,
+  .h-kpi--net .h-kpi__value {
+    max-width: none;
   }
 
   .h-champ-pick {
