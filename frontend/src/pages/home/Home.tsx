@@ -39,9 +39,11 @@ type CoreMatch = {
   kick_off: number;
   result: any;
   total_pool: string | number | bigint;
+  total_winner_stake?: string | number | bigint;
   pool_home?: string | number | bigint;
   pool_draw?: string | number | bigint;
   pool_away?: string | number | bigint;
+  settlement_prepared?: boolean;
   has_bets: boolean;
   participants: string[];
 };
@@ -235,6 +237,15 @@ function matchPool(m: CoreMatch): bigint {
   return legacy;
 }
 
+function computeDeterministicShareBn(
+  stakeInMatchPool: bigint,
+  matchPrizePool: bigint,
+  totalWinnerStake: bigint,
+): bigint {
+  if (stakeInMatchPool <= 0n || matchPrizePool <= 0n || totalWinnerStake <= 0n) return 0n;
+  return (stakeInMatchPool * matchPrizePool) / totalWinnerStake;
+}
+
 function sumAllMatchPools(matches: CoreMatch[]) {
   return matches.reduce((acc, m) => acc + matchPool(m), 0n);
 }
@@ -311,9 +322,11 @@ export default function Home() {
         m?.pool ??
         m?.pool_total ??
         '0',
+      total_winner_stake: m?.total_winner_stake ?? '0',
       pool_home: m?.pool_home ?? '0',
       pool_draw: m?.pool_draw ?? '0',
       pool_away: m?.pool_away ?? '0',
+      settlement_prepared: Boolean(m?.settlement_prepared),
       has_bets: Boolean(m?.has_bets),
       participants: Array.isArray(m?.participants) ? m.participants.map(String) : [],
     }));
@@ -754,11 +767,64 @@ export default function Home() {
     return { made: activeUserBets.length, exactResults: exact, correctOutcomes: outcome };
   }, [account, activeUserBets, activeMatches]);
 
+  const predictionFinancials = useMemo(() => {
+    if (!account || !activeUserBets.length) {
+      return { totalStakedBn: 0n, totalEarnedBn: 0n, netPerformancePct: null as number | null };
+    }
+
+    const matchById = new Map(activeMatches.map((m) => [String(m.match_id), m]));
+    let totalStakedBn = 0n;
+    let deterministicEarnedBn = 0n;
+
+    for (const bet of activeUserBets) {
+      const stakeBn = safeBigInt(bet?.stake_in_match_pool ?? 0);
+      const freebetPrincipalBn = safeBigInt(bet?.freebet_principal ?? 0);
+      totalStakedBn += stakeBn;
+
+      const match = matchById.get(String(bet?.match_id ?? ''));
+      if (!match || !isFinalized(match) || !match.settlement_prepared) continue;
+
+      const finalized = getFinalizedResult(match.result);
+      const betScore = bet?.score
+        ? { home: Number(bet.score.home ?? 0) || 0, away: Number(bet.score.away ?? 0) || 0 }
+        : null;
+      if (!finalized.score || !betScore) continue;
+
+      const betPenalty = normalizePenaltyWinner(bet?.penalty_winner);
+      const exactHit = isExactPrediction(betScore, betPenalty, finalized.score, finalized.penaltyWinner);
+      const outcomeHit = outcome(betScore, betPenalty) === outcome(finalized.score, finalized.penaltyWinner);
+      if (!exactHit && !outcomeHit) continue;
+
+      const grossEarnedBn = computeDeterministicShareBn(
+        stakeBn,
+        matchPool(match),
+        safeBigInt(match.total_winner_stake ?? 0),
+      );
+      deterministicEarnedBn += grossEarnedBn > freebetPrincipalBn ? grossEarnedBn - freebetPrincipalBn : 0n;
+    }
+
+    const backendClaimedBn = safeBigInt(apiLeaderboardRow?.total_claimed_planck ?? 0);
+    const totalEarnedBn = backendClaimedBn > deterministicEarnedBn ? backendClaimedBn : deterministicEarnedBn;
+    const netPerformancePct =
+      totalStakedBn > 0n
+        ? (Number(totalEarnedBn - totalStakedBn) / Number(totalStakedBn)) * 100
+        : null;
+
+    return { totalStakedBn, totalEarnedBn, netPerformancePct };
+  }, [account, activeUserBets, activeMatches, apiLeaderboardRow]);
+
   const totalEarnedText = useMemo(() => {
     if (!account) return '—';
-    if (!apiLeaderboardRow) return '—';
-    return formatTokenCompact(apiLeaderboardRow.total_claimed_planck ?? '0', VARA_DECIMALS);
-  }, [account, apiLeaderboardRow]);
+    return formatTokenCompact(predictionFinancials.totalEarnedBn, VARA_DECIMALS);
+  }, [account, predictionFinancials.totalEarnedBn]);
+
+  const netPerformanceText = useMemo(() => {
+    if (!account) return '—';
+    if (predictionFinancials.netPerformancePct === null) return '—';
+    const value = predictionFinancials.netPerformancePct;
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  }, [account, predictionFinancials.netPerformancePct]);
 
   const governance = useMemo(() => {
     const active = daoProposals.filter((p) => (p.status ?? '').toLowerCase() === 'active');
@@ -1034,7 +1100,7 @@ export default function Home() {
 
               <div className="h-kpi">
                 <div className="h-kpi__label">Net Performance</div>
-                <div className="h-kpi__value">—</div>
+                <div className="h-kpi__value">{netPerformanceText}</div>
               </div>
             </div>
 
