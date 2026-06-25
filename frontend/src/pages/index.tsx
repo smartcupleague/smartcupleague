@@ -1,9 +1,8 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Landing } from './landing';
 import { Match } from './matchs';
 import { Home } from './home';
 import { ChampionshipPick } from './championship-pick';
-import { Rewards } from './rewards';
 import { AppLayout } from './AppLayout';
 import { MatchesTableComponent } from '@/components/predictions/AllMatchs';
 import { QueryBetsByUserComponent } from '@/components/predictions/QueryBetsByUser';
@@ -44,7 +43,7 @@ function Routing() {
         <Route path="/all-predictions" element={<MatchesTableComponent />} />
         {/* Primary route — singular */}
         <Route path="/leaderboard" element={<Leaderboards />} />
-        <Route path="/rewards" element={<Rewards />} />
+        <Route path="/rewards" element={<Navigate to="/all-matches" replace />} />
         {/* Backwards-compat alias */}
         <Route path="/leaderboards" element={<Leaderboards />} />
         {/* DAO route disabled until member-only access is ready. */}

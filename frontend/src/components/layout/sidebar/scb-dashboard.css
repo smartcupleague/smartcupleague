@@ -261,9 +261,6 @@
 .scb-sidebar__item:nth-child(2) { animation-delay: 0.10s; }
 .scb-sidebar__item:nth-child(3) { animation-delay: 0.14s; }
 .scb-sidebar__item:nth-child(4) { animation-delay: 0.18s; }
-.scb-sidebar__item:nth-child(5) { animation-delay: 0.22s; }
-.scb-sidebar__item:nth-child(6) { animation-delay: 0.26s; }
-.scb-sidebar__item:nth-child(7) { animation-delay: 0.30s; }
 
 /* Hover shimmer overlay */
 .scb-sidebar__item::after {

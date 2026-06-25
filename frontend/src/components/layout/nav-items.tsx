@@ -2,12 +2,11 @@ import type { ReactNode } from 'react';
 import {
   PiCalendarDotsBold,
   PiChartLineUpBold,
-  PiGiftBold,
   PiRankingBold,
   PiTargetBold,
 } from 'react-icons/pi';
 
-export type AppNavKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches' | 'rewards';
+export type AppNavKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches';
 
 export interface AppNavItem {
   key: AppNavKey;
@@ -40,13 +39,6 @@ export const appNavItems: AppNavItem[] = [
     icon: <PiRankingBold className="scb-icon" aria-hidden="true" />,
   },
   {
-    key: 'rewards',
-    label: 'Rewards',
-    shortLabel: 'Rewards',
-    path: '/rewards',
-    icon: <PiGiftBold className="scb-icon" aria-hidden="true" />,
-  },
-  {
     key: 'progress',
     label: 'My Progress',
     shortLabel: 'Progress',
@@ -64,9 +56,6 @@ export function isAppNavItemActive(pathname: string, item: AppNavItem) {
   }
   if (item.key === 'leaderboard') {
     return pathname.startsWith('/leaderboard');
-  }
-  if (item.key === 'rewards') {
-    return pathname.startsWith('/rewards');
   }
   return pathname.startsWith(item.path);
 }

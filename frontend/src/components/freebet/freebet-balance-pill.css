@@ -8,18 +8,10 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.94);
-  text-decoration: none;
   background:
     radial-gradient(320px 90px at 22% 15%, rgba(255, 197, 66, 0.16), transparent 58%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.16));
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
-  transition: border-color 0.16s ease, transform 0.16s ease, filter 0.16s ease;
-}
-
-.fb-pill:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 211, 106, 0.34);
-  filter: brightness(1.04);
 }
 
 .fb-pill__icon {

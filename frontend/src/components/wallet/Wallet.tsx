@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import styled, { createGlobalStyle, keyframes } from 'styled-components';
 import { useAccount, useBalance } from '@gear-js/react-hooks';
 import { Wallet as GearWallet } from '@gear-js/wallet-connect';
@@ -529,7 +528,7 @@ const UsdValue = styled.span`
   }
 `;
 
-const FreebetPill = styled(Link)`
+const FreebetPill = styled.div`
   flex: 0 0 158px;
   min-width: 138px;
   max-width: 170px;
@@ -540,7 +539,6 @@ const FreebetPill = styled(Link)`
   gap: 4px;
   padding: 9px 10px;
   border-radius: 13px;
-  text-decoration: none;
   border: 1px solid rgba(255, 211, 106, 0.20);
   background:
     radial-gradient(420px 120px at 18% 20%, rgba(255, 211, 106, 0.16), transparent 56%),
@@ -549,17 +547,6 @@ const FreebetPill = styled(Link)`
   box-shadow:
     0 14px 44px rgba(0,0,0,.28),
     0 0 0 1px rgba(255,255,255,.035) inset;
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    filter 0.16s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    border-color: rgba(255, 211, 106, 0.36);
-    filter: brightness(1.04);
-  }
-
   @media (max-width: 720px) {
     flex: 1 1 150px;
     max-width: none;
@@ -701,10 +688,10 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
                   {showStatus ? <Status $connected={connected}>●</Status> : null}
                 </BalanceRow>
               </BalancePill>
-              <FreebetPill to="/rewards" aria-label="Open rewards freebet balance">
+              <FreebetPill aria-label="Freebet balance">
                 <BalanceLabel>FREEBET</BalanceLabel>
                 <FreebetValue title={freebetLabel}>{freebetLabel}</FreebetValue>
-                <FreebetHint>prediction credits</FreebetHint>
+                <FreebetHint>available credits</FreebetHint>
               </FreebetPill>
             </BalanceCluster>
           ) : (

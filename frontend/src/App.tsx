@@ -33,7 +33,6 @@ function Component() {
     '/my-predictions',
     '/leaderboard',
     '/leaderboards',
-    '/rewards',
     '/championship-pick',
     '/simulator',
     '/terms-of-use',

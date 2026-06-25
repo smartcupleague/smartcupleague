@@ -10,7 +10,7 @@
     bottom: 0;
     z-index: 80;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     min-height: var(--mobile-tabbar-height, 72px);
     padding: 7px max(8px, env(safe-area-inset-left)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
     border-top: 1px solid rgba(255, 0, 110, 0.28);

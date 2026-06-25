@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { PiGiftBold } from 'react-icons/pi';
 import { useFreebetBalance } from '@/hooks/useFreebetBalance';
 import { formatVaraCompact } from '@/utils/formatters';
@@ -21,7 +20,7 @@ export function FreebetBalancePill({ compact = false }: Props) {
           : `${formatVaraCompact(balance)} VARA`;
 
   return (
-    <Link className={compact ? 'fb-pill fb-pill--compact' : 'fb-pill'} to="/rewards" aria-label="Open rewards">
+    <div className={compact ? 'fb-pill fb-pill--compact' : 'fb-pill'} aria-label="Freebet balance">
       <span className="fb-pill__icon" aria-hidden="true">
         <PiGiftBold />
       </span>
@@ -29,6 +28,6 @@ export function FreebetBalancePill({ compact = false }: Props) {
         <span className="fb-pill__label">Freebet</span>
         <span className="fb-pill__value">{label}</span>
       </span>
-    </Link>
+    </div>
   );
 }
