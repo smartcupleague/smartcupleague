@@ -26,8 +26,16 @@ export interface Match {
   finalized_at: number | null;
 }
 
+export interface PhaseConfig {
+  name: string;
+  start_time: number;
+  end_time: number;
+  points_weight: number;
+}
+
 export interface IoSmartCupState {
   matches: Match[];
+  phases: PhaseConfig[];
 }
 
 /**
@@ -240,6 +248,41 @@ export class BolaoService {
       'send_message',
       ['Service', 'SetTreasury', new_treasury],
       '(String, String, [u8;32])',
+      'Null',
+      this._program.programId,
+    );
+  }
+
+  /**
+   * Proposes a match result directly to BolaoCore, bypassing the Oracle-Program.
+   * Used for Case 3b: Oracle is Finalized with a wrong score.
+   *
+   * CRITICAL ENCODING: final_score is the Score STRUCT {home, away}, NOT two flattened u8 args.
+   * Contrast with oracle.ts forceFinalizeResult which flattens — do NOT copy that shape here.
+   *
+   * The calling gateway account must be in BolaoCore.authorized_oracles (one-time manual setup).
+   * If the gateway is not authorized, the tx may return ok:true from sendTx (calculateGas swallows
+   * the panic) but the on-chain write will NOT land. Use GET /bolao/match-status/:matchId to
+   * validate the transition via the mandatory Validate re-read.
+   *
+   * @param match_id       - Match ID registered in BolaoCore
+   * @param home           - Home team goals (0–255)
+   * @param away           - Away team goals (0–255)
+   * @param penalty_winner - 'Home' | 'Away' | null. Only valid on knockout draws (home==away).
+   */
+  public proposeResult(
+    match_id: number | string | bigint,
+    home: number,
+    away: number,
+    penalty_winner: PenaltyWinner | null,
+  ): TransactionBuilder<null> {
+    if (!this._program.programId) throw new Error('Program ID is not set');
+    return new TransactionBuilder<null>(
+      this._program.api,
+      this._program.registry,
+      'send_message',
+      ['Service', 'ProposeResult', match_id, { home, away }, penalty_winner],
+      '(String, String, u64, Score, Option<PenaltyWinner>)',
       'Null',
       this._program.programId,
     );
