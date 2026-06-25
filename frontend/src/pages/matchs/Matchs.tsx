@@ -17,6 +17,8 @@ import { u8aToHex } from '@polkadot/util';
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const IS_DEV_PREVIEW = import.meta.env.DEV;
 const PLANCK = 1_000_000_000_000n;
+const POOL_STATS_REFRESH_MS = 10_000;
+const CHAIN_STATE_REFRESH_MS = 15_000;
 
 type ResultStatus = any;
 
@@ -300,22 +302,56 @@ function Match() {
   // Pool distribution from API (home/draw/away bets)
   const [apiPoolAmounts, setApiPoolAmounts] = useState<PoolAmounts | null>(null);
 
-  useEffect(() => {
-    if (!matchId) return;
-    fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data || Number(data.total_bets) === 0) { setApiPoolAmounts(null); return; }
-        const amounts = {
-          home: safeBigInt(data.home_planck),
-          draw: safeBigInt(data.draw_planck),
-          away: safeBigInt(data.away_planck),
-        };
-        const total = amounts.home + amounts.draw + amounts.away;
-        setApiPoolAmounts(total > 0n ? amounts : null);
-      })
-      .catch(() => setApiPoolAmounts(null));
+  const fetchPoolAmounts = useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
+    if (!matchId) {
+      setApiPoolAmounts(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`, { signal });
+      if (!res.ok) throw new Error(`Pool stats request failed: ${res.status}`);
+
+      const data = await res.json();
+      const amounts = {
+        home: safeBigInt(data?.home_planck),
+        draw: safeBigInt(data?.draw_planck),
+        away: safeBigInt(data?.away_planck),
+      };
+      const total = amounts.home + amounts.draw + amounts.away;
+      setApiPoolAmounts(total > 0n ? amounts : null);
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+    }
   }, [matchId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!matchId || previewMatch) {
+      setApiPoolAmounts(null);
+      return () => controller.abort();
+    }
+
+    setApiPoolAmounts(null);
+    void fetchPoolAmounts({ signal: controller.signal });
+
+    const interval = window.setInterval(() => {
+      void fetchPoolAmounts();
+    }, POOL_STATS_REFRESH_MS);
+
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, [fetchPoolAmounts, matchId, previewMatch]);
+
+  useEffect(() => {
+    if (!matchId || previewMatch) return;
+    const interval = window.setInterval(() => {
+      void fetchState();
+    }, CHAIN_STATE_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, [fetchState, matchId, previewMatch]);
 
   const myWalletHex = useMemo(() => {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
@@ -413,26 +449,15 @@ function Match() {
 
       void fetchUserBets();
       window.setTimeout(() => {
-        fetch(`${API_BASE_URL}/api/v1/stats/pools/${matchId}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (!data || Number(data.total_bets) === 0) return;
-            const amounts = {
-              home: safeBigInt(data.home_planck),
-              draw: safeBigInt(data.draw_planck),
-              away: safeBigInt(data.away_planck),
-            };
-            const total = amounts.home + amounts.draw + amounts.away;
-            if (total > 0n) setApiPoolAmounts(amounts);
-          })
-          .catch(() => {});
+        void fetchPoolAmounts();
+        void fetchState();
         void fetchUserBets();
       }, 1200);
     };
 
     window.addEventListener(PREDICTION_PLACED_EVENT, onPredictionPlaced);
     return () => window.removeEventListener(PREDICTION_PLACED_EVENT, onPredictionPlaced);
-  }, [matchId, contractPoolAmounts, fetchUserBets]);
+  }, [matchId, contractPoolAmounts, fetchPoolAmounts, fetchState, fetchUserBets]);
 
   const effectiveWalletAddress = account?.decodedAddress ?? getPreviewWalletAddress();
   const addressDisplay = formatAddress(effectiveWalletAddress ?? undefined);
