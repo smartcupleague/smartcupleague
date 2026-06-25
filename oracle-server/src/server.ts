@@ -12,6 +12,7 @@ import { u8aToHex } from "@polkadot/util";
 import { Program as OracleProgram, PenaltyWinner } from "./oracle";
 import { BolaoProgram } from "./bolao";
 import { runPriceFeed } from "./price-feed";
+import { classifyMatch, availableActionsFor, type CaseLabel } from "./finalization-utils";
 
 /* ============================================================
    ENV
@@ -1579,6 +1580,291 @@ app.post("/bolao/sweep-all-match-dust", async (req, res) => {
     return res.json({ ok: true, swept, errors, total_eligible: eligible.length });
   } catch (e: any) {
     console.error("[/bolao/sweep-all-match-dust]", e?.stack ?? e);
+    return res.status(400).json({ ok: false, error: e?.message });
+  }
+});
+
+/* ============================================================
+   BOLAO — PENDING FINALIZATION (composite read + classification)
+   ============================================================ */
+
+/**
+ * Shape returned per pending match.
+ * case_label uses internal codes that map 1-to-1 to spec requirements.
+ * Spec labels: NOT_IN_ORACLE → CASE_1, ORACLE_PENDING_CORRECTABLE → CASE_3A,
+ * ORACLE_FINALIZED_AMBIGUOUS → CASE_2_OR_3B, PROPOSED_AWAITING_FINALIZE → PROPOSED.
+ */
+interface PendingMatchEntry {
+  match_id: number;
+  home: string;
+  away: string;
+  phase: string;
+  kick_off: number;
+  bolao_status: 'Unresolved' | 'Proposed';
+  bolao_proposed_score: { home: number; away: number } | null;
+  bolao_proposed_deadline: number | null; // ms epoch: proposed_at + CHALLENGE_WINDOW_MS
+  oracle_status: 'Pending' | 'Finalized' | null;
+  oracle_score: { home: number; away: number } | null;
+  oracle_penalty_winner: string | null;
+  oracle_submissions: number;
+  case_label: CaseLabel;
+  available_actions: string[];
+  null_join: boolean;
+  /** True when the match phase has points_weight > 1 (knockout rule from BolaoCore). */
+  is_knockout: boolean;
+}
+
+/**
+ * Build the derived shape for a single pending match.
+ *
+ * @param bolaoMatch  - Match object from BolaoCore queryState
+ * @param oracleEntry - Oracle entry for this match_id (null when no Oracle entry exists)
+ * @param phaseMap    - Map<phaseName, pointsWeight> built from IoSmartCupState.phases;
+ *                      used to determine knockout status (points_weight > 1 = knockout)
+ */
+function derivePendingMatch(
+  bolaoMatch: any,
+  oracleEntry: any | null,
+  phaseMap: Map<string, number> = new Map(),
+): PendingMatchEntry {
+  const bolaoStatus: 'Unresolved' | 'Proposed' =
+    bolaoMatch.result === 'Unresolved'
+      ? 'Unresolved'
+      : typeof bolaoMatch.result === 'object' && bolaoMatch.result !== null && 'proposed' in bolaoMatch.result
+      ? 'Proposed'
+      : 'Unresolved';
+
+  const proposedData = bolaoStatus === 'Proposed' ? bolaoMatch.result?.proposed : null;
+  const bolaoProposedScore = proposedData
+    ? { home: proposedData.score.home, away: proposedData.score.away }
+    : null;
+  const bolaoProposedDeadline = proposedData
+    ? Number(proposedData.proposed_at) + CHALLENGE_WINDOW_MS
+    : null;
+
+  const oracleStatus: 'Pending' | 'Finalized' | null =
+    oracleEntry?.status ?? null;
+  const oracleScore = oracleEntry?.final_result?.score
+    ? { home: oracleEntry.final_result.score.home, away: oracleEntry.final_result.score.away }
+    : null;
+  const oraclePenaltyWinner = oracleEntry?.final_result?.penalty_winner ?? null;
+  const oracleSubmissions = Number(oracleEntry?.submissions ?? 0);
+
+  const caseLabel = classifyMatch(bolaoStatus, oracleStatus, oracleSubmissions);
+
+  const phaseName = String(bolaoMatch.phase);
+  const pointsWeight = phaseMap.get(phaseName) ?? 1; // default 1 = group stage when unknown
+  const isKnockout = pointsWeight > 1;
+
+  return {
+    match_id: Number(bolaoMatch.match_id),
+    home: String(bolaoMatch.home),
+    away: String(bolaoMatch.away),
+    phase: phaseName,
+    kick_off: Number(bolaoMatch.kick_off),
+    bolao_status: bolaoStatus,
+    bolao_proposed_score: bolaoProposedScore,
+    bolao_proposed_deadline: bolaoProposedDeadline,
+    oracle_status: oracleStatus,
+    oracle_score: oracleScore,
+    oracle_penalty_winner: oraclePenaltyWinner,
+    oracle_submissions: oracleSubmissions,
+    case_label: caseLabel,
+    available_actions: availableActionsFor(caseLabel),
+    null_join: oracleEntry === null || oracleEntry === undefined,
+    is_knockout: isKnockout,
+  };
+}
+
+/**
+ * GET /bolao/pending-finalization
+ *
+ * Composite read: joins BolaoCore + Oracle state, filters to played-but-not-finalized
+ * matches (kick_off < now AND bolao result !== Finalized), classifies each by case,
+ * and returns the enriched list.
+ *
+ * Returns: { ok: true, generated_at: ISO, matches: PendingMatchEntry[] }
+ * On query error: 500 { ok: false, error, source: 'bolao'|'oracle' }
+ */
+app.get("/bolao/pending-finalization", async (_req, res) => {
+  try {
+    const api = await getApi();
+    const bolao = getBolao(api);
+    const oracle = getOracle(api);
+
+    let bolaoState: any;
+    let oracleResults: any[];
+
+    // Run both reads in parallel; track which source fails so error response is actionable.
+    const bolaoReadPromise = bolao.service.queryState().catch((e: any) => {
+      throw Object.assign(new Error(`Query failed: ${e?.message}`), { source: 'bolao' });
+    });
+    const oracleReadPromise = oracle.service.queryAllResults().catch((e: any) => {
+      throw Object.assign(new Error(`Query failed: ${e?.message}`), { source: 'oracle' });
+    });
+    [bolaoState, oracleResults] = await Promise.all([bolaoReadPromise, oracleReadPromise]);
+
+    const now = Date.now();
+
+    // Build oracle lookup map
+    const oracleMap = new Map<number, any>();
+    for (const entry of oracleResults) {
+      oracleMap.set(Number(entry.match_id), entry);
+    }
+
+    // Build phase points_weight map for knockout detection (points_weight > 1 = knockout).
+    const phaseMap = new Map<string, number>();
+    const phasesRaw: any[] = bolaoState.phases ?? [];
+    for (const p of phasesRaw) {
+      phaseMap.set(String(p.name), Number(p.points_weight ?? 1));
+    }
+
+    // Filter: played (kick_off < now) AND not finalized in BolaoCore
+    const pending = bolaoState.matches.filter((m: any) => {
+      const kickOff = Number(m.kick_off);
+      if (kickOff >= now) return false; // future match
+      // Exclude finalized
+      if (typeof m.result === 'object' && m.result !== null && 'finalized' in m.result) return false;
+      return true;
+    });
+
+    const matches: PendingMatchEntry[] = pending.map((m: any) => {
+      const oracleEntry = oracleMap.get(Number(m.match_id)) ?? null;
+      return derivePendingMatch(m, oracleEntry, phaseMap);
+    });
+
+    return res.json({
+      ok: true,
+      generated_at: new Date().toISOString(),
+      matches,
+    });
+  } catch (e: any) {
+    console.error("[/bolao/pending-finalization]", e?.stack ?? e);
+    const source: string | undefined = (e as any)?.source;
+    return res.status(500).json({ ok: false, error: e?.message, ...(source ? { source } : {}) });
+  }
+});
+
+/**
+ * GET /bolao/match-status/:matchId
+ *
+ * Anti-false-positive re-read: directly queries BolaoCore + Oracle state
+ * for a single match and returns the authoritative current on-chain state.
+ * Use this endpoint AFTER every write action to confirm the write landed.
+ *
+ * Returns: { ok: true, match_id, status: PendingMatchEntry, raw_bolao_result }
+ * Returns: 400 { ok: false, error } if matchId not found in BolaoCore.
+ */
+app.get("/bolao/match-status/:matchId", async (req, res) => {
+  try {
+    const matchId = asMatchId(req.params.matchId, "matchId");
+    const matchIdNum = Number(matchId);
+
+    const api = await getApi();
+    const bolao = getBolao(api);
+    const oracle = getOracle(api);
+
+    const [bolaoState, oracleResults] = await Promise.all([
+      bolao.service.queryState(),
+      oracle.service.queryAllResults(),
+    ]);
+
+    const bolaoMatch = bolaoState.matches.find((m: any) => Number(m.match_id) === matchIdNum);
+    if (!bolaoMatch) {
+      return res.status(400).json({ ok: false, error: `match_id ${matchIdNum} not found in BolaoCore` });
+    }
+
+    const oracleEntry = oracleResults.find((r: any) => Number(r.match_id) === matchIdNum) ?? null;
+
+    // Build phase map so is_knockout is accurate on per-match re-reads too.
+    const phaseMap = new Map<string, number>();
+    const phasesRaw: any[] = bolaoState.phases ?? [];
+    for (const p of phasesRaw) {
+      phaseMap.set(String(p.name), Number(p.points_weight ?? 1));
+    }
+
+    const status = derivePendingMatch(bolaoMatch, oracleEntry, phaseMap);
+
+    return res.json({
+      ok: true,
+      match_id: matchIdNum,
+      status,
+      raw_bolao_result: bolaoMatch.result,
+    });
+  } catch (e: any) {
+    console.error("[/bolao/match-status]", e?.stack ?? e);
+    return res.status(400).json({ ok: false, error: e?.message });
+  }
+});
+
+/**
+ * POST /bolao/propose-result
+ * Body: { match_id: number, home: number, away: number, penalty_winner?: "Home"|"Away"|null }
+ *
+ * Case 3b endpoint: proposes a result directly to BolaoCore, bypassing the immutable Oracle.
+ * The gateway must be in BolaoCore.authorized_oracles (one-time manual setup).
+ *
+ * IMPORTANT: sendTx may return ok:true even when the on-chain write fails (e.g. gateway not
+ * in authorized_oracles causes a panic that calculateGas swallows). TRUE success confirmation
+ * requires a follow-up GET /bolao/match-status/:matchId (Validate re-read) — the frontend
+ * enforces this after calling this endpoint.
+ *
+ * Validation mirrors /oracle/force-finalize: home/away 0–255, penalty_winner only when draw.
+ */
+app.post("/bolao/propose-result", async (req, res) => {
+  try {
+    const matchId = asMatchId(req.body?.match_id, "match_id");
+    const matchIdNum = Number(matchId);
+    const home = Number(req.body?.home);
+    const away = Number(req.body?.away);
+    if (!Number.isInteger(home) || home < 0 || home > 255) throw new Error("home must be 0–255");
+    if (!Number.isInteger(away) || away < 0 || away > 255) throw new Error("away must be 0–255");
+    const penaltyWinner = asPenaltyWinner(req.body?.penalty_winner ?? null);
+
+    // penalty_winner is only valid when score is a draw
+    if (penaltyWinner !== null && home !== away) {
+      throw new Error("penalty_winner must be null when score is not a draw");
+    }
+
+    const api = await getApi();
+    const signer = getGatewaySigner();
+    const bolao = getBolao(api);
+
+    // Phase-gating: penalty_winner is only valid in knockout-stage draws.
+    // A group-stage draw must never carry a penalty_winner (BolaoCore panics on this).
+    // Determine knockout by reading the match phase and the phase points_weight from state.
+    if (penaltyWinner !== null) {
+      const bolaoState = await bolao.service.queryState();
+      const bolaoMatch = bolaoState.matches.find((m: any) => Number(m.match_id) === matchIdNum);
+      if (!bolaoMatch) {
+        throw new Error(`match_id ${matchIdNum} not found in BolaoCore`);
+      }
+      const phaseName = String(bolaoMatch.phase);
+      const phaseConfig = (bolaoState.phases ?? []).find((p: any) => String(p.name) === phaseName);
+      const pointsWeight = Number(phaseConfig?.points_weight ?? 1);
+      const isKnockout = pointsWeight > 1;
+      if (!isKnockout) {
+        throw new Error(
+          `penalty_winner is not allowed for group-stage matches (phase: "${phaseName}"). ` +
+          `Only knockout-stage draws (points_weight > 1) may carry a penalty winner.`,
+        );
+      }
+    }
+
+    const tx = bolao.service.proposeResult(matchId, home, away, penaltyWinner);
+    // Note: sendTx may return ok:true even when on-chain write fails (swallowed panic).
+    // The frontend MUST call GET /bolao/match-status/:matchId after this to confirm landing.
+    const result = await sendTx(tx, signer, "proposeResult");
+
+    return res.json({
+      ok: true,
+      match_id: Number(matchId),
+      score: { home, away },
+      penalty_winner: penaltyWinner,
+      result,
+    });
+  } catch (e: any) {
+    console.error("[/bolao/propose-result]", e?.stack ?? e);
     return res.status(400).json({ ok: false, error: e?.message });
   }
 });

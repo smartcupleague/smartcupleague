@@ -3,6 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import { useApi } from '@gear-js/react-hooks';
 import { HexString } from '@gear-js/api';
 import { Program, Service } from '@/hocs/lib';
+import { PendingFinalizationTab } from './PendingFinalizationTab';
 
 /* ─── Config ─────────────────────────────────────────────── */
 const ORACLE_BASE =
@@ -26,7 +27,7 @@ function isLeagueTab(t: TabStatus): t is LeagueTabKey {
 }
 
 /* ─── Types ──────────────────────────────────────────────── */
-type TabStatus = 'SCHEDULED' | 'IN_PLAY' | 'FINISHED' | 'BOLAO_CORE' | 'ORACLE' | 'FRIENDLIES' | LeagueTabKey;
+type TabStatus = 'SCHEDULED' | 'IN_PLAY' | 'FINISHED' | 'BOLAO_CORE' | 'ORACLE' | 'FRIENDLIES' | 'PENDING_FINALIZATION' | LeagueTabKey;
 
 /* ─── Module-level cache (persists across navigation) ────── */
 const fixturesCache: Partial<Record<TabStatus, WCFixture[]>> = {};
@@ -81,6 +82,7 @@ const TAB_LABEL: Record<TabStatus, string> = {
   BOLAO_CORE: 'BolaoCore',
   ORACLE: 'Oracle',
   FRIENDLIES: 'Today',
+  PENDING_FINALIZATION: 'Pending',
   SERIE_A:    LEAGUE_CONFIG.SERIE_A.label,
   LA_LIGA:    LEAGUE_CONFIG.LA_LIGA.label,
   PORTUGUESA: LEAGUE_CONFIG.PORTUGUESA.label,
@@ -95,6 +97,7 @@ const TAB_COLOR: Record<TabStatus, string> = {
   BOLAO_CORE: '#a78bfa',
   ORACLE: '#f97316',
   FRIENDLIES: '#2dd4bf',
+  PENDING_FINALIZATION: '#f59e0b',
   SERIE_A:    LEAGUE_CONFIG.SERIE_A.color,
   LA_LIGA:    LEAGUE_CONFIG.LA_LIGA.color,
   PORTUGUESA: LEAGUE_CONFIG.PORTUGUESA.color,
@@ -2359,6 +2362,7 @@ export function AdminFixtures() {
     BOLAO_CORE: 0,
     ORACLE: 0,
     FRIENDLIES: 0,
+    PENDING_FINALIZATION: 0,
     SERIE_A: 0,
     LA_LIGA: 0,
     PORTUGUESA: 0,
@@ -2556,6 +2560,7 @@ export function AdminFixtures() {
     if (tab === 'BOLAO_CORE') { void fetchOnChain(); return; }
     if (tab === 'ORACLE') { void fetchOracle(); return; }
     if (tab === 'FRIENDLIES') { friendliesCache = null; void fetchFriendlies(true); return; }
+    if (tab === 'PENDING_FINALIZATION') return; // PendingFinalizationTab manages its own refresh
     if (isLeagueTab(tab)) { delete leagueCache[tab]; void fetchLeague(tab, true); return; }
     (Object.keys(fixturesCache) as TabStatus[]).forEach((k) => delete fixturesCache[k]);
     (Object.keys(countsCache) as TabStatus[]).forEach((k) => delete countsCache[k]);
@@ -2572,7 +2577,7 @@ export function AdminFixtures() {
       void fetchFriendlies();
     } else if (isLeagueTab(tab) && !loadedTabs.has(tab)) {
       void fetchLeague(tab);
-    } else if (!isLeagueTab(tab) && tab !== 'BOLAO_CORE' && tab !== 'ORACLE' && tab !== 'FRIENDLIES' && !loadedTabs.has(tab)) {
+    } else if (!isLeagueTab(tab) && tab !== 'BOLAO_CORE' && tab !== 'ORACLE' && tab !== 'FRIENDLIES' && tab !== 'PENDING_FINALIZATION' && !loadedTabs.has(tab)) {
       void fetchTab(tab);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2641,7 +2646,7 @@ export function AdminFixtures() {
 
         {/* Tabs */}
         <TabRow>
-          {(['SCHEDULED', 'IN_PLAY', 'FINISHED', 'BOLAO_CORE', 'ORACLE', 'FRIENDLIES', ...LEAGUE_TABS] as TabStatus[]).map((s) => (
+          {(['SCHEDULED', 'IN_PLAY', 'FINISHED', 'BOLAO_CORE', 'PENDING_FINALIZATION', 'ORACLE', 'FRIENDLIES', ...LEAGUE_TABS] as TabStatus[]).map((s) => (
             <TabBtn key={s} $active={tab === s} $s={s} onClick={() => setTab(s)}>
               {s === 'IN_PLAY' && <LiveDot />}
               {TAB_LABEL[s]}
@@ -2652,8 +2657,10 @@ export function AdminFixtures() {
           ))}
         </TabRow>
 
-        {/* Content — Oracle / BolaoCore / WC fixture tabs */}
-        {tab !== 'FRIENDLIES' && !isLeagueTab(tab) && (tab === 'ORACLE' ? (
+        {/* Content — Oracle / BolaoCore / Pending Finalization / WC fixture tabs */}
+        {tab === 'PENDING_FINALIZATION' ? (
+          <PendingFinalizationTab oracleBase={ORACLE_BASE} />
+        ) : tab !== 'FRIENDLIES' && !isLeagueTab(tab) && (tab === 'ORACLE' ? (
           oracleLoading || (!loadedTabs.has('ORACLE') && !oracleError) ? (
             <CenterBox>
               <SpinRing />
