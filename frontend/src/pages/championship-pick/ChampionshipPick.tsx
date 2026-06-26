@@ -163,7 +163,7 @@ export function ChampionshipPick() {
   const stakeMinimumLabel = isStakePricingAvailable
     ? `Minimum required: ${minimumBet.minVaraText} VARA (${minimumBet.targetUsdText})`
     : 'Minimum unavailable until the VARA/USD price feed reconnects.';
-  const stakePlaceholder = isStakePricingAvailable ? `Min ${minimumBet.minVaraText}` : 'Min unavailable';
+  const stakePlaceholder = isStakePricingAvailable ? `Min ${minimumBet.minVaraText}` : '';
 
   const canSubmit =
     !!account &&
@@ -484,7 +484,6 @@ export function ChampionshipPick() {
           </div>
 
           <div className="arena__topbarRight">
-            <span className="arena__statPill">Locks: {loadingState ? "Loading..." : formatLockTime(lockMs)}</span>
             <div className="arena__walletGroup">
               <div className="arena__address dim">
                 {effectiveWalletAddress ? (
