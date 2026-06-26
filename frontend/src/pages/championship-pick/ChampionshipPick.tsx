@@ -787,7 +787,7 @@ export function ChampionshipPick() {
                   ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (
                     <span className="cpWarn">{stakeMinimumLabel}</span>
                   ) : (
-                    <span>Payment is sent on-chain with the Championship Pick transaction.</span>
+                    <span>Your stake is submitted together with your Championship Pick.</span>
                   )}
                 </div>
               </section>
