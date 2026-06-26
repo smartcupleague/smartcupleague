@@ -23,6 +23,7 @@ import './championship-pick.css';
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM;
 const VARA_DECIMALS = 12n;
 const VARA_PLANCK = 10n ** VARA_DECIMALS;
+const USD_MINIMUM_MICRO = 3_000_000n;
 
 type ChampionshipPreviewState = 'setup-pending' | 'locked' | 'submitted' | 'price-off' | null;
 
@@ -105,11 +106,36 @@ function normalizeAmountInput(value: string) {
   return `${parts[0]}.${parts.slice(1).join('')}`;
 }
 
+function ceilDivBn(a: bigint, b: bigint): bigint {
+  if (b <= 0n) return 0n;
+  return (a + b - 1n) / b;
+}
+
 function toPlanck(amount: number): bigint {
   const fixed = amount.toFixed(12);
   const [integer, fraction = ''] = fixed.split('.');
   const planckFraction = (fraction + '0'.repeat(12)).slice(0, 12);
   return BigInt(integer || '0') * VARA_PLANCK + BigInt(planckFraction || '0');
+}
+
+function planckToVaraHuman(planck: bigint): number {
+  return Number(planck) / Number(VARA_PLANCK);
+}
+
+function formatVaraFromPlanckFixed(planck: bigint, fractionDigits = 2) {
+  return planckToVaraHuman(planck).toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+function formatVaraInputFromPlanck(planck: bigint, fractionDigits = 4) {
+  const value = planckToVaraHuman(planck);
+  if (!Number.isFinite(value)) return '';
+  return value
+    .toFixed(fractionDigits)
+    .replace(/0+$/, '')
+    .replace(/\.$/, '');
 }
 
 function formatVaraAmount(amount: number): string {
@@ -133,7 +159,7 @@ export function ChampionshipPick() {
   const mobileAddressDisplay = effectiveWalletAddress ? formatAddress(effectiveWalletAddress, 3, 3) : "Not connected";
   const walletReady = !!effectiveWalletAddress;
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
-  const { varaToUsd } = useVaraPrice();
+  const { rate: varaUsdRate, varaToUsd } = useVaraPrice();
   const podiumPick = usePodiumPick();
   const previewChampionshipState = getChampionshipPreviewState();
 
@@ -158,12 +184,22 @@ export function ChampionshipPick() {
     return Number.isFinite(amount) ? amount : 0;
   }, [stakeAmount]);
   const stakeValuePlanck = useMemo(() => toPlanck(stakeAmountNumber), [stakeAmountNumber]);
-  const stakeBelowMinimum = stakeValuePlanck < minimumBet.minPlanck;
-  const isStakePricingAvailable = minimumBet.isBettingAvailable && previewChampionshipState !== 'price-off';
+  const liveUsdMinimumPlanck = useMemo(() => {
+    if (!Number.isFinite(varaUsdRate) || varaUsdRate <= 0) return 0n;
+    const priceMicro = BigInt(Math.max(1, Math.floor(varaUsdRate * 1_000_000)));
+    return ceilDivBn(USD_MINIMUM_MICRO * VARA_PLANCK, priceMicro);
+  }, [varaUsdRate]);
+  const liveMinVaraText = useMemo(() => {
+    if (liveUsdMinimumPlanck <= 0n) return '';
+    return formatVaraFromPlanckFixed(liveUsdMinimumPlanck);
+  }, [liveUsdMinimumPlanck]);
+  const stakeMinimumPlanck = liveUsdMinimumPlanck > 0n ? liveUsdMinimumPlanck : minimumBet.minPlanck;
+  const stakeBelowMinimum = stakeValuePlanck < stakeMinimumPlanck;
+  const isStakePricingAvailable = liveUsdMinimumPlanck > 0n && previewChampionshipState !== 'price-off';
   const stakeMinimumLabel = isStakePricingAvailable
-    ? `Minimum required: ${minimumBet.minVaraText} VARA (${minimumBet.targetUsdText})`
+    ? `Minimum required: ${liveMinVaraText} VARA (${minimumBet.targetUsdText})`
     : 'Minimum unavailable until the VARA/USD price feed reconnects.';
-  const stakePlaceholder = isStakePricingAvailable ? `Min ${minimumBet.minVaraText}` : '';
+  const stakePlaceholder = liveMinVaraText ? `Min ${liveMinVaraText}` : '';
 
   const canSubmit =
     !!account &&
@@ -233,9 +269,9 @@ export function ChampionshipPick() {
     if (!isStakePricingAvailable) return 'Price feed reconnecting';
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
-    if (stakeBelowMinimum) return minimumBet.shortLabel;
+    if (stakeBelowMinimum) return liveMinVaraText ? `Min $3 USD ≈ ${liveMinVaraText} VARA` : minimumBet.shortLabel;
     return `Submit Championship Pick (${formatVaraAmount(stakeAmountNumber)} VARA)`;
-  }, [complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting, walletReady]);
+  }, [complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, liveMinVaraText, minimumBet.shortLabel, stakeAmountNumber, stakeBelowMinimum, submitted, submitting, walletReady]);
 
   const stateNotice = useMemo(() => {
     if (submitted) {
@@ -298,7 +334,7 @@ export function ChampionshipPick() {
       return {
         tone: 'warn',
         title: 'Stake below minimum',
-        body: minimumBet.label,
+        body: stakeMinimumLabel,
       };
     }
     return {
@@ -306,7 +342,7 @@ export function ChampionshipPick() {
       title: 'Ready to submit',
       body: 'Review your Top 3 teams and submit the Championship Pick transaction.',
     };
-  }, [complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, minimumBet.label, stakeAmountNumber, stakeBelowMinimum, submitted, walletReady]);
+  }, [complete, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, stakeAmountNumber, stakeBelowMinimum, stakeMinimumLabel, submitted, walletReady]);
 
   function updatePick(key: PickKey, team: string) {
     setPicks((current) => ({ ...current, [key]: team }));
@@ -417,7 +453,7 @@ export function ChampionshipPick() {
       return;
     }
     if (stakeBelowMinimum) {
-      toast.error(`Minimum Championship Pick amount is ${minimumBet.label}`);
+      toast.error(`Minimum Championship Pick amount is ${stakeMinimumLabel}`);
       return;
     }
 
@@ -458,7 +494,7 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, minimumBet.label, picks, podiumPick, previewChampionshipState, stakeBelowMinimum, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, picks, podiumPick, previewChampionshipState, stakeBelowMinimum, stakeMinimumLabel, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
 
   const controlsLocked = submitted || submitting || isLocked;
 
@@ -546,7 +582,7 @@ export function ChampionshipPick() {
                 </div>
                 <div className="sideRow">
                   <span>Minimum stake</span>
-                  <b>{minimumBet.isBettingAvailable ? `${minimumBet.minVaraText} VARA` : 'Price feed reconnecting'}</b>
+                  <b>{liveMinVaraText ? `${liveMinVaraText} VARA` : 'Price feed reconnecting'}</b>
                 </div>
                 <div className="sideDivider" />
                 <div className="sideHint">All three picks lock permanently at the Round of 32 kickoff.</div>
@@ -725,7 +761,7 @@ export function ChampionshipPick() {
                     </label>
 
                     <div className="cpQuickRow" aria-label="Quick stake amount controls">
-                      <button type="button" disabled={controlsLocked || !isStakePricingAvailable} onClick={() => setStakeAmount(minimumBet.minVaraText)}>Min</button>
+                      <button type="button" disabled={controlsLocked || !isStakePricingAvailable} onClick={() => setStakeAmount(formatVaraInputFromPlanck(liveUsdMinimumPlanck, 12))}>Min</button>
                       <button type="button" disabled={controlsLocked} onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 1))}>+1</button>
                       <button type="button" disabled={controlsLocked} onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 10))}>+10</button>
                       <button type="button" disabled={controlsLocked} onClick={() => setStakeAmount(String((stakeAmountNumber || 0) + 50))}>+50</button>
@@ -749,7 +785,7 @@ export function ChampionshipPick() {
                   ) : !isStakePricingAvailable ? (
                     <span className="cpWarn">Championship Pick is paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.</span>
                   ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (
-                    <span className="cpWarn">{minimumBet.label}</span>
+                    <span className="cpWarn">{stakeMinimumLabel}</span>
                   ) : (
                     <span>Payment is sent on-chain with the Championship Pick transaction.</span>
                   )}
