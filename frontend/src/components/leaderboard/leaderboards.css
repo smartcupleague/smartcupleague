@@ -1182,10 +1182,82 @@
   font-weight: 950;
 }
 
+.lbChampPickRow__main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.lbChampPickRow .lbChampPickRow__role {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.lbChampPickRow__country {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.lbChampPickRow .lbChampPickRow__country span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lbChampPickRow__flag {
+  width: 20px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.14);
+}
+
+.lbChampPickRow__mark {
+  flex: 0 0 auto;
+  color: rgba(255, 225, 160, 0.92);
+}
+
+.lbChampPickRow--pending .lbChampPickRow__main {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.lbChampPickRow--pending .lbChampPickRow__country {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.lbChampPickRow--hit {
+  border-color: rgba(83, 255, 176, 0.22);
+  background:
+    radial-gradient(320px 90px at 10% 50%, rgba(83, 255, 176, 0.08), transparent 62%),
+    rgba(0,0,0,0.18);
+}
+
+.lbChampPickRow--hit b {
+  color: rgba(130, 255, 194, 0.98);
+}
+
+.lbChampPickRow--miss {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(0,0,0,0.16);
+}
+
+.lbChampPickRow--miss span,
+.lbChampPickRow--miss b {
+  color: rgba(255, 235, 246, 0.56);
+}
+
 .lbChampPotential,
 .lbChampTotal {
   padding: 2px 2px 0;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .lbChampPotential b,
@@ -2104,6 +2176,19 @@
   .lbBottom__right .lbBtn,
   .lbChampState .lbBtn {
     width: 100%;
+  }
+
+  .lbChampPickRow--pending .lbChampPickRow__main {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .lbChampPickRow--pending .lbChampPickRow__country {
+    flex: 0 1 auto;
+    justify-content: flex-start;
+    max-width: 100%;
+    text-align: left;
   }
 
   .lbEarnRow {

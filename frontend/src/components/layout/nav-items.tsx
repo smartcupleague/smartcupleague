@@ -4,9 +4,10 @@ import {
   PiChartLineUpBold,
   PiRankingBold,
   PiTargetBold,
+  PiTrophyBold,
 } from 'react-icons/pi';
 
-export type AppNavKey = 'progress' | 'my-predictions' | 'leaderboard' | 'all-matches';
+export type AppNavKey = 'progress' | 'my-predictions' | 'championship-pick' | 'leaderboard' | 'all-matches';
 
 export interface AppNavItem {
   key: AppNavKey;
@@ -32,6 +33,13 @@ export const appNavItems: AppNavItem[] = [
     icon: <PiTargetBold className="scb-icon" aria-hidden="true" />,
   },
   {
+    key: 'championship-pick',
+    label: 'Championship Picks',
+    shortLabel: 'Champs',
+    path: '/championship-pick',
+    icon: <PiTrophyBold className="scb-icon" aria-hidden="true" />,
+  },
+  {
     key: 'leaderboard',
     label: 'Leaderboard',
     shortLabel: 'Leaders',
@@ -41,7 +49,7 @@ export const appNavItems: AppNavItem[] = [
   {
     key: 'progress',
     label: 'My Progress',
-    shortLabel: 'Progress',
+    shortLabel: 'Prog',
     path: '/progress',
     icon: <PiChartLineUpBold className="scb-icon" aria-hidden="true" />,
   },

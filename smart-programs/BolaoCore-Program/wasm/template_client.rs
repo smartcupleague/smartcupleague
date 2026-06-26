@@ -833,6 +833,14 @@ pub enum ResultStatus {
 #[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
 #[codec(crate = sails_rs::scale_codec)]
 #[scale_info(crate = sails_rs::scale_info)]
+pub struct PodiumResult {
+    pub champion: String,
+    pub runner_up: String,
+    pub third_place: String,
+}
+#[derive(PartialEq, Clone, Debug, Encode, Decode, TypeInfo)]
+#[codec(crate = sails_rs::scale_codec)]
+#[scale_info(crate = sails_rs::scale_info)]
 pub struct IoSmartCupState {
     pub admin: ActorId,
     pub protocol_fee_accumulated: u128,
@@ -841,6 +849,7 @@ pub struct IoSmartCupState {
     pub phases: Vec<PhaseConfig>,
     pub user_points: Vec<(ActorId, u32)>,
     pub podium_finalized: bool,
+    pub podium_result: Option<PodiumResult>,
     pub r32_lock_time: Option<u64>,
     pub final_prize_finalized: bool,
     pub final_prize_claimable_total: u128,

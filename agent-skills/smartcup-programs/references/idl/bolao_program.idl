@@ -154,6 +154,7 @@ type IoSmartCupState = struct {
   phases: vec PhaseConfig,
   user_points: vec struct { actor_id, u32 },
   podium_finalized: bool,
+  podium_result: opt PodiumResult,
   r32_lock_time: opt u64,
   final_prize_finalized: bool,
   final_prize_claimable_total: u128,
@@ -435,4 +436,3 @@ service Service {
     };
   }
 };
-

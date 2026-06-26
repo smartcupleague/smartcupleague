@@ -943,6 +943,7 @@ pub struct IoSmartCupState {
     pub phases: Vec<PhaseConfig>,
     pub user_points: Vec<(ActorId, u32)>,
     pub podium_finalized: bool,
+    pub podium_result: Option<PodiumResult>,
     pub r32_lock_time: Option<u64>,
     pub final_prize_finalized: bool,
     pub final_prize_claimable_total: u128,

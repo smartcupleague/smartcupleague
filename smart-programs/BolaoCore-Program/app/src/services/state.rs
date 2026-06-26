@@ -412,6 +412,7 @@ pub struct IoSmartCupState {
     pub phases: Vec<PhaseConfig>,
     pub user_points: Vec<(ActorId, u32)>,
     pub podium_finalized: bool,
+    pub podium_result: Option<PodiumResult>,
     pub r32_lock_time: Option<u64>,
     pub final_prize_finalized: bool,
     pub final_prize_claimable_total: u128,
@@ -438,6 +439,7 @@ impl From<SmartCupState> for IoSmartCupState {
                 .map(|(id, pts)| (*id, *pts))
                 .collect(),
             podium_finalized: state.podium_finalized,
+            podium_result: state.podium_result,
             r32_lock_time: state.r32_lock_time,
             final_prize_finalized: state.final_prize_finalized,
             final_prize_claimable_total: state.final_prize_claimable_total,

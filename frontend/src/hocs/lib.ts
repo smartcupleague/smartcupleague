@@ -75,6 +75,7 @@ export interface IoSmartCupState {
   phases: PhaseConfig[];
   user_points: Array<[ActorId, number]>;
   podium_finalized: boolean;
+  podium_result: PodiumResult | null;
   r32_lock_time: string | number | bigint | null;
   final_prize_finalized: boolean;
   final_prize_claimable_total: string | number | bigint;
@@ -100,6 +101,12 @@ export interface WalletClaimStatus {
 }
 
 export interface PodiumPick {
+  champion: string;
+  runner_up: string;
+  third_place: string;
+}
+
+export interface PodiumResult {
   champion: string;
   runner_up: string;
   third_place: string;
@@ -161,6 +168,7 @@ const types = {
     phases: 'Vec<PhaseConfig>',
     user_points: 'Vec<([u8;32], u32)>',
     podium_finalized: 'bool',
+    podium_result: 'Option<PodiumResult>',
     r32_lock_time: 'Option<u64>',
     final_prize_finalized: 'bool',
     final_prize_claimable_total: 'u128',
@@ -183,6 +191,11 @@ const types = {
     already_claimed: 'bool',
   },
   PodiumPick: {
+    champion: 'String',
+    runner_up: 'String',
+    third_place: 'String',
+  },
+  PodiumResult: {
     champion: 'String',
     runner_up: 'String',
     third_place: 'String',

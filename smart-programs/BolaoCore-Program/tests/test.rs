@@ -166,7 +166,33 @@ async fn deploy_and_query_state() {
     assert!(state.matches.is_empty());
     assert!(state.phases.is_empty());
     assert!(!state.podium_finalized);
+    assert!(state.podium_result.is_none());
     assert!(!state.final_prize_finalized);
+}
+
+#[tokio::test]
+async fn query_state_exposes_optional_podium_result() {
+    let f = Fixture::new().await;
+
+    let state = f.program.service("Service").query_state().query().unwrap();
+    assert!(!state.podium_finalized);
+    assert!(state.podium_result.is_none());
+
+    f.program
+        .service("Service")
+        .finalize_podium("Argentina".into(), "France".into(), "Brazil".into())
+        .await
+        .unwrap();
+
+    let state = f.program.service("Service").query_state().query().unwrap();
+    let podium = state
+        .podium_result
+        .expect("podium result should be populated after finalization");
+
+    assert!(state.podium_finalized);
+    assert_eq!(podium.champion, "Argentina");
+    assert_eq!(podium.runner_up, "France");
+    assert_eq!(podium.third_place, "Brazil");
 }
 
 // ── Test 2: oracle access control ────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
 import { HexString } from '@gear-js/api';
 import { TransactionBuilder } from 'sails-js';
 import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
+import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { Program as CoreProgram, Service as CoreService } from '@/hocs/lib';
 import { Program as DaoProgram, Service as DaoService } from '@/hocs/dao';
 import { TeamFlag } from '@/components/common/TeamFlag';
@@ -13,6 +14,16 @@ import { StyledWallet } from '@/components/wallet/Wallet';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { API_BASE_URL } from '@/utils/api';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
+import { WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
+import {
+  getPodiumCorrectCount,
+  getPodiumEarnedPoints,
+  getPreviewPodiumPick,
+  getPreviewPodiumResult,
+  getPodiumResultRows,
+  normalizePodiumStanding,
+  PodiumStanding,
+} from '@/utils/podium';
 import { useNavigate } from 'react-router-dom';
 import {
   TOURNAMENT_TAB_ORDER,
@@ -60,6 +71,7 @@ type CoreState = {
   matches: CoreMatch[];
   phases: Array<{ name: string; start_time: number; end_time: number }>;
   user_points: Array<[string, number]>;
+  podium_result?: PodiumStanding | null;
 };
 
 type DaoProposal = {
@@ -137,6 +149,18 @@ function kickOffToMs(input: number) {
   return input < 10_000_000_000 ? input * 1000 : input;
 }
 
+function timestampToMs(value?: string | number | bigint | null) {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 10_000_000_000 ? n * 1000 : n;
+}
+
+function displayTeamName(team: string) {
+  if (WORLD_CUP_TEAM_LABELS[team]) return WORLD_CUP_TEAM_LABELS[team];
+  return team;
+}
+
 function formatDate(msLike: number) {
   const ms = kickOffToMs(msLike);
   if (!ms) return '-';
@@ -173,19 +197,6 @@ function timeFromNow(msLike: number) {
   const day = Math.floor(hr / 24);
   const label = day > 0 ? `${day}d` : hr > 0 ? `${hr}h` : min > 0 ? `${min}m` : `${sec}s`;
   return diff >= 0 ? `in ${label}` : `${label} ago`;
-}
-
-function closesLabel(msLike: number) {
-  const ms = kickOffToMs(msLike);
-  if (!ms) return '—';
-  const closesAt = ms - 10 * 60 * 1000;
-  const diff = closesAt - Date.now();
-  if (diff <= 0) return 'Closed';
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `Closes in ${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return `Closes in ${hrs}h ${rem}m`;
 }
 
 function isFinalized(m: CoreMatch) {
@@ -267,6 +278,11 @@ export default function Home() {
   const { displayName: connectedDisplayName } = useWalletProfile();
   const navigate = useNavigate();
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
+  const podiumPick = usePodiumPick();
+  const previewPodiumPick = useMemo(() => getPreviewPodiumPick(), []);
+  const previewPodiumResult = useMemo(() => getPreviewPodiumResult(), []);
+  const displayedPodiumPick = previewPodiumPick ?? podiumPick.pick;
+  const isPodiumPreview = !!previewPodiumPick;
 
   const myWalletHex = useMemo(() => {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
@@ -345,6 +361,8 @@ export default function Home() {
       final_prize_claimable_total: s?.final_prize_claimable_total ?? '0',
       final_prize_rounding_dust: s?.final_prize_rounding_dust ?? '0',
       podium_finalized: Boolean(s?.podium_finalized),
+      r32_lock_time: s?.r32_lock_time ?? null,
+      podium_result: normalizePodiumStanding(s?.podium_result ?? s?.podiumResult ?? null),
       matches,
       phases: Array.isArray(s?.phases)
         ? s.phases.map((p: any) => ({
@@ -724,10 +742,6 @@ export default function Home() {
     return unpredicted[0] ?? upcoming[0] ?? null;
   }, [upcoming, predictedMatchIds]);
 
-  const nextMatchAlreadyPredicted = nextMatch
-    ? predictedMatchIds.has(String(nextMatch.match_id))
-    : false;
-
   const displayedUpcomingMatches = useMemo(() => {
     const unpredicted = upcoming.filter((m) => !predictedMatchIds.has(String(m.match_id)));
     return unpredicted.length ? unpredicted.slice(0, 4) : upcoming.slice(0, 1);
@@ -874,13 +888,71 @@ export default function Home() {
 
   const usdcLabel = 'VARA';
 
-  const nextMatchCloses = useMemo(() => {
-    if (!nextMatch) return '—';
-    return closesLabel(Number(nextMatch.kick_off));
-  }, [nextMatch]);
+  const championshipLockMs = useMemo(
+    () => timestampToMs(coreState?.r32_lock_time ?? null),
+    [coreState?.r32_lock_time]
+  );
 
-  const championshipPickState = 'waiting';
-  const championshipPickSubtext = 'Available after the first Round of 32 match is defined.';
+  const championshipPickState = useMemo(() => {
+    if (previewPodiumResult || coreState?.podium_finalized) return 'completed';
+    if (displayedPodiumPick) return 'submitted';
+    if (podiumPick.isLoading) return 'waiting';
+    if (!championshipLockMs) return 'waiting';
+    if (Date.now() >= championshipLockMs) return 'locked';
+    return 'open';
+  }, [championshipLockMs, coreState?.podium_finalized, displayedPodiumPick, podiumPick.isLoading, previewPodiumResult]);
+
+  const championshipResultRows = useMemo(() => {
+    const result = previewPodiumResult ?? coreState?.podium_result;
+    if (!displayedPodiumPick || !result) return null;
+    return getPodiumResultRows(displayedPodiumPick, result);
+  }, [coreState?.podium_result, displayedPodiumPick, previewPodiumResult]);
+
+  const championshipBonusSummary = useMemo(() => {
+    if (!championshipResultRows) return null;
+    return {
+      earned: getPodiumEarnedPoints(championshipResultRows),
+      correct: getPodiumCorrectCount(championshipResultRows),
+    };
+  }, [championshipResultRows]);
+
+  const championshipDisplayRows = useMemo(() => {
+    if (!displayedPodiumPick) return [];
+    return championshipResultRows ?? [
+      { key: 'champion' as const, medal: '🥇', label: 'Champion', pick: displayedPodiumPick.champion, points: 20, hit: null },
+      { key: 'runnerUp' as const, medal: '🥈', label: 'Runner-Up', pick: displayedPodiumPick.runnerUp, points: 10, hit: null },
+      { key: 'thirdPlace' as const, medal: '🥉', label: '3rd Place', pick: displayedPodiumPick.thirdPlace, points: 5, hit: null },
+    ];
+  }, [championshipResultRows, displayedPodiumPick]);
+
+  const championshipPickStatus = useMemo(() => {
+    if (!account && !isPodiumPreview) return 'Connect wallet';
+    if (championshipPickState === 'completed') return 'Finalized';
+    if (championshipPickState === 'submitted') return 'Submitted';
+    if (championshipPickState === 'locked') return 'Locked';
+    if (championshipPickState === 'open') return 'Open';
+    return 'Waiting';
+  }, [account, championshipPickState, isPodiumPreview]);
+
+  const championshipPickSubtext = useMemo(() => {
+    if (!account && !isPodiumPreview) return 'Connect your wallet to view or submit your Top 3 pick.';
+    if (championshipBonusSummary) {
+      return `Earned +${championshipBonusSummary.earned} pts · ${championshipBonusSummary.correct}/3 correct`;
+    }
+    if (championshipPickState === 'completed') return 'Final podium bonuses are included in leaderboard totals.';
+    if (displayedPodiumPick) {
+      return 'Submitted. Results pending. Bonus: +35 pts';
+    }
+    if (championshipPickState === 'locked') return 'Championship Picks are locked for this tournament.';
+    if (championshipPickState === 'open') return 'Earn up to +35 pts before picks lock.';
+    return 'Available after the first Round of 32 match is defined.';
+  }, [account, championshipBonusSummary, championshipPickState, displayedPodiumPick, isPodiumPreview]);
+
+  const championshipPickCta = useMemo(() => {
+    if (!account && !isPodiumPreview) return 'Connect wallet';
+    if (championshipPickState === 'open') return 'Make Picks';
+    return 'View Details';
+  }, [account, championshipPickState, isPodiumPreview]);
 
   const claimablePrizeBn = useMemo(
     () => safeBigInt(claimStatus?.amount_claimable ?? 0),
@@ -1097,7 +1169,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="h-card__foot">
+            <div className="h-card__foot h-card__foot--bottomCenter">
               <button className="h-btn h-btn--soft" type="button" onClick={() => navigate('/leaderboard')}>
                 View full Leaderboard →
               </button>
@@ -1147,76 +1219,50 @@ export default function Home() {
               <div className="h-champ-pick__main">
                 <div className="h-champ-pick__row">
                   <span className="h-champ-pick__title">Championship Picks</span>
+                  <span className="h-champ-pick__status">{championshipPickStatus}</span>
                 </div>
+                {displayedPodiumPick && (
+                  <div className="h-champ-pick__teams">
+                    {championshipDisplayRows.map((row) => (
+                      <div
+                        className={
+                          'h-champ-pick__team' +
+                          (row.hit === null ? ' h-champ-pick__team--pending' : '') +
+                          (row.hit === true ? ' h-champ-pick__team--hit' : row.hit === false ? ' h-champ-pick__team--miss' : '')
+                        }
+                        key={row.key}>
+                        <span className="h-champ-pick__teamMeta">
+                          <span aria-hidden="true">{row.medal}</span>
+                          <span>{row.label}</span>
+                        </span>
+                        <span className="h-champ-pick__country">
+                          <HomeTeamFlag team={row.pick} />
+                          <span>{displayTeamName(row.pick)}</span>
+                        </span>
+                        {row.hit !== null && (
+                          <span className="h-champ-pick__badge">
+                            {row.hit ? `+${row.points} pts` : '0 pts'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="h-champ-pick__sub">{championshipPickSubtext}</div>
               </div>
 
-              <button className="h-champ-pick__cta" type="button" disabled>
-                Waiting for R32
-              </button>
+              {!displayedPodiumPick && (
+                <button className="h-champ-pick__cta" type="button" onClick={() => navigate('/championship-pick')}>
+                  {championshipPickCta}
+                </button>
+              )}
             </div>
 
-            {nextMatch && (
-              <div className="h-next-match">
-                <div className="h-next-match__head">
-                  <span className="h-next-match__label">
-                    {nextMatchAlreadyPredicted ? 'Next Predicted Match:' : 'Next Match to Predict:'}
-                  </span>
-                </div>
-                <div className="h-next-match__info">
-                  <div className="h-next-match__teamsLine">
-                    <span className="h-next-match__teams">
-                      <span className="h-next-match__team">
-                        <HomeTeamFlag team={nextMatch.home} />
-                        <span>{nextMatch.home}</span>
-                      </span>
-                      <span className="h-next-match__vs">vs</span>
-                      <span className="h-next-match__team">
-                        <HomeTeamFlag team={nextMatch.away} />
-                        <span>{nextMatch.away}</span>
-                      </span>
-                    </span>
-                    <span className="h-next-match__phase muted">
-                      {(nextMatch.phase || '').replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <div className="h-next-match__timeLine">
-                    <span className="h-next-match__meta muted">
-                      {formatDateTime(Number(nextMatch.kick_off))}
-                    </span>
-                    <span className="h-next-match__closes muted">{nextMatchCloses}</span>
-                  </div>
-                </div>
-                <div className="h-next-match__actions">
-                  <button
-                    className="h-btn h-btn--primary"
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        nextMatchAlreadyPredicted
-                          ? '/my-predictions'
-                          : matchPath(nextMatch.phase, nextMatch.match_id)
-                      )
-                    }>
-                    {nextMatchAlreadyPredicted ? 'View your predictions →' : 'Predict now'}
-                  </button>
-                  <button
-                    className="h-btn h-btn--ghost"
-                    type="button"
-                    onClick={() => navigate('/all-matches')}>
-                    View all matches →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {!nextMatch && (
-              <div className="h-card__foot h-card__foot--bottomCenter">
-                <button className="h-btn h-btn--ghost" type="button" onClick={() => navigate('/all-matches')}>
-                  View all matches →
-                </button>
-              </div>
-            )}
+            <div className="h-card__foot h-card__foot--bottomCenter">
+              <button className="h-btn h-btn--soft" type="button" onClick={() => navigate('/all-matches')}>
+                View all matches →
+              </button>
+            </div>
           </div>
         </section>
 
@@ -1408,7 +1454,7 @@ export default function Home() {
               className="h-btn h-btn--ghost h-btn--sm"
               type="button"
               onClick={() => navigate('/all-matches')}>
-              View full matches →
+              View all matches →
             </button>
           </div>
 

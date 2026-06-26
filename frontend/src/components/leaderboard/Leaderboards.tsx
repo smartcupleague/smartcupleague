@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './leaderboards.css';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { useToast } from '@/hooks/useToast';
+import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { web3Enable } from '@polkadot/extension-dapp';
 import { Program, Service } from '@/hocs/lib';
 import { StyledWallet } from '../wallet/Wallet';
@@ -20,6 +21,16 @@ import {
   setAddressMapValue,
   toHexAddress,
 } from '@/utils';
+import { WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
+import {
+  getPodiumCorrectCount,
+  getPodiumEarnedPoints,
+  getPreviewPodiumPick,
+  getPreviewPodiumResult,
+  getPodiumResultRows,
+  normalizePodiumStanding,
+  PodiumStanding,
+} from '@/utils/podium';
 import { UserProfileModal } from './UserProfileModal';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { PiArrowClockwiseBold, PiMagnifyingGlassBold } from 'react-icons/pi';
@@ -139,6 +150,18 @@ function formatDateTime(ms: number) {
   );
 }
 
+function timestampToMs(value?: string | number | bigint | null) {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 10_000_000_000 ? n * 1000 : n;
+}
+
+function displayTeamName(team: string) {
+  if (WORLD_CUP_TEAM_LABELS[team]) return WORLD_CUP_TEAM_LABELS[team];
+  return team;
+}
+
 function isFinalizedMatch(m: LeaderboardMatch) {
   return !!((m.result as any)?.Finalized || (m.result as any)?.finalized);
 }
@@ -247,6 +270,9 @@ type QueryStateResponse = {
   user_points?: Array<[string, number]>;
   matches?: any[];
   podium_finalized?: boolean;
+  r32_lock_time?: string | number | bigint | null;
+  podium_result?: unknown;
+  podiumResult?: unknown;
 };
 
 type LeaderboardMatch = {
@@ -406,6 +432,11 @@ export default function Leaderboards() {
   const toast = useToast();
   const { account } = useAccount();
   const { displayName: connectedDisplayName } = useWalletProfile();
+  const podiumPick = usePodiumPick();
+  const previewPodiumPick = useMemo(() => getPreviewPodiumPick(), []);
+  const previewPodiumResult = useMemo(() => getPreviewPodiumResult(), []);
+  const displayedPodiumPick = previewPodiumPick ?? podiumPick.pick;
+  const isPodiumPreview = !!previewPodiumPick;
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LbRow[]>([]);
@@ -413,6 +444,9 @@ export default function Leaderboards() {
   const [stateMatches, setStateMatches] = useState<LeaderboardMatch[]>([]);
   const [predictedMatchIds, setPredictedMatchIds] = useState<Set<string>>(new Set());
   const [profileRow, setProfileRow] = useState<LbRow | null>(null);
+  const [podiumFinalized, setPodiumFinalized] = useState(false);
+  const [r32LockTime, setR32LockTime] = useState<string | number | bigint | null>(null);
+  const [podiumResult, setPodiumResult] = useState<PodiumStanding | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -452,6 +486,9 @@ export default function Leaderboards() {
       setStateMatches(previewMatches);
       setUpcomingMatches(previewMatches.filter((match) => kickOffToMs(Number(match.kick_off)) > Date.now()));
       setPredictedMatchIds(new Set(['901']));
+      setPodiumFinalized(!!previewPodiumResult);
+      setR32LockTime(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      setPodiumResult(previewPodiumResult);
       return;
     }
 
@@ -468,6 +505,10 @@ export default function Leaderboards() {
         svc = new Service(new Program(api, PROGRAM_ID));
         chainState = (await (svc as any).queryState()) as QueryStateResponse;
       } catch { /* non-fatal; indexer path can still render leaderboard */ }
+
+      setPodiumFinalized(Boolean(chainState?.podium_finalized));
+      setR32LockTime(chainState?.r32_lock_time ?? null);
+      setPodiumResult(normalizePodiumStanding(chainState?.podium_result ?? chainState?.podiumResult ?? null));
 
       if (svc && myWalletHex) {
         try {
@@ -582,7 +623,7 @@ export default function Leaderboards() {
     } finally {
       setLoading(false);
     }
-  }, [api, connectedDisplayName, isApiReady, myWalletHex, previewLeaderboard, toast]);
+  }, [api, connectedDisplayName, isApiReady, myWalletHex, previewLeaderboard, previewPodiumResult, toast]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -689,6 +730,42 @@ export default function Leaderboards() {
   const myPts = myRow?.totalPoints ?? 0;
   const myExact = myRow?.exact ?? 0;
   const myOutcomes = myRow?.outcomes ?? 0;
+
+  const championshipLockMs = useMemo(() => timestampToMs(r32LockTime), [r32LockTime]);
+
+  const championshipPickState = useMemo(() => {
+    if (previewPodiumResult || podiumFinalized) return 'completed';
+    if (displayedPodiumPick) return 'submitted';
+    if (podiumPick.isLoading) return 'waiting';
+    if (!championshipLockMs) return 'waiting';
+    if (Date.now() >= championshipLockMs) return 'locked';
+    return 'open';
+  }, [championshipLockMs, displayedPodiumPick, podiumFinalized, podiumPick.isLoading, previewPodiumResult]);
+
+  const championshipResultRows = useMemo(() => {
+    const result = previewPodiumResult ?? podiumResult;
+    if (!displayedPodiumPick || !result) return null;
+    return getPodiumResultRows(displayedPodiumPick, result);
+  }, [displayedPodiumPick, podiumResult, previewPodiumResult]);
+
+  const championshipBonusSummary = useMemo(() => {
+    if (!championshipResultRows) return null;
+    return {
+      earned: getPodiumEarnedPoints(championshipResultRows),
+      correct: getPodiumCorrectCount(championshipResultRows),
+    };
+  }, [championshipResultRows]);
+
+  const championshipPickMessage = useMemo(() => {
+    if (!account && !isPodiumPreview) return 'Connect your wallet to view or submit your Championship Picks.';
+    if (championshipBonusSummary) {
+      return `Earned +${championshipBonusSummary.earned} pts · ${championshipBonusSummary.correct}/3 correct.`;
+    }
+    if (championshipPickState === 'completed') return 'Final podium bonuses are included in leaderboard totals.';
+    if (championshipPickState === 'locked') return 'Championship Picks are locked for this tournament.';
+    if (championshipPickState === 'open') return 'Earn up to +35 pts before picks lock.';
+    return 'Available after the first Round of 32 match is defined.';
+  }, [account, championshipBonusSummary, championshipPickState, isPodiumPreview]);
 
   const myLbRows = useMemo(() => {
     if (!followedWallets.length) return [];
@@ -873,18 +950,69 @@ export default function Leaderboards() {
         </section>
 
         <aside className="lbRight">
-          <section className="lbCard lbChampCard lbChampCard--disabled" aria-disabled="true">
+          <section className={'lbCard lbChampCard' + (championshipPickState === 'waiting' ? ' lbChampCard--disabled' : '')}>
             <div className="lbCard__head">
               <div className="lbCard__title">🏆 Your Championship Picks</div>
             </div>
 
-            <div className="lbChampState lbChampState--empty">
-              <p>Championship Picks are not open yet</p>
-              <span>Available after the first Round of 32 match is defined.</span>
-              <button className="lbBtn lbBtn--disabled wfull" type="button" disabled>
-                Waiting for R32 confirmation
-              </button>
-            </div>
+            {displayedPodiumPick ? (
+              <div className="lbChampState">
+                {(championshipResultRows ?? [
+                  { key: 'champion', medal: '🥇', label: 'Champion', pick: displayedPodiumPick.champion, points: 20, hit: null },
+                  { key: 'runnerUp', medal: '🥈', label: 'Runner-Up', pick: displayedPodiumPick.runnerUp, points: 10, hit: null },
+                  { key: 'thirdPlace', medal: '🥉', label: '3rd Place', pick: displayedPodiumPick.thirdPlace, points: 5, hit: null },
+                ]).map((row) => (
+                  <div
+                    className={
+                      'lbChampPickRow' +
+                      (row.hit === null ? ' lbChampPickRow--pending' : '') +
+                      (row.hit === true ? ' lbChampPickRow--hit' : row.hit === false ? ' lbChampPickRow--miss' : '')
+                    }
+                    key={row.key}>
+                    <span className="lbChampPickRow__main">
+                      <span className="lbChampPickRow__role">
+                        {row.medal} {row.label}:
+                      </span>
+                      <span className="lbChampPickRow__country">
+                        <TeamFlag team={row.pick} className="lbChampPickRow__flag" />
+                        <span>{displayTeamName(row.pick)}</span>
+                      </span>
+                      {row.hit === true && <span className="lbChampPickRow__mark">✓</span>}
+                      {row.hit === false && <span className="lbChampPickRow__mark">×</span>}
+                    </span>
+                    {row.hit !== null && (
+                      <b>+{row.hit === false ? 0 : row.points} pts</b>
+                    )}
+                  </div>
+                ))}
+                <div className="lbChampPotential">
+                  {championshipBonusSummary
+                    ? <>Championship bonus: <b>+{championshipBonusSummary.earned} pts</b> · {championshipBonusSummary.correct}/3 correct</>
+                    : championshipPickState === 'completed'
+                      ? 'Awarded bonuses are reflected in the leaderboard total.'
+                      : <>Submitted. Results pending. Bonus: <b>+35 pts</b></>}
+                </div>
+              </div>
+            ) : (
+              <div className="lbChampState lbChampState--empty">
+                <p>
+                  {!account
+                    ? 'Connect wallet to view your Championship Picks'
+                    : championshipPickState === 'open'
+                      ? 'You haven’t submitted your Championship Picks yet'
+                      : championshipPickState === 'locked'
+                        ? 'Championship Picks are locked'
+                        : 'Championship Picks are not open yet'}
+                </p>
+                <span>{championshipPickMessage}</span>
+                <button
+                  className={'lbBtn wfull ' + (championshipPickState === 'open' ? 'lbBtn--primary' : 'lbBtn--soft')}
+                  type="button"
+                  onClick={() => navigate('/championship-pick')}>
+                  {championshipPickState === 'open' ? 'Make Picks' : 'View Details'}
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Upcoming Matches — replaces R32 Bonus widget */}
@@ -895,7 +1023,7 @@ export default function Leaderboards() {
                 className="lbBtn lbBtn--ghost lbBtn--sm"
                 type="button"
                 onClick={() => navigate('/all-matches')}>
-                View full matches →
+                View all matches →
               </button>
             </div>
 
