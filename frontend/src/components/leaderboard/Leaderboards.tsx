@@ -25,6 +25,7 @@ import { WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
 import {
   getPodiumCorrectCount,
   getPodiumEarnedPoints,
+  getChampionshipPickLockMs,
   getPreviewPodiumPick,
   getPreviewPodiumResult,
   getPodiumResultRows,
@@ -148,13 +149,6 @@ function formatDateTime(ms: number) {
     ' ' +
     d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
   );
-}
-
-function timestampToMs(value?: string | number | bigint | null) {
-  if (value === null || value === undefined) return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n < 10_000_000_000 ? n * 1000 : n;
 }
 
 function displayTeamName(team: string) {
@@ -731,7 +725,10 @@ export default function Leaderboards() {
   const myExact = myRow?.exact ?? 0;
   const myOutcomes = myRow?.outcomes ?? 0;
 
-  const championshipLockMs = useMemo(() => timestampToMs(r32LockTime), [r32LockTime]);
+  const championshipLockMs = useMemo(
+    () => getChampionshipPickLockMs(r32LockTime, stateMatches),
+    [r32LockTime, stateMatches]
+  );
 
   const championshipPickState = useMemo(() => {
     if (previewPodiumResult || podiumFinalized) return 'completed';
@@ -763,8 +760,8 @@ export default function Leaderboards() {
     }
     if (championshipPickState === 'completed') return 'Final podium bonuses are included in leaderboard totals.';
     if (championshipPickState === 'locked') return 'Championship Picks are locked for this tournament.';
-    if (championshipPickState === 'open') return 'Earn up to +35 pts before picks lock.';
-    return 'Available after the first Round of 32 match is defined.';
+    if (championshipPickState === 'open') return 'Available now. Make your Top 3 pick for up to +35 pts.';
+    return 'Loading Championship Pick availability...';
   }, [account, championshipBonusSummary, championshipPickState, isPodiumPreview]);
 
   const myLbRows = useMemo(() => {
@@ -950,7 +947,7 @@ export default function Leaderboards() {
         </section>
 
         <aside className="lbRight">
-          <section className={'lbCard lbChampCard' + (championshipPickState === 'waiting' ? ' lbChampCard--disabled' : '')}>
+          <section className={'lbCard lbChampCard lbChampCard--' + championshipPickState + (championshipPickState === 'waiting' ? ' lbChampCard--disabled' : '')}>
             <div className="lbCard__head">
               <div className="lbCard__title">🏆 Your Championship Picks</div>
             </div>
@@ -999,10 +996,10 @@ export default function Leaderboards() {
                   {!account
                     ? 'Connect wallet to view your Championship Picks'
                     : championshipPickState === 'open'
-                      ? 'You haven’t submitted your Championship Picks yet'
+                      ? 'Championship Picks are open'
                       : championshipPickState === 'locked'
                         ? 'Championship Picks are locked'
-                        : 'Championship Picks are not open yet'}
+                        : 'Checking Championship Pick availability'}
                 </p>
                 <span>{championshipPickMessage}</span>
                 <button

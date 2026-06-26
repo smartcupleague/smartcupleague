@@ -16,6 +16,7 @@ import { usePodiumPick } from '@/hooks/usePodiumPick';
 import { useDynamicMinimumBet } from '@/hooks/useDynamicMinimumBet';
 import { Program, Service } from '@/hocs/lib';
 import { WORLD_CUP_TEAMS, WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
+import { getChampionshipPickLockMs } from '@/utils/podium';
 import '../matchs/match.css';
 import './championship-pick.css';
 
@@ -44,6 +45,8 @@ type CoreState = {
   matches?: Array<{
     match_id: string | number;
     phase?: string;
+    kick_off?: string | number | bigint;
+    kickOff?: string | number | bigint;
     result?: any;
   }>;
   user_points?: Array<[string, number]>;
@@ -62,13 +65,6 @@ function displayTeamName(team: string) {
     .split(' ')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function timestampToMs(value?: string | number | bigint | null) {
-  if (value === null || value === undefined) return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n < 10_000_000_000 ? n * 1000 : n;
 }
 
 function formatLockTime(ms: number | null) {
@@ -153,7 +149,7 @@ export function ChampionshipPick() {
 
   const selectedTeams = useMemo(() => Object.values(picks).filter(Boolean), [picks]);
   const complete = pickSlots.every((slot) => picks[slot.key]);
-  const lockMs = timestampToMs(coreState?.r32_lock_time ?? null);
+  const lockMs = getChampionshipPickLockMs(coreState?.r32_lock_time ?? null, coreState?.matches);
   const hasR32Lock = previewChampionshipState === 'setup-pending' ? false : lockMs !== null;
   const isLocked = previewChampionshipState === 'locked' || (!!lockMs && Date.now() >= lockMs);
   const hasDuplicate = new Set(selectedTeams).size !== selectedTeams.length;
@@ -232,7 +228,7 @@ export function ChampionshipPick() {
     if (submitted) return 'Championship Pick Submitted';
     if (!walletReady) return 'Connect wallet to submit';
     if (!isApiReady) return 'Node API not ready';
-    if (!hasR32Lock) return 'Waiting for R32 setup';
+    if (!hasR32Lock) return 'Loading pick availability';
     if (isLocked) return 'Championship Pick Locked';
     if (!isStakePricingAvailable) return 'Price feed reconnecting';
     if (!complete) return 'Select all 3 teams';
@@ -266,8 +262,8 @@ export function ChampionshipPick() {
     if (!hasR32Lock) {
       return {
         tone: 'warn',
-        title: 'Setup pending',
-        body: 'Championship Pick opens after the Round of 32 schedule is registered.',
+        title: 'Checking availability',
+        body: 'Championship Picks open as soon as the first Round of 32 match is registered.',
       };
     }
     if (isLocked) {
@@ -339,6 +335,7 @@ export function ChampionshipPick() {
           ? state.matches.map((match: any) => ({
               match_id: match?.match_id ?? '',
               phase: String(match?.phase ?? ''),
+              kick_off: match?.kick_off ?? match?.kickOff ?? 0,
               result: match?.result ?? null,
             }))
           : [],
@@ -408,7 +405,7 @@ export function ChampionshipPick() {
       return;
     }
     if (!hasR32Lock) {
-      toast.error('Championship Pick will open after the Round of 32 schedule is registered');
+      toast.error('Championship Pick availability is still loading');
       return;
     }
     if (isLocked) {
@@ -542,11 +539,11 @@ export function ChampionshipPick() {
               <div className="sideRows">
                 <div className="sideRow">
                   <span>Stage</span>
-                  <b>Pre R32</b>
+                  <b>{hasR32Lock && !isLocked ? 'Open' : isLocked ? 'Locked' : 'Checking setup'}</b>
                 </div>
                 <div className="sideRow">
                   <span>Pick status</span>
-                  <b>{submitted ? 'Submitted' : !hasR32Lock ? 'Setup pending' : isLocked ? 'Locked' : 'Open'}</b>
+                  <b>{submitted ? 'Submitted' : !hasR32Lock ? 'Checking' : isLocked ? 'Locked' : 'Open'}</b>
                 </div>
                 <div className="sideRow">
                   <span>Minimum stake</span>
@@ -749,7 +746,7 @@ export function ChampionshipPick() {
                     {submitLabel}
                   </button>
                   {!hasR32Lock ? (
-                    <span className="cpWarn">Championship Pick opens after the Round of 32 schedule is registered.</span>
+                    <span className="cpWarn">Championship Pick availability is still loading.</span>
                   ) : !isStakePricingAvailable ? (
                     <span className="cpWarn">Championship Pick is paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.</span>
                   ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (

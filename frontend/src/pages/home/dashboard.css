@@ -1028,6 +1028,29 @@ body {
   filter: none;
 }
 
+.h-champ-pick--open {
+  border-color: rgba(255, 46, 118, 0.24);
+  background:
+    radial-gradient(360px 110px at 82% 52%, rgba(255, 46, 118, 0.16), transparent 62%),
+    linear-gradient(95deg, rgba(31, 0, 18, 0.92), rgba(54, 0, 30, 0.82) 54%, rgba(24, 0, 14, 0.86));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 14px 34px rgba(255, 46, 118, 0.12),
+    0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+.h-champ-pick--open::after {
+  background: linear-gradient(180deg, rgba(255, 46, 118, 0.92), rgba(255, 46, 118, 0.42));
+}
+
+.h-champ-pick--open .h-champ-pick__status {
+  color: rgba(255, 225, 160, 0.98);
+}
+
+.h-champ-pick--open .h-champ-pick__sub {
+  color: rgba(255, 235, 246, 0.78);
+}
+
 .h-champ-pick--waiting {
   border-color: rgba(255, 255, 255, 0.07);
   background:

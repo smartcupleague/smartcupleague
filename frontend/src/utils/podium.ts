@@ -16,6 +16,12 @@ export type PodiumResultRow = {
   hit: boolean;
 };
 
+type ChampionshipLockMatch = {
+  phase?: unknown;
+  kick_off?: unknown;
+  kickOff?: unknown;
+};
+
 const PODIUM_SLOTS: Array<{
   key: PodiumSlotKey;
   medal: string;
@@ -92,4 +98,37 @@ export function getPodiumEarnedPoints(rows: PodiumResultRow[]) {
 
 export function getPodiumCorrectCount(rows: PodiumResultRow[]) {
   return rows.filter((row) => row.hit).length;
+}
+
+export function podiumTimestampToMs(value?: string | number | bigint | null) {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 10_000_000_000 ? n * 1000 : n;
+}
+
+export function isRoundOf32Phase(phase: unknown) {
+  const normalized = String(phase ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  return normalized === 'round of 32' || normalized === 'last 32';
+}
+
+export function getChampionshipPickLockMs(
+  explicitLock: string | number | bigint | null | undefined,
+  matches?: ChampionshipLockMatch[] | null
+) {
+  const explicitLockMs = podiumTimestampToMs(explicitLock);
+  if (explicitLockMs) return explicitLockMs;
+
+  const r32Kickoffs = (matches ?? [])
+    .filter((match) => isRoundOf32Phase(match?.phase))
+    .map((match) => podiumTimestampToMs((match?.kick_off ?? match?.kickOff) as string | number | bigint | null | undefined))
+    .filter((ms): ms is number => typeof ms === 'number')
+    .sort((a, b) => a - b);
+
+  return r32Kickoffs[0] ?? null;
 }

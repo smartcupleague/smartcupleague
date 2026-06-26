@@ -18,6 +18,7 @@ import { WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
 import {
   getPodiumCorrectCount,
   getPodiumEarnedPoints,
+  getChampionshipPickLockMs,
   getPreviewPodiumPick,
   getPreviewPodiumResult,
   getPodiumResultRows,
@@ -147,13 +148,6 @@ function formatTokenCompact(val: string | number | bigint, decimals = VARA_DECIM
 function kickOffToMs(input: number) {
   if (!input || !Number.isFinite(input)) return 0;
   return input < 10_000_000_000 ? input * 1000 : input;
-}
-
-function timestampToMs(value?: string | number | bigint | null) {
-  if (value === null || value === undefined) return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n < 10_000_000_000 ? n * 1000 : n;
 }
 
 function displayTeamName(team: string) {
@@ -889,8 +883,8 @@ export default function Home() {
   const usdcLabel = 'VARA';
 
   const championshipLockMs = useMemo(
-    () => timestampToMs(coreState?.r32_lock_time ?? null),
-    [coreState?.r32_lock_time]
+    () => getChampionshipPickLockMs(coreState?.r32_lock_time ?? null, coreState?.matches),
+    [coreState?.matches, coreState?.r32_lock_time]
   );
 
   const championshipPickState = useMemo(() => {
@@ -944,8 +938,8 @@ export default function Home() {
       return 'Submitted. Results pending. Bonus: +35 pts';
     }
     if (championshipPickState === 'locked') return 'Championship Picks are locked for this tournament.';
-    if (championshipPickState === 'open') return 'Earn up to +35 pts before picks lock.';
-    return 'Available after the first Round of 32 match is defined.';
+    if (championshipPickState === 'open') return 'Available now. Make your Top 3 pick for up to +35 pts.';
+    return 'Loading Championship Pick availability...';
   }, [account, championshipBonusSummary, championshipPickState, displayedPodiumPick, isPodiumPreview]);
 
   const championshipPickCta = useMemo(() => {
