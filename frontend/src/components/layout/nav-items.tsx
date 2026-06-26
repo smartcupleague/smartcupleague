@@ -7,7 +7,12 @@ import {
   PiTrophyBold,
 } from 'react-icons/pi';
 
-export type AppNavKey = 'progress' | 'my-predictions' | 'championship-pick' | 'leaderboard' | 'all-matches';
+export type AppNavKey =
+  | 'progress'
+  | 'my-predictions'
+  | 'championship-pick'
+  | 'leaderboard'
+  | 'all-matches';
 
 export interface AppNavItem {
   key: AppNavKey;
