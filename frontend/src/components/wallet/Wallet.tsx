@@ -4,7 +4,6 @@ import { useAccount, useBalance } from '@gear-js/react-hooks';
 import { Wallet as GearWallet } from '@gear-js/wallet-connect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
-import { ONBOARDING_CONNECT_EVENT } from '@/hooks/useOnboarding';
 import { useFreebetBalance } from '@/hooks/useFreebetBalance';
 
 const shimmer = keyframes`
@@ -648,10 +647,6 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
     return planckToUsd(balance.toString());
   }, [connected, isBalanceReady, balance, planckToUsd, previewWallet]);
 
-  const requestOnboarding = () => {
-    window.dispatchEvent(new Event(ONBOARDING_CONNECT_EVENT));
-  };
-
   const freebetLabel = useMemo(() => {
     if (previewWallet) return getPreviewWalletParam('previewFreebetBalance') ?? '8,500 VARA';
     if (!connected) return 'Connect wallet';
@@ -701,7 +696,7 @@ export function StyledWallet({ showHeader = true, tokenSymbol = 'VARA', showStat
       ) : null}
 
       <WalletSlot>
-        <InlineWrap $connected={connected} onClickCapture={previewWallet ? undefined : requestOnboarding}>
+        <InlineWrap $connected={connected}>
           {previewWallet ? (
             <button type="button" aria-label="Preview connected wallet">
               <span className="walletPreviewIcon" aria-hidden="true">S</span>

@@ -107,8 +107,10 @@ export const OnboardingModal: React.FC<Props> = ({ onAccept, onClose, canClose =
                 placeholder="Your display name"
                 maxLength={30}
                 autoComplete="nickname"
+                aria-invalid={error ? 'true' : undefined}
+                aria-describedby="ob-nickname-help"
               />
-              <p className="ob-field__help">
+              <p className="ob-field__help" id="ob-nickname-help">
                 This will be your profile name and leaderboard ID. If you leave it blank, your wallet address will be shown instead.
               </p>
             </div>

@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { ApiLoader } from '@/components';
 import { withProviders } from '@/hocs';
 import { Routing } from '@/pages';
-import { ONBOARDING_CONNECT_EVENT, useOnboarding } from '@/hooks/useOnboarding';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import './app-layout.css';
@@ -20,8 +20,9 @@ function Component() {
     isSaving: isProfileSaving,
     save: saveWalletProfile,
   } = useWalletProfile();
-  const [onboardingRequested, setOnboardingRequested] = useState(false);
   const syncedProfileNicknameRef = useRef<string | null>(null);
+  const walletAddress = account?.decodedAddress ?? null;
+  const [dismissedOnboardingWallet, setDismissedOnboardingWallet] = useState<string | null>(null);
 
   const isAppReady = isApiReady;
   const previewRoutes = [
@@ -54,19 +55,18 @@ function Component() {
   ];
   const onboardingRoutePrefixes = ['/2026worldcup/match/', '/leagues/match/', '/match/', '/predictions/'];
   const isOnboardingRoute = onboardingRoutes.includes(pathname) || onboardingRoutePrefixes.some((prefix) => pathname.startsWith(prefix));
-  const showOnboarding = !!account && onboardingRequested && !onboarding.accepted && isOnboardingRoute;
+  const showOnboarding =
+    !!account &&
+    isOnboardingRoute &&
+    !isProfileLoading &&
+    !onboarding.accepted &&
+    dismissedOnboardingWallet !== walletAddress;
 
   useEffect(() => {
-    const requestOnboarding = () => setOnboardingRequested(true);
-    window.addEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
-    return () => window.removeEventListener(ONBOARDING_CONNECT_EVENT, requestOnboarding);
-  }, []);
-
-  useEffect(() => {
-    if (!account || onboarding.accepted || !isOnboardingRoute) {
-      setOnboardingRequested(false);
+    if (!walletAddress) {
+      setDismissedOnboardingWallet(null);
     }
-  }, [account, onboarding.accepted, isOnboardingRoute]);
+  }, [walletAddress]);
 
   useEffect(() => {
     if (!account || !onboarding.accepted || !onboarding.nickname || displayName || isProfileLoading || isProfileSaving) {
@@ -92,11 +92,13 @@ function Component() {
     const trimmed = nickname.trim();
     if (trimmed) {
       const saved = await saveWalletProfile(trimmed);
-      if (!saved) console.warn('Could not save wallet nickname; continuing with local onboarding state.');
+      if (!saved) {
+        throw new Error('Could not save your nickname. Please try again.');
+      }
     }
 
     onboarding.accept(trimmed);
-    setOnboardingRequested(false);
+    setDismissedOnboardingWallet(null);
   };
 
   return isAppReady || isPreviewRoute ? (
@@ -104,7 +106,7 @@ function Component() {
       {showOnboarding && (
         <OnboardingModal
           onAccept={handleOnboardingAccept}
-          onClose={() => setOnboardingRequested(false)}
+          onClose={() => setDismissedOnboardingWallet(walletAddress)}
         />
       )}
       <Routing />
