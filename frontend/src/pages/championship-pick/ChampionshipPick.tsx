@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { Link, useNavigate } from 'react-router-dom';
 import { web3Enable, web3FromSource } from '@polkadot/extension-dapp';
@@ -170,6 +170,7 @@ export function ChampionshipPick() {
   const [submitting, setSubmitting] = useState(false);
   const [stakeAmount, setStakeAmount] = useState('');
   const [userBets, setUserBets] = useState<any[]>([]);
+  const [desktopPicker, setDesktopPicker] = useState<PickKey | null>(null);
   const [mobilePicker, setMobilePicker] = useState<PickKey | null>(null);
   const submitted = previewChampionshipState === 'submitted' || podiumPick.submitted;
 
@@ -348,12 +349,27 @@ export function ChampionshipPick() {
     setPicks((current) => ({ ...current, [key]: team }));
   }
 
+  function chooseDesktopPick(key: PickKey, team: string) {
+    updatePick(key, team);
+    setDesktopPicker(null);
+  }
+
   function chooseMobilePick(key: PickKey, team: string) {
     updatePick(key, team);
     setMobilePicker(null);
   }
 
   const mobilePickerSlot = mobilePicker ? pickSlots.find((slot) => slot.key === mobilePicker) ?? null : null;
+
+  const handleDesktopPickerKeyDown = (event: KeyboardEvent, key: PickKey) => {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setDesktopPicker(key);
+    }
+    if (event.key === 'Escape') {
+      setDesktopPicker(null);
+    }
+  };
 
   const fetchCoreState = useCallback(async () => {
     if (!api || !isApiReady || !PROGRAM_ID) return;
@@ -422,6 +438,26 @@ export function ChampionshipPick() {
       thirdPlace: podiumPick.pick.thirdPlace,
     });
   }, [podiumPick.pick]);
+
+  useEffect(() => {
+    if (!desktopPicker) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest('.cpSelect')) return;
+      setDesktopPicker(null);
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setDesktopPicker(null);
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [desktopPicker]);
 
   const handleSubmit = useCallback(async () => {
     if (!account) {
@@ -497,6 +533,13 @@ export function ChampionshipPick() {
   }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, picks, podiumPick, previewChampionshipState, stakeBelowMinimum, stakeMinimumLabel, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
 
   const controlsLocked = submitted || submitting || isLocked;
+
+  useEffect(() => {
+    if (controlsLocked) {
+      setDesktopPicker(null);
+      setMobilePicker(null);
+    }
+  }, [controlsLocked]);
 
   return (
     <div className="cpArena">
@@ -668,29 +711,60 @@ export function ChampionshipPick() {
                           </span>
                         </span>
 
-                        <span className="cpSelect">
+                        <span className={`cpSelect ${desktopPicker === slot.key ? 'is-open' : ''}`}>
                           {value ? <TeamFlag className="cpSelect__flag" team={value} alt="" /> : <span className="cpSelect__empty" />}
-                          <select
-                            className="cpSelect__native"
-                            value={value}
-                            onChange={(event) => updatePick(slot.key, event.target.value)}
-                            aria-label={slot.title}
-                            disabled={disabled}>
-                            <option value="">Select Team</option>
-                            {WORLD_CUP_TEAMS.map((team) => (
-                              <option
-                                key={team.value}
-                                value={team.value}
-                                disabled={value !== team.value && selectedTeams.includes(team.value)}
-                              >
-                                {team.value}
-                              </option>
-                            ))}
-                          </select>
+                          <button
+                            className="cpSelect__trigger"
+                            type="button"
+                            onClick={() => setDesktopPicker((current) => current === slot.key ? null : slot.key)}
+                            onKeyDown={(event) => handleDesktopPickerKeyDown(event, slot.key)}
+                            disabled={disabled}
+                            aria-haspopup="listbox"
+                            aria-expanded={desktopPicker === slot.key}
+                            aria-controls={`cp-team-menu-${slot.key}`}
+                            aria-label={`Select ${slot.title} team`}>
+                            <span>{value ? displayTeamName(value) : 'Select Team'}</span>
+                            <span className="cpSelect__chevron" aria-hidden="true">⌄</span>
+                          </button>
+                          {desktopPicker === slot.key ? (
+                            <div className="cpTeamMenu" id={`cp-team-menu-${slot.key}`} role="listbox" aria-label={`Select ${slot.title} team`}>
+                              <button
+                                className={!value ? 'is-selected' : ''}
+                                type="button"
+                                role="option"
+                                aria-selected={!value}
+                                onClick={() => chooseDesktopPick(slot.key, '')}>
+                                <span className="cpSelect__empty" />
+                                <span>Select Team</span>
+                                {!value ? <b>Selected</b> : null}
+                              </button>
+                              {WORLD_CUP_TEAMS.map((team) => {
+                                const selectedInThisSlot = value === team.value;
+                                const disabledByOtherSlot = !selectedInThisSlot && selectedTeams.includes(team.value);
+                                return (
+                                  <button
+                                    className={selectedInThisSlot ? 'is-selected' : ''}
+                                    key={team.value}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={selectedInThisSlot}
+                                    onClick={() => chooseDesktopPick(slot.key, team.value)}
+                                    disabled={disabledByOtherSlot}>
+                                    <TeamFlag className="cpSelect__flag" team={team.value} alt="" />
+                                    <span>{displayTeamName(team.value)}</span>
+                                    {selectedInThisSlot ? <b>Selected</b> : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
                           <button
                             className="cpSelect__mobileBtn"
                             type="button"
-                            onClick={() => setMobilePicker(slot.key)}
+                            onClick={() => {
+                              setDesktopPicker(null);
+                              setMobilePicker(slot.key);
+                            }}
                             disabled={disabled}
                             aria-label={`Select ${slot.title} team`}>
                             <span>{value ? displayTeamName(value) : 'Select Team'}</span>
@@ -701,47 +775,6 @@ export function ChampionshipPick() {
                     );
                   })}
                 </div>
-
-                {mobilePickerSlot ? (
-                  <div className="cpTeamSheet" role="dialog" aria-modal="true" aria-label={`Select ${mobilePickerSlot.title} team`}>
-                    <button className="cpTeamSheet__backdrop" type="button" aria-label="Close team selector" onClick={() => setMobilePicker(null)} />
-                    <div className="cpTeamSheet__panel">
-                      <div className="cpTeamSheet__head">
-                        <div>
-                          <span>Choose team</span>
-                          <strong>{mobilePickerSlot.title}</strong>
-                        </div>
-                        <button type="button" onClick={() => setMobilePicker(null)}>Close</button>
-                      </div>
-
-                      <div className="cpTeamSheet__list">
-                        <button
-                          className={!picks[mobilePickerSlot.key] ? 'is-selected' : ''}
-                          type="button"
-                          onClick={() => chooseMobilePick(mobilePickerSlot.key, '')}>
-                          <span className="cpSelect__empty" />
-                          <span>Select Team</span>
-                        </button>
-                        {WORLD_CUP_TEAMS.map((team) => {
-                          const selectedInThisSlot = picks[mobilePickerSlot.key] === team.value;
-                          const disabledByOtherSlot = !selectedInThisSlot && selectedTeams.includes(team.value);
-                          return (
-                            <button
-                              className={selectedInThisSlot ? 'is-selected' : ''}
-                              key={team.value}
-                              type="button"
-                              onClick={() => chooseMobilePick(mobilePickerSlot.key, team.value)}
-                              disabled={disabledByOtherSlot}>
-                              <TeamFlag className="cpSelect__flag" team={team.value} alt="" />
-                              <span>{displayTeamName(team.value)}</span>
-                              {selectedInThisSlot ? <b>Selected</b> : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
 
                 <div className="cpStakeBox">
                   <div className="cpStakeBox__main">
@@ -808,6 +841,46 @@ export function ChampionshipPick() {
           <GetVaraModal placement="footer" />
         </footer>
       </div>
+      {mobilePickerSlot ? (
+        <div className="cpTeamSheet" role="dialog" aria-modal="true" aria-label={`Select ${mobilePickerSlot.title} team`}>
+          <button className="cpTeamSheet__backdrop" type="button" aria-label="Close team selector" onClick={() => setMobilePicker(null)} />
+          <div className="cpTeamSheet__panel">
+            <div className="cpTeamSheet__head">
+              <div>
+                <span>Choose team</span>
+                <strong>{mobilePickerSlot.title}</strong>
+              </div>
+              <button type="button" onClick={() => setMobilePicker(null)}>Close</button>
+            </div>
+
+            <div className="cpTeamSheet__list">
+              <button
+                className={!picks[mobilePickerSlot.key] ? 'is-selected' : ''}
+                type="button"
+                onClick={() => chooseMobilePick(mobilePickerSlot.key, '')}>
+                <span className="cpSelect__empty" />
+                <span>Select Team</span>
+              </button>
+              {WORLD_CUP_TEAMS.map((team) => {
+                const selectedInThisSlot = picks[mobilePickerSlot.key] === team.value;
+                const disabledByOtherSlot = !selectedInThisSlot && selectedTeams.includes(team.value);
+                return (
+                  <button
+                    className={selectedInThisSlot ? 'is-selected' : ''}
+                    key={team.value}
+                    type="button"
+                    onClick={() => chooseMobilePick(mobilePickerSlot.key, team.value)}
+                    disabled={disabledByOtherSlot}>
+                    <TeamFlag className="cpSelect__flag" team={team.value} alt="" />
+                    <span>{displayTeamName(team.value)}</span>
+                    {selectedInThisSlot ? <b>Selected</b> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <MobileTabBar />
     </div>
   );
