@@ -1326,6 +1326,14 @@
   font-weight: 900;
 }
 
+.mcx__existingPredictionSub {
+  margin-top: 5px;
+  color: rgba(255, 210, 226, 0.78);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 @media (max-width: 720px) {
   .mcx__existingPredictionGrid {
     grid-template-columns: 1fr;
@@ -1902,6 +1910,11 @@
   .mcx__existingPredictionValue {
     margin-top: 4px;
     font-size: var(--compact-desktop-body-size, 12.5px);
+  }
+
+  .mcx__existingPredictionSub {
+    margin-top: 4px;
+    font-size: 11.5px;
   }
 
   .mcx__penBox {

@@ -165,7 +165,7 @@
     0 0 50px rgba(255,46,118,0.06);
   padding: 18px 20px 16px;
   animation: borderGlow 6s ease-in-out infinite;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Animated shimmer line along top edge */

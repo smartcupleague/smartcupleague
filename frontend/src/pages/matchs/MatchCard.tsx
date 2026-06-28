@@ -405,6 +405,13 @@ function penaltyWinnerSide(value: unknown): PenaltyWinnerSide | null {
   return 'Home' in normalized ? 'Home' : 'Away';
 }
 
+function formatPenaltyWinnerPick(value: unknown, homeTeam: string, awayTeam: string): string | null {
+  const side = penaltyWinnerSide(value);
+  if (!side) return null;
+  const team = side === 'Home' ? homeTeam : awayTeam;
+  return `${side} (${team})`;
+}
+
 function outcome(score: Score): number {
   if (score.home > score.away) return 1;
   if (score.home < score.away) return -1;
@@ -1325,6 +1332,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const topScoreHome = isFinalized ? chainResult.home : shownScore.home;
   const topScoreAway = isFinalized ? chainResult.away : shownScore.away;
   const displayedPredictionScore = hasExistingBet && userBetScore ? userBetScore : selectedScore;
+  const existingPredictionPenaltyPick =
+    hasExistingBet &&
+    userBetScore &&
+    userBetScore.home === userBetScore.away &&
+    isKnockout
+      ? formatPenaltyWinnerPick(userBetPenaltyWinner, match.home, match.away)
+      : null;
 
   return (
     <section className="mcx">
@@ -1422,6 +1436,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <div className="mcx__existingPredictionValue">
                     {match.home} {displayedPredictionScore.home} - {displayedPredictionScore.away} {match.away}
                   </div>
+                  {existingPredictionPenaltyPick ? (
+                    <div className="mcx__existingPredictionSub">
+                      Full-time: Draw | Penalties: {existingPredictionPenaltyPick}
+                    </div>
+                  ) : null}
                 </div>
                 <div>
                   <div className="mcx__label dim">Prediction Stake</div>

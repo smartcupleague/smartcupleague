@@ -10,6 +10,7 @@ import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/us
 import { HexString } from '@gear-js/api';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { FilterSelect } from '@/components/predictions/FilterSelect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { reportClaim } from '@/utils/statsReporter';
@@ -17,7 +18,7 @@ import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
 import { API_BASE_URL } from '@/utils/api';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
-import { PiCaretDownBold, PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
+import { PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 
@@ -704,52 +705,44 @@ export const MatchesTableComponent: React.FC = () => {
           <div className="mxFilters__right">
             <label className="mxFilterField">
               <span>Sort</span>
-              <span className="mxSelectWrap">
-                <select
-                  className="mxFilterSelect"
-                  value={sortField}
-                  onChange={(e) => setSortField(e.target.value as SortField)}
-                  aria-label="Sort by">
-                  <option value="match_id_asc">Match number: first to last</option>
-                  <option value="match_id_desc">Match number: last to first</option>
-                  <option value="date_asc">Kickoff: soonest first</option>
-                  <option value="date_desc">Kickoff: latest first</option>
-                </select>
-                <PiCaretDownBold className="mxSelectChevron" aria-hidden="true" />
-              </span>
+              <FilterSelect
+                ariaLabel="Sort by"
+                value={sortField}
+                onChange={(next) => setSortField(next as SortField)}
+                options={[
+                  { value: 'match_id_asc', label: 'Match number: first to last' },
+                  { value: 'match_id_desc', label: 'Match number: last to first' },
+                  { value: 'date_asc', label: 'Kickoff: soonest first' },
+                  { value: 'date_desc', label: 'Kickoff: latest first' },
+                ]}
+              />
             </label>
 
             <label className="mxFilterField">
               <span>Prediction</span>
-              <span className="mxSelectWrap">
-                <select
-                  className="mxFilterSelect"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as StatusFilter)}
-                  aria-label="Filter by prediction status">
-                  <option value="">All matches</option>
-                  <option value="predicted">Already predicted</option>
-                  <option value="not_predicted">Needs prediction</option>
-                </select>
-                <PiCaretDownBold className="mxSelectChevron" aria-hidden="true" />
-              </span>
+              <FilterSelect
+                ariaLabel="Filter by prediction status"
+                value={filterStatus}
+                onChange={(next) => setFilterStatus(next as StatusFilter)}
+                options={[
+                  { value: '', label: 'All matches' },
+                  { value: 'predicted', label: 'Already predicted' },
+                  { value: 'not_predicted', label: 'Needs prediction' },
+                ]}
+              />
             </label>
 
             <label className="mxFilterField">
               <span>Stage</span>
-              <span className="mxSelectWrap">
-                <select
-                  className="mxFilterSelect"
-                  value={filterStage}
-                  onChange={(e) => setFilterStage(e.target.value)}
-                  aria-label="Filter by stage">
-                  <option value="">All stages</option>
-                  {phases.map((p) => (
-                    <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
-                  ))}
-                </select>
-                <PiCaretDownBold className="mxSelectChevron" aria-hidden="true" />
-              </span>
+              <FilterSelect
+                ariaLabel="Filter by stage"
+                value={filterStage}
+                onChange={setFilterStage}
+                options={[
+                  { value: '', label: 'All stages' },
+                  ...phases.map((p) => ({ value: p, label: p.replace(/_/g, ' ') })),
+                ]}
+              />
             </label>
 
             {/* Clear filters */}

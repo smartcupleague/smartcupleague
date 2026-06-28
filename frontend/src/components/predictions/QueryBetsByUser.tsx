@@ -8,13 +8,14 @@ import { TransactionBuilder } from 'sails-js';
 import { useGaslessVoucher, withVoucherSignAndSend, TxFactory } from '@/hooks/useGaslessVoucher';
 import { TeamFlag } from '@/components/common/TeamFlag';
 import { StyledWallet } from '@/components/wallet/Wallet';
+import { FilterSelect } from '@/components/predictions/FilterSelect';
 import { useVaraPrice } from '@/hooks/useVaraPrice';
 import { FREEBET_BALANCE_CHANGED_EVENT } from '@/hooks/useFreebetBalance';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase } from '@/utils';
-import { PiCaretDownBold, PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
+import { PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string | undefined;
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'https://smartcupleague-api.onrender.com';
@@ -1001,54 +1002,46 @@ export const QueryBetsByUserComponent: React.FC = () => {
           <div className="mpFilters__right">
             <label className="mpFilterField">
               <span>Sort</span>
-              <span className="mpSelectWrap">
-                <select
-                  className="mpFilterSelect"
-                  value={sortField}
-                  onChange={(e) => setSortField(e.target.value as 'match_id' | 'date' | 'az' | 'za')}
-                  aria-label="Sort predictions">
-                  <option value="match_id">Match number</option>
-                  <option value="date">Kickoff date</option>
-                  <option value="az">Teams A to Z</option>
-                  <option value="za">Teams Z to A</option>
-                </select>
-                <PiCaretDownBold className="mpSelectChevron" aria-hidden="true" />
-              </span>
+              <FilterSelect
+                ariaLabel="Sort predictions"
+                value={sortField}
+                onChange={(next) => setSortField(next as 'match_id' | 'date' | 'az' | 'za')}
+                options={[
+                  { value: 'match_id', label: 'Match number' },
+                  { value: 'date', label: 'Kickoff date' },
+                  { value: 'az', label: 'Teams A to Z' },
+                  { value: 'za', label: 'Teams Z to A' },
+                ]}
+              />
             </label>
 
             <label className="mpFilterField">
               <span>Status</span>
-              <span className="mpSelectWrap">
-                <select
-                  className="mpFilterSelect"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as '' | 'claimed' | 'pending' | 'eligible' | 'not_eligible')}
-                  aria-label="Filter by status">
-                  <option value="">Any status</option>
-                  <option value="claimed">Claimed</option>
-                  <option value="pending">Pending</option>
-                  <option value="eligible">Ready to claim</option>
-                  <option value="not_eligible">Not eligible</option>
-                </select>
-                <PiCaretDownBold className="mpSelectChevron" aria-hidden="true" />
-              </span>
+              <FilterSelect
+                ariaLabel="Filter by status"
+                value={filterStatus}
+                onChange={(next) => setFilterStatus(next as '' | 'claimed' | 'pending' | 'eligible' | 'not_eligible')}
+                options={[
+                  { value: '', label: 'Any status' },
+                  { value: 'claimed', label: 'Claimed' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'eligible', label: 'Ready to claim' },
+                  { value: 'not_eligible', label: 'Not eligible' },
+                ]}
+              />
             </label>
 
             <label className="mpFilterField">
               <span>Stage</span>
-              <span className="mpSelectWrap">
-                <select
-                  className="mpFilterSelect"
-                  value={filterStage}
-                  onChange={(e) => setFilterStage(e.target.value)}
-                  aria-label="Filter by stage">
-                  <option value="">All stages</option>
-                  {availablePhases.map((p) => (
-                    <option key={p} value={p}>{p.replace(/_/g, ' ')}</option>
-                  ))}
-                </select>
-                <PiCaretDownBold className="mpSelectChevron" aria-hidden="true" />
-              </span>
+              <FilterSelect
+                ariaLabel="Filter by stage"
+                value={filterStage}
+                onChange={setFilterStage}
+                options={[
+                  { value: '', label: 'All stages' },
+                  ...availablePhases.map((p) => ({ value: p, label: p.replace(/_/g, ' ') })),
+                ]}
+              />
             </label>
 
             {(filterStage || filterDate || filterStatus || search) && (

@@ -174,6 +174,32 @@ function getCurrentScore(result?: ResultStatus): { home: number; away: number } 
   return { home: 0, away: 0 };
 }
 
+function penaltyWinnerSide(value: unknown): 'Home' | 'Away' | null {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'home') return 'Home';
+    if (normalized === 'away') return 'Away';
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if ('Home' in record || 'home' in record) return 'Home';
+    if ('Away' in record || 'away' in record) return 'Away';
+  }
+
+  return null;
+}
+
+function formatPenaltyWinnerPick(value: unknown, homeTeam: string, awayTeam: string): string | null {
+  const side = penaltyWinnerSide(value);
+  if (!side) return null;
+  const team = side === 'Home' ? homeTeam : awayTeam;
+  return `${side} (${team})`;
+}
+
 function Match() {
   // Support both /2026worldcup/match/:id and legacy /match/:id
   const { id: rawId } = useParams<{ id: string }>();
@@ -408,6 +434,15 @@ function Match() {
     return userBets.find((b) => String(b?.match_id) === String(matchId)) ?? null;
   }, [userBets, matchId]);
 
+  const userBetPenaltyPick = useMemo(() => {
+    if (!userBetForThisMatch || !selectedMatch) return null;
+    const score = userBetForThisMatch.score;
+    const homeScore = Number(score?.home ?? 0) || 0;
+    const awayScore = Number(score?.away ?? 0) || 0;
+    if (homeScore !== awayScore) return null;
+    return formatPenaltyWinnerPick(userBetForThisMatch.penalty_winner, selectedMatch.home, selectedMatch.away);
+  }, [selectedMatch, userBetForThisMatch]);
+
   // Pool percentages for bars — only show if breakdown data is available from contract
   const contractPoolAmounts = useMemo<PoolAmounts | null>(() => {
     if (!selectedMatch) return null;
@@ -613,7 +648,12 @@ function Match() {
                     <div className="sideCard__title" style={{ marginTop: 12 }}>YOUR PREDICTION</div>
                     <div className="sideRow">
                       <span className="dim">Score pick</span>
-                      <b>{userBetForThisMatch.score?.home ?? 0}-{userBetForThisMatch.score?.away ?? 0}</b>
+                      <b>
+                        {userBetForThisMatch.score?.home ?? 0}-{userBetForThisMatch.score?.away ?? 0}
+                        {userBetPenaltyPick ? (
+                          <span className="sideUserBet__sub">Pens: {userBetPenaltyPick}</span>
+                        ) : null}
+                      </b>
                     </div>
                     <div className="sideRow">
                       <span className="dim">Prediction Stake</span>
