@@ -150,6 +150,7 @@
 
 .mxTop {
   position: relative;
+  z-index: 30;
   border-radius: calc(var(--r) + 2px);
   border: 1px solid rgba(255,255,255,0.10);
   background:
