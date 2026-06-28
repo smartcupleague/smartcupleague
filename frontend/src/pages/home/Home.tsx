@@ -15,6 +15,8 @@ import { useWalletProfile } from '@/hooks/useWalletProfile';
 import { API_BASE_URL } from '@/utils/api';
 import { useTournamentSelection } from '@/hooks/useTournamentSelection';
 import { WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
+import { WorldCupBracket } from './WorldCupBracket';
+import { buildPreviewWorldCupBracketMatches, normalizePreviewBracketMode } from './WorldCupBracketPreview';
 import {
   getPodiumCorrectCount,
   getPodiumEarnedPoints,
@@ -25,7 +27,7 @@ import {
   normalizePodiumStanding,
   PodiumStanding,
 } from '@/utils/podium';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   TOURNAMENT_TAB_ORDER,
   WORLD_CUP_2026_TOURNAMENT,
@@ -271,10 +273,20 @@ export default function Home() {
   const { account } = useAccount();
   const { displayName: connectedDisplayName } = useWalletProfile();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { ensureVoucher, invalidateVoucher } = useGaslessVoucher(account?.decodedAddress);
   const podiumPick = usePodiumPick();
   const previewPodiumPick = useMemo(() => getPreviewPodiumPick(), []);
   const previewPodiumResult = useMemo(() => getPreviewPodiumResult(), []);
+  const previewBracketMode = useMemo(
+    () => normalizePreviewBracketMode(new URLSearchParams(window.location.search).get('previewBracket')),
+    []
+  );
+  const previewBracketMatches = useMemo(
+    () => (previewBracketMode ? buildPreviewWorldCupBracketMatches(previewBracketMode) : null),
+    [previewBracketMode]
+  );
+  const showWorldCupBracket = pathname.startsWith('/progress');
   const displayedPodiumPick = previewPodiumPick ?? podiumPick.pick;
   const isPodiumPreview = !!previewPodiumPick;
 
@@ -730,6 +742,10 @@ export default function Home() {
     () => new Set(activeUserBets.map((b) => String(b?.match_id ?? ''))),
     [activeUserBets]
   );
+  const bracketPredictedMatchIds = useMemo(() => {
+    if (!previewBracketMode) return predictedMatchIds;
+    return new Set([...predictedMatchIds, '73', '78', '89', '97', '104']);
+  }, [predictedMatchIds, previewBracketMode]);
 
   const nextMatch = useMemo(() => {
     const unpredicted = upcoming.filter((m) => !predictedMatchIds.has(String(m.match_id)));
@@ -1490,6 +1506,16 @@ export default function Home() {
             {!displayedUpcomingMatches.length ? <div className="h-empty-state muted">No upcoming matches</div> : null}
           </div>
         </section>
+
+        {showWorldCupBracket ? (
+          <section className="h-card h-card--bracket">
+            <WorldCupBracket
+              matches={previewBracketMatches ?? activeMatches}
+              predictedMatchIds={bracketPredictedMatchIds}
+              onMatchClick={(match) => navigate(matchPath(match.phase, match.match_id))}
+            />
+          </section>
+        ) : null}
       </main>
 
     </div>
