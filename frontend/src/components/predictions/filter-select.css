@@ -99,10 +99,9 @@
   min-width: 0;
   min-height: 40px;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
-  padding: 8px 9px;
+  padding: 8px 11px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.055);
@@ -125,7 +124,7 @@
   outline-offset: 2px;
 }
 
-.filterSelect__menu button span:nth-child(2) {
+.filterSelect__menu button span:first-child {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -142,15 +141,6 @@
     linear-gradient(180deg, rgba(255, 46, 118, 0.24), rgba(255, 46, 118, 0.12)),
     rgba(255, 255, 255, 0.055);
   box-shadow: 0 0 0 1px rgba(255, 123, 182, 0.16) inset;
-}
-
-.filterSelect .filterSelect__mark {
-  width: 24px;
-  color: rgba(255, 184, 221, 0.98);
-  font-size: 14px;
-  font-weight: 950;
-  text-align: center;
-  text-shadow: 0 0 12px rgba(255, 46, 118, 0.72);
 }
 
 @media (prefers-reduced-motion: reduce) {

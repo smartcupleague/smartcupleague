@@ -138,7 +138,6 @@ export function FilterSelect<TValue extends string = string>({
                   closeAndReturnFocus();
                 }}
                 onKeyDown={(event) => handleOptionKeyDown(event, index)}>
-                <span className="filterSelect__mark" aria-hidden="true">{optionSelected ? '✓' : ''}</span>
                 <span>{option.label}</span>
               </button>
             );
