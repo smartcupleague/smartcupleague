@@ -140,7 +140,6 @@ export function FilterSelect<TValue extends string = string>({
                 onKeyDown={(event) => handleOptionKeyDown(event, index)}>
                 <span className="filterSelect__mark" aria-hidden="true">{optionSelected ? '✓' : ''}</span>
                 <span>{option.label}</span>
-                {optionSelected ? <b>Selected</b> : null}
               </button>
             );
           })}

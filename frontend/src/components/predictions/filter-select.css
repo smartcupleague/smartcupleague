@@ -99,7 +99,7 @@
   min-width: 0;
   min-height: 40px;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
   padding: 8px 9px;
@@ -136,23 +136,21 @@
   font-weight: inherit;
 }
 
-.filterSelect__menu button b {
-  color: rgba(110, 255, 190, 0.95);
-  font-size: 11px;
-  font-weight: 950;
-}
-
 .filterSelect__menu button.is-selected {
-  border-color: rgba(52, 211, 153, 0.42);
-  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(255, 46, 118, 0.58);
+  background:
+    linear-gradient(180deg, rgba(255, 46, 118, 0.24), rgba(255, 46, 118, 0.12)),
+    rgba(255, 255, 255, 0.055);
+  box-shadow: 0 0 0 1px rgba(255, 123, 182, 0.16) inset;
 }
 
 .filterSelect .filterSelect__mark {
   width: 24px;
-  color: rgba(110, 255, 190, 0.95);
+  color: rgba(255, 184, 221, 0.98);
   font-size: 14px;
   font-weight: 950;
   text-align: center;
+  text-shadow: 0 0 12px rgba(255, 46, 118, 0.72);
 }
 
 @media (prefers-reduced-motion: reduce) {
