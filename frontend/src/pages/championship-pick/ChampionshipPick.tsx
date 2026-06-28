@@ -176,8 +176,9 @@ export function ChampionshipPick() {
 
   const selectedTeams = useMemo(() => Object.values(picks).filter(Boolean), [picks]);
   const complete = pickSlots.every((slot) => picks[slot.key]);
-  const lockMs = getChampionshipPickLockMs(coreState?.r32_lock_time ?? null, coreState?.matches);
-  const hasR32Lock = previewChampionshipState === 'setup-pending' ? false : lockMs !== null;
+  const inferredLockMs = getChampionshipPickLockMs(coreState?.r32_lock_time ?? null, coreState?.matches);
+  const lockMs = previewChampionshipState === 'setup-pending' ? null : inferredLockMs;
+  const hasR32Lock = lockMs !== null;
   const isLocked = previewChampionshipState === 'locked' || (!!lockMs && Date.now() >= lockMs);
   const hasDuplicate = new Set(selectedTeams).size !== selectedTeams.length;
   const stakeAmountNumber = useMemo(() => {
@@ -263,10 +264,10 @@ export function ChampionshipPick() {
   const submitLabel = useMemo(() => {
     if (submitting) return 'Submitting Pick...';
     if (submitted) return 'Championship Pick Submitted';
+    if (isLocked) return 'Championship Pick Locked';
     if (!walletReady) return 'Connect wallet to submit';
     if (!isApiReady) return 'Node API not ready';
     if (!hasR32Lock) return 'Loading pick availability';
-    if (isLocked) return 'Championship Pick Locked';
     if (!isStakePricingAvailable) return 'Price feed reconnecting';
     if (!complete) return 'Select all 3 teams';
     if (hasDuplicate) return 'Choose 3 different teams';
@@ -280,6 +281,13 @@ export function ChampionshipPick() {
         tone: 'success',
         title: 'Championship Pick submitted',
         body: 'Your Top 3 pick is saved. Team selectors and stake controls are locked for this wallet.',
+      };
+    }
+    if (isLocked) {
+      return {
+        tone: 'locked',
+        title: 'Championship Pick locked',
+        body: 'The first Round of 32 match has started. New Championship Picks are closed for users who did not submit before kickoff.',
       };
     }
     if (!walletReady) {
@@ -301,13 +309,6 @@ export function ChampionshipPick() {
         tone: 'warn',
         title: 'Checking availability',
         body: 'Championship Picks open as soon as the first Round of 32 match is registered.',
-      };
-    }
-    if (isLocked) {
-      return {
-        tone: 'locked',
-        title: 'Championship Pick locked',
-        body: 'The Round of 32 lock has passed. Team selectors and stake controls are now read-only.',
       };
     }
     if (!isStakePricingAvailable) {
@@ -460,6 +461,14 @@ export function ChampionshipPick() {
   }, [desktopPicker]);
 
   const handleSubmit = useCallback(async () => {
+    if (submitted) {
+      toast.error('Championship Pick already submitted');
+      return;
+    }
+    if (isLocked) {
+      toast.error('Championship Pick is locked');
+      return;
+    }
     if (!account) {
       toast.error('Connect your wallet first');
       return;
@@ -468,20 +477,16 @@ export function ChampionshipPick() {
       toast.error('Node API not ready');
       return;
     }
+    if (!hasR32Lock) {
+      toast.error('Championship Pick availability is still loading');
+      return;
+    }
     if (!complete) {
       toast.error('Select Champion, Runner-Up, and 3rd Place');
       return;
     }
     if (hasDuplicate) {
       toast.error('Choose three different teams');
-      return;
-    }
-    if (!hasR32Lock) {
-      toast.error('Championship Pick availability is still loading');
-      return;
-    }
-    if (isLocked) {
-      toast.error('Championship Pick is locked');
       return;
     }
     if (!isStakePricingAvailable) {
@@ -530,7 +535,7 @@ export function ChampionshipPick() {
     } finally {
       setSubmitting(false);
     }
-  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, picks, podiumPick, previewChampionshipState, stakeBelowMinimum, stakeMinimumLabel, stakeValuePlanck, toast, ensureVoucher, invalidateVoucher]);
+  }, [account, api, complete, fetchCoreState, hasDuplicate, hasR32Lock, isApiReady, isLocked, isStakePricingAvailable, picks, podiumPick, stakeBelowMinimum, stakeMinimumLabel, stakeValuePlanck, submitted, toast, ensureVoucher, invalidateVoucher]);
 
   const controlsLocked = submitted || submitting || isLocked;
 
@@ -815,6 +820,8 @@ export function ChampionshipPick() {
                   </button>
                   {!hasR32Lock ? (
                     <span className="cpWarn">Championship Pick availability is still loading.</span>
+                  ) : isLocked && !submitted ? (
+                    <span className="cpWarn">New Championship Picks are closed because the first Round of 32 match has started.</span>
                   ) : !isStakePricingAvailable ? (
                     <span className="cpWarn">Championship Pick is paused while the VARA/USD price feed reconnects, so the $3 minimum can be calculated correctly.</span>
                   ) : stakeAmountNumber > 0 && stakeBelowMinimum ? (

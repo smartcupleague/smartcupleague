@@ -939,10 +939,10 @@ export default function Home() {
     if (!account && !isPodiumPreview) return 'Connect wallet';
     if (championshipPickState === 'completed') return 'Finalized';
     if (championshipPickState === 'submitted') return 'Submitted';
-    if (championshipPickState === 'locked') return 'Locked';
+    if (championshipPickState === 'locked') return displayedPodiumPick ? 'Locked' : 'Locked - Not submitted';
     if (championshipPickState === 'open') return 'Open';
     return 'Waiting';
-  }, [account, championshipPickState, isPodiumPreview]);
+  }, [account, championshipPickState, displayedPodiumPick, isPodiumPreview]);
 
   const championshipPickSubtext = useMemo(() => {
     if (!account && !isPodiumPreview) return 'Connect your wallet to view or submit your Top 3 pick.';
@@ -953,7 +953,7 @@ export default function Home() {
     if (displayedPodiumPick) {
       return 'Submitted. Results pending. Bonus: +35 pts';
     }
-    if (championshipPickState === 'locked') return 'Championship Picks are locked for this tournament.';
+    if (championshipPickState === 'locked') return 'No Championship Pick was submitted before the Round of 32 lock.';
     if (championshipPickState === 'open') return 'Available now. Make your Top 3 pick for up to +35 pts.';
     return 'Loading Championship Pick availability...';
   }, [account, championshipBonusSummary, championshipPickState, displayedPodiumPick, isPodiumPreview]);
@@ -961,8 +961,9 @@ export default function Home() {
   const championshipPickCta = useMemo(() => {
     if (!account && !isPodiumPreview) return 'Connect wallet';
     if (championshipPickState === 'open') return 'Make Picks';
+    if (championshipPickState === 'locked' && !displayedPodiumPick) return 'View Locked Details';
     return 'View Details';
-  }, [account, championshipPickState, isPodiumPreview]);
+  }, [account, championshipPickState, displayedPodiumPick, isPodiumPreview]);
 
   const claimablePrizeBn = useMemo(
     () => safeBigInt(claimStatus?.amount_claimable ?? 0),

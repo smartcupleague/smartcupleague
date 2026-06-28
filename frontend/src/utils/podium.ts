@@ -18,6 +18,7 @@ export type PodiumResultRow = {
 
 type ChampionshipLockMatch = {
   phase?: unknown;
+  stage?: unknown;
   kick_off?: unknown;
   kickOff?: unknown;
 };
@@ -32,6 +33,8 @@ const PODIUM_SLOTS: Array<{
   { key: 'runnerUp', medal: '🥈', label: 'Runner-Up', points: 10 },
   { key: 'thirdPlace', medal: '🥉', label: '3rd Place', points: 5 },
 ];
+
+export const WORLD_CUP_2026_R32_LOCK_MS = Date.UTC(2026, 5, 28, 19, 0, 0);
 
 export function normalizePodiumStanding(raw: unknown): PodiumStanding | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -114,21 +117,29 @@ export function isRoundOf32Phase(phase: unknown) {
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ');
 
-  return normalized === 'round of 32' || normalized === 'last 32';
+  return normalized === 'round of 32' || normalized === 'last 32' || normalized === 'last32';
 }
 
 export function getChampionshipPickLockMs(
   explicitLock: string | number | bigint | null | undefined,
-  matches?: ChampionshipLockMatch[] | null
+  matches?: ChampionshipLockMatch[] | null,
+  fallbackLockMs: number | null = WORLD_CUP_2026_R32_LOCK_MS
 ) {
+  const candidates: number[] = [];
+
   const explicitLockMs = podiumTimestampToMs(explicitLock);
-  if (explicitLockMs) return explicitLockMs;
+  if (explicitLockMs) candidates.push(explicitLockMs);
 
   const r32Kickoffs = (matches ?? [])
-    .filter((match) => isRoundOf32Phase(match?.phase))
+    .filter((match) => isRoundOf32Phase(match?.phase) || isRoundOf32Phase(match?.stage))
     .map((match) => podiumTimestampToMs((match?.kick_off ?? match?.kickOff) as string | number | bigint | null | undefined))
     .filter((ms): ms is number => typeof ms === 'number')
     .sort((a, b) => a - b);
 
-  return r32Kickoffs[0] ?? null;
+  if (r32Kickoffs[0]) candidates.push(r32Kickoffs[0]);
+  if (fallbackLockMs && Number.isFinite(fallbackLockMs) && fallbackLockMs > 0) {
+    candidates.push(fallbackLockMs);
+  }
+
+  return candidates.length ? Math.min(...candidates) : null;
 }

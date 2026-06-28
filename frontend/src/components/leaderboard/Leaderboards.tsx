@@ -759,7 +759,7 @@ export default function Leaderboards() {
       return `Earned +${championshipBonusSummary.earned} pts · ${championshipBonusSummary.correct}/3 correct.`;
     }
     if (championshipPickState === 'completed') return 'Final podium bonuses are included in leaderboard totals.';
-    if (championshipPickState === 'locked') return 'Championship Picks are locked for this tournament.';
+    if (championshipPickState === 'locked') return 'No Championship Pick was submitted before the Round of 32 lock.';
     if (championshipPickState === 'open') return 'Available now. Make your Top 3 pick for up to +35 pts.';
     return 'Loading Championship Pick availability...';
   }, [account, championshipBonusSummary, championshipPickState, isPodiumPreview]);
@@ -998,7 +998,7 @@ export default function Leaderboards() {
                     : championshipPickState === 'open'
                       ? 'Championship Picks are open'
                       : championshipPickState === 'locked'
-                        ? 'Championship Picks are locked'
+                        ? 'No Championship Pick submitted'
                         : 'Checking Championship Pick availability'}
                 </p>
                 <span>{championshipPickMessage}</span>
@@ -1006,7 +1006,7 @@ export default function Leaderboards() {
                   className={'lbBtn wfull ' + (championshipPickState === 'open' ? 'lbBtn--primary' : 'lbBtn--soft')}
                   type="button"
                   onClick={() => navigate('/championship-pick')}>
-                  {championshipPickState === 'open' ? 'Make Picks' : 'View Details'}
+                  {championshipPickState === 'open' ? 'Make Picks' : championshipPickState === 'locked' ? 'View Locked Details' : 'View Details'}
                 </button>
               </div>
             )}
