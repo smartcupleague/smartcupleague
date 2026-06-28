@@ -87,6 +87,7 @@ const USD_MINIMUM_MICRO = 3_000_000n;
 
 type PenaltyWinnerArg = { Home: null } | { Away: null };
 type MaybePenaltyWinnerArg = PenaltyWinnerArg | null;
+type PenaltyWinnerSide = 'Home' | 'Away';
 type ScoreText = { home: string; away: string };
 type MatchPoolStats = {
   match_id: string;
@@ -379,6 +380,31 @@ function deducePenaltyWinnerArg(pens: Score): MaybePenaltyWinnerArg {
   return null;
 }
 
+function normalizePenaltyWinnerArg(value: unknown): MaybePenaltyWinnerArg {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'home') return { Home: null };
+    if (normalized === 'away') return { Away: null };
+    return null;
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if ('Home' in record || 'home' in record) return { Home: null };
+    if ('Away' in record || 'away' in record) return { Away: null };
+  }
+
+  return null;
+}
+
+function penaltyWinnerSide(value: unknown): PenaltyWinnerSide | null {
+  const normalized = normalizePenaltyWinnerArg(value);
+  if (!normalized) return null;
+  return 'Home' in normalized ? 'Home' : 'Away';
+}
+
 function outcome(score: Score): number {
   if (score.home > score.away) return 1;
   if (score.home < score.away) return -1;
@@ -389,10 +415,9 @@ function advanceOutcome(score: Score, penWinner: MaybePenaltyWinnerArg | string 
   const o = outcome(score);
   if (o !== 0) return o;
 
-  if (!penWinner) return 0;
-
-  if (penWinner === 'Home' || (typeof penWinner === 'object' && 'Home' in penWinner)) return 1;
-  if (penWinner === 'Away' || (typeof penWinner === 'object' && 'Away' in penWinner)) return -1;
+  const side = penaltyWinnerSide(penWinner);
+  if (side === 'Home') return 1;
+  if (side === 'Away') return -1;
 
   return 0;
 }
@@ -412,7 +437,9 @@ function isEligibleLikeContract(args: {
   const exactScore = betScore.home === finalScore.home && betScore.away === finalScore.away;
   if (exactScore) {
     if (knockout && drawFinal) {
-      return !!betPenaltyWinner && JSON.stringify(betPenaltyWinner) === JSON.stringify(finalPenaltyWinner);
+      const betPenaltySide = penaltyWinnerSide(betPenaltyWinner);
+      const finalPenaltySide = penaltyWinnerSide(finalPenaltyWinner);
+      return !!betPenaltySide && betPenaltySide === finalPenaltySide;
     }
     return true;
   }
@@ -729,7 +756,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         ? { home: Number(b.score.home ?? 0) || 0, away: Number(b.score.away ?? 0) || 0 }
         : null;
 
-      const bpw: MaybePenaltyWinnerArg = b?.penalty_winner ?? null;
+      const bpw = normalizePenaltyWinnerArg(b?.penalty_winner);
 
       setUserStakeBn(stake);
       setUserClaimed(claimed);
@@ -819,10 +846,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         ? { home: chainResult.home, away: chainResult.away }
         : null;
 
-    const finalPenaltyWinner: MaybePenaltyWinnerArg =
-      chainResult?.penaltyWinner != null
-        ? (chainResult.penaltyWinner as MaybePenaltyWinnerArg)
-        : null;
+    const finalPenaltyWinner = normalizePenaltyWinnerArg(chainResult?.penaltyWinner);
 
     return isEligibleLikeContract({
       knockout: isKnockout,
@@ -1188,8 +1212,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
 
     if (isKnockout) {
-      const arg = penaltyWinner;
-      const winner = arg && 'Home' in arg ? match.home : arg && 'Away' in arg ? match.away : '—';
+      const side = penaltyWinnerSide(penaltyWinner);
+      const winner = side === 'Home' ? match.home : side === 'Away' ? match.away : '—';
 
       if (winner !== '—') {
         return `${match.home.toUpperCase()} ${score.home} - ${score.away} ${match.away.toUpperCase()} (${winner} wins on penalties)`;
@@ -1209,13 +1233,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     const base = `This match has ended. Final score: ${chainResult.home}-${chainResult.away}.`;
 
     if (chainResult.penaltyWinner) {
-      const pw = chainResult.penaltyWinner as any;
-      const winner =
-        pw && typeof pw === 'object' && 'Home' in pw
-          ? match.home
-          : pw && typeof pw === 'object' && 'Away' in pw
-            ? match.away
-            : String(pw);
+      const side = penaltyWinnerSide(chainResult.penaltyWinner);
+      const winner = side === 'Home' ? match.home : side === 'Away' ? match.away : String(chainResult.penaltyWinner);
 
       return `${base} Penalty winner: ${winner}.`;
     }
