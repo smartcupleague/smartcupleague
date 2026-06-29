@@ -293,8 +293,9 @@ function formatUserPick(bet?: BracketUserBet) {
   if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
 
   const penaltyWinner = normalizePenaltyWinner(bet?.penalty_winner ?? bet?.penaltyWinner);
-  const pickOutcome = penaltyWinner ?? (home === away ? 'Draw' : home > away ? 'Home' : 'Away');
-  return `Your Pick ${home}-${away} · ${pickOutcome}`;
+  if (penaltyWinner) return `Pick ${home}-${away} · Pens ${penaltyWinner}`;
+  if (home === away) return `Pick ${home}-${away} · Draw`;
+  return `Pick ${home}-${away}`;
 }
 
 function getWinner(match: BracketMatch): 'home' | 'away' | null {
@@ -473,11 +474,13 @@ function MatchNode({
         <TeamRow team={slot.match.away} side="away" match={slot.match} />
       </span>
       <span className="h-bracketNode__foot">
-        <span className="h-bracketNode__time">{formatBracketTime(Number(slot.match.kick_off))}</span>
+        <span className="h-bracketNode__timeGroup">
+          <span className="h-bracketNode__time">{formatBracketTime(Number(slot.match.kick_off))}</span>
+          {pickLabel ? <span className="h-bracketNode__pickMeta">{pickLabel}</span> : null}
+          {showNoPick ? <span className="h-bracketNode__pickMeta h-bracketNode__pickMeta--missed">No pick</span> : null}
+        </span>
         <span className={`h-bracketNode__status h-bracketNode__status--${status.toLowerCase()}`}>{status}</span>
         {predicted ? <span className="h-bracketNode__predicted">Predicted</span> : null}
-        {pickLabel ? <span className="h-bracketNode__userPick">{pickLabel}</span> : null}
-        {showNoPick ? <span className="h-bracketNode__userPick h-bracketNode__userPick--missed">No pick</span> : null}
       </span>
     </button>
   );
