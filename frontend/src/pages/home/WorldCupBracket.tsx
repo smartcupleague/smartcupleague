@@ -293,8 +293,8 @@ function formatUserPick(bet?: BracketUserBet) {
   if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
 
   const penaltyWinner = normalizePenaltyWinner(bet?.penalty_winner ?? bet?.penaltyWinner);
-  const penaltyText = penaltyWinner ? ` · Pen ${penaltyWinner}` : '';
-  return `Your pick ${home}-${away}${penaltyText}`;
+  const pickOutcome = penaltyWinner ?? (home === away ? 'Draw' : home > away ? 'Home' : 'Away');
+  return `Your Pick ${home}-${away} · ${pickOutcome}`;
 }
 
 function getWinner(match: BracketMatch): 'home' | 'away' | null {
