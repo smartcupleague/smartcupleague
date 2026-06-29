@@ -62,7 +62,12 @@ function getResultDetails(result: any): {
 
     if (result?.Finalized?.score) {
       const s = result.Finalized.score;
-      return { label: 'FINAL', home: Number(s.home ?? 0) || 0, away: Number(s.away ?? 0) || 0, penaltyWinner: null };
+      return {
+        label: 'FINAL',
+        home: Number(s.home ?? 0) || 0,
+        away: Number(s.away ?? 0) || 0,
+        penaltyWinner: result.Finalized?.penalty_winner ?? null,
+      };
     }
     if (result?.Proposed?.score) {
       const s = result.Proposed.score;
@@ -209,6 +214,22 @@ type UserBetView = {
   penalty_winner?: any;
 };
 
+function normalizePenaltyWinner(value: unknown): 'Home' | 'Away' | null {
+  if (!value) return null;
+  if (value === 'Home' || value === 'Away') return value;
+  if (typeof value === 'object') {
+    if ('Home' in (value as Record<string, unknown>)) return 'Home';
+    if ('Away' in (value as Record<string, unknown>)) return 'Away';
+  }
+  return null;
+}
+
+function formatPenaltyWinner(value: unknown) {
+  const normalized = normalizePenaltyWinner(value);
+  if (!normalized) return '';
+  return normalized === 'Home' ? 'Home' : 'Away';
+}
+
 const LOCAL_PREVIEW_MATCHES: MatchInfo[] = [
   {
     match_id: '1',
@@ -273,6 +294,52 @@ const LOCAL_PREVIEW_MATCHES: MatchInfo[] = [
   },
 ];
 
+const LOCAL_PENALTY_PREVIEW_MATCHES: MatchInfo[] = [
+  {
+    match_id: '75',
+    phase: 'ROUND_OF_32',
+    home: 'Germany',
+    away: 'Paraguay',
+    kick_off: String(Math.floor((Date.now() - 5 * 60 * 60 * 1000) / 1000)),
+    result: { finalized: { score: { home: 0, away: 0 }, penalty_winner: 'Away' } },
+    match_prize_pool: '10834950000000000',
+    has_bets: true,
+    settlement_prepared: true,
+  },
+  {
+    match_id: '76',
+    phase: 'ROUND_OF_32',
+    home: 'Netherlands',
+    away: 'Morocco',
+    kick_off: String(Math.floor((Date.now() - 2 * 60 * 60 * 1000) / 1000)),
+    result: { finalized: { score: { home: 2, away: 2 }, penalty_winner: 'Home' } },
+    match_prize_pool: '10898700000000000',
+    has_bets: true,
+    settlement_prepared: true,
+  },
+  {
+    match_id: '77',
+    phase: 'ROUND_OF_32',
+    home: 'Ivory Coast',
+    away: 'Norway',
+    kick_off: String(Math.floor((Date.now() + 24 * 60 * 60 * 1000) / 1000)),
+    result: null,
+    match_prize_pool: '10898700000000000',
+    has_bets: true,
+  },
+  {
+    match_id: '78',
+    phase: 'ROUND_OF_32',
+    home: 'France',
+    away: 'Sweden',
+    kick_off: String(Math.floor((Date.now() - 90 * 60 * 1000) / 1000)),
+    result: { finalized: { score: { home: 1, away: 1 }, penalty_winner: 'Away' } },
+    match_prize_pool: '9275000000000000',
+    has_bets: true,
+    settlement_prepared: true,
+  },
+];
+
 function isLocalPredictedPreview() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
@@ -282,9 +349,17 @@ function isLocalPredictedPreview() {
   return params.get('previewPredicted') === '1';
 }
 
+function isLocalPenaltyPreview() {
+  if (!isLocalPredictedPreview()) return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('previewPenalty') === '1';
+}
+
 function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
   const previewBets = new Map<string, UserBetView>();
-  const predictedMatchIds = new Set(['1', '4', '5']);
+  const predictedMatchIds = isLocalPenaltyPreview()
+    ? new Set(['75', '76', '78'])
+    : new Set(['1', '4', '5']);
   for (const m of matches.filter((match) => predictedMatchIds.has(match.match_id))) {
     const result = getResultDetails(m.result);
     const seed = Number(m.match_id);
@@ -296,7 +371,7 @@ function buildPreviewBets(matches: MatchInfo[]): Map<string, UserBetView> {
         home: result.label === 'FINAL' || result.label === 'LIVE' ? result.home : fallbackHome,
         away: result.label === 'FINAL' || result.label === 'LIVE' ? result.away : fallbackAway,
       },
-      penalty_winner: null,
+      penalty_winner: result.penaltyWinner ?? null,
     });
   }
   return previewBets;
@@ -350,6 +425,12 @@ export const MatchesTableComponent: React.FC = () => {
 
   const fetchMatches = useCallback(async () => {
     const useLocalPreview = isLocalPredictedPreview();
+    const usePenaltyPreview = isLocalPenaltyPreview();
+    if (usePenaltyPreview) {
+      setMatches(LOCAL_PENALTY_PREVIEW_MATCHES);
+      setLoading(false);
+      return;
+    }
     if (!api || !isApiReady) {
       if (useLocalPreview) setMatches(LOCAL_PREVIEW_MATCHES);
       return;
@@ -809,6 +890,8 @@ export const MatchesTableComponent: React.FC = () => {
               const userBet = userBetsByMatchId.get(m.match_id);
               const hasPrediction = !!userBet;
               const pickText = userBet ? `${userBet.score.home}-${userBet.score.away}` : '';
+              const pickPenaltyText = userBet ? formatPenaltyWinner(userBet.penalty_winner) : '';
+              const finalPenaltyText = r.label === 'FINAL' ? formatPenaltyWinner(r.penaltyWinner) : '';
 
               return (
                 <article className={'mxCard' + (hasPrediction ? ' mxCard--predicted' : '')} key={m.match_id}>
@@ -882,6 +965,13 @@ export const MatchesTableComponent: React.FC = () => {
                         </div>
                       ) : null}
 
+                      {pickPenaltyText ? (
+                        <div className="mxPenaltyPick" aria-label={`Your penalty pick ${pickPenaltyText}`}>
+                          <span className="mxPenaltyPick__label">Pens Pick</span>
+                          <span className="mxPenaltyPick__score">{pickPenaltyText}</span>
+                        </div>
+                      ) : null}
+
                       <div className="mxScore">
                         <div className="mxScore__label">
                           {displayLabel === "OPEN" ? "OPEN" : displayLabel === "CLOSED" ? "CLOSED" : r.label === "LIVE" ? "LIVE SCORE" : r.label === "CANCELLED" ? "CANCELLED" : "FINAL SCORE"}
@@ -889,9 +979,12 @@ export const MatchesTableComponent: React.FC = () => {
                         <div className="mxScore__value">
                           {r.home}-{r.away}
                         </div>
+                        {finalPenaltyText ? <div className="mxScore__penalty">Pens {finalPenaltyText}</div> : null}
                         <div className="mxScore__sub">
                           {r.label === "FINAL"
-                            ? "On-chain finalized result"
+                            ? finalPenaltyText
+                              ? `On-chain finalized result - ${finalPenaltyText} advanced on penalties`
+                              : "On-chain finalized result"
                             : r.label === "LIVE"
                               ? "On-chain proposed score"
                               : r.label === "CANCELLED"
