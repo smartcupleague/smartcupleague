@@ -1830,8 +1830,9 @@ body {
   justify-self: stretch;
   display: grid;
   justify-items: end;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
+  padding-right: 1px;
 }
 
 .h-bracketNode__time {
@@ -1896,6 +1897,31 @@ body {
 
 .h-bracketNode__pickMeta--missed {
   color: rgba(255, 235, 246, 0.48);
+}
+
+.h-bracketNode--tbd .h-bracketNode__foot {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: 5px;
+}
+
+.h-bracketNode--tbd .h-bracketNode__time {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.h-bracketNode--tbd .h-bracketNode__status--scheduled {
+  justify-self: start;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-bracketNode--match .h-bracketNode__time,
+.h-bracketNode--match .h-bracketNode__pickMeta {
+  justify-self: end;
 }
 
 .h-bracketTeam {
