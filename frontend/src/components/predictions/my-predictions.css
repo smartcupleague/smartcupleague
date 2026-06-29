@@ -1042,6 +1042,28 @@
   margin-top: 4px;
 }
 
+.mpPick__penalty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 6px auto 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 224, 80, 0.36);
+  background:
+    linear-gradient(90deg, rgba(255, 224, 80, 0.10), rgba(255, 46, 118, 0.06)),
+    rgba(0, 0, 0, 0.18);
+  color: rgba(255, 235, 158, 0.94);
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(255, 224, 80, 0.06) inset;
+}
+
 .mpPick__hint {
   font-size: 10px;
   opacity: 0.65;
@@ -1583,7 +1605,8 @@
   }
 
   .mpPick__label,
-  .mpPick__hint {
+  .mpPick__hint,
+  .mpPick__penalty {
     font-size: var(--compact-desktop-label-size, 9.5px);
     letter-spacing: 0;
   }
@@ -1592,6 +1615,11 @@
     margin-top: 2px;
     font-size: 19px;
     line-height: 1.05;
+  }
+
+  .mpPick__penalty {
+    margin-top: 5px;
+    padding: 3px 7px;
   }
 
   .mpClaim {

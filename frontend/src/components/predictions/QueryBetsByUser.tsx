@@ -1180,6 +1180,10 @@ export const QueryBetsByUserComponent: React.FC = () => {
 
                     const phaseWeight = m ? getPhaseWeight(m.phase, visiblePhases) : 1;
                     const { score: finalScore, penaltyWinner: finalPenalty } = m ? getFinalizedResult(m.result) : {};
+                    const resultText =
+                      current.tag !== 'OPEN'
+                        ? `${current.home}-${current.away}${finalPenalty ? ` · Pens ${finalPenalty}` : ''}`
+                        : 'TBD';
 
                     const eligible = matchFinal
                       ? eligibleForPayout(b.score, betPenalty, finalScore, finalPenalty, phaseWeight)
@@ -1286,15 +1290,11 @@ export const QueryBetsByUserComponent: React.FC = () => {
                               <span className="mpChip">Kickoff: {kickoff}</span>
                               <span className="mpChip">Pool: {poolHuman}</span>
                               <span className={'mpChip ' + (current.tag !== 'OPEN' ? 'mpChip--result' : '')}>
-                                Result: <b>{current.tag !== 'OPEN' ? `${current.home}-${current.away}` : 'TBD'}</b>
+                                Result: <b>{resultText}</b>
                               </span>
-
-                              {betPenalty ? <span className="mpChip">Penalty pick: {betPenalty}</span> : null}
 
                               {matchFinal ? (
                                 <>
-                                  {finalPenalty ? <span className="mpChip">Final pens: {finalPenalty}</span> : null}
-
                                   <span className={'mpChip ' + (eligible ? 'is-good' : 'is-bad')}>
                                     Eligibility:{' '}
                                     <b>{eligible ? (exactHit ? 'Eligible (exact)' : 'Eligible (outcome)') : 'Not eligible'}</b>
@@ -1320,6 +1320,7 @@ export const QueryBetsByUserComponent: React.FC = () => {
                         <div className="mpPick">
                           <div className="mpPick__label">YOUR PICK</div>
                           <div className="mpPick__score">{pickText}</div>
+                          {betPenalty ? <div className="mpPick__penalty">Pens {betPenalty}</div> : null}
                           <div className="mpPick__hint">Score / outcome</div>
                         </div>
 
