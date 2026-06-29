@@ -1717,6 +1717,10 @@ body {
   gap: 0;
 }
 
+.h-bracketFinalGroup--third {
+  transform: translateY(14px);
+}
+
 .h-bracketFinalGroup__label {
   position: absolute;
   top: -28px;
