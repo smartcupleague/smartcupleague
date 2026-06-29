@@ -1813,7 +1813,7 @@ body {
   width: 100%;
   justify-self: stretch;
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto auto minmax(0, 1fr);
   justify-content: start;
   align-items: center;
   gap: 4px 8px;
@@ -1873,9 +1873,9 @@ body {
 }
 
 .h-bracketNode__userPick {
-  grid-column: 1 / -1;
   justify-self: end;
   max-width: 100%;
+  min-width: 0;
   border-color: rgba(255, 46, 118, 0.24);
   background: rgba(255, 46, 118, 0.09);
   color: rgba(255, 190, 216, 0.96);
