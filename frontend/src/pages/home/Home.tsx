@@ -742,6 +742,14 @@ export default function Home() {
     () => new Set(activeUserBets.map((b) => String(b?.match_id ?? ''))),
     [activeUserBets]
   );
+  const userBetsByMatchId = useMemo(() => {
+    const next = new Map<string, any>();
+    for (const bet of activeUserBets) {
+      const matchId = String(bet?.match_id ?? '');
+      if (matchId) next.set(matchId, bet);
+    }
+    return next;
+  }, [activeUserBets]);
   const bracketPredictedMatchIds = useMemo(() => {
     if (!previewBracketMode) return predictedMatchIds;
     return new Set([...predictedMatchIds, '73', '78', '89', '97', '104']);
@@ -1513,6 +1521,7 @@ export default function Home() {
             <WorldCupBracket
               matches={previewBracketMatches ?? activeMatches}
               predictedMatchIds={bracketPredictedMatchIds}
+              userBetsByMatchId={previewBracketMode ? undefined : userBetsByMatchId}
               onMatchClick={(match) => navigate(matchPath(match.phase, match.match_id))}
             />
           </section>

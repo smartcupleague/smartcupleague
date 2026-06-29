@@ -1832,7 +1832,8 @@ body {
 }
 
 .h-bracketNode__status,
-.h-bracketNode__predicted {
+.h-bracketNode__predicted,
+.h-bracketNode__userPick {
   flex: 0 0 auto;
   padding: 2px 7px;
   border-radius: 999px;
@@ -1869,6 +1870,23 @@ body {
 .h-bracketNode__predicted {
   border-color: rgba(255, 46, 118, 0.22);
   color: rgba(255, 143, 184, 0.95);
+}
+
+.h-bracketNode__userPick {
+  grid-column: 1 / -1;
+  justify-self: end;
+  max-width: 100%;
+  border-color: rgba(255, 46, 118, 0.24);
+  background: rgba(255, 46, 118, 0.09);
+  color: rgba(255, 190, 216, 0.96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-bracketNode__userPick--missed {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 235, 246, 0.48);
 }
 
 .h-bracketTeam {

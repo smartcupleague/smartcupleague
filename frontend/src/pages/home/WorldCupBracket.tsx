@@ -17,6 +17,12 @@ type BracketMatch = {
   bracketSlot?: number | string;
 };
 
+type BracketUserBet = {
+  score?: { home?: number | string; away?: number | string };
+  penalty_winner?: unknown;
+  penaltyWinner?: unknown;
+};
+
 type BracketStageId = 'r32' | 'r16' | 'qf' | 'sf' | 'final' | 'third';
 type BracketSide = 'left' | 'right' | 'center';
 type BracketFeederRule = 'winner' | 'loser';
@@ -51,6 +57,7 @@ type BracketTemplateSlot = Omit<BracketSlot, 'match'>;
 type Props = {
   matches: BracketMatch[];
   predictedMatchIds: Set<string>;
+  userBetsByMatchId?: Map<string, BracketUserBet>;
   onMatchClick: (match: BracketMatch) => void;
 };
 
@@ -267,6 +274,29 @@ function getFinalizedResult(result: unknown): { score?: { home: number; away: nu
   };
 }
 
+function normalizePenaltyWinner(value: unknown): 'Home' | 'Away' | null {
+  if (!value) return null;
+  if (value === 'Home' || value === 'Away') return value;
+  if (typeof value === 'object') {
+    if ('Home' in (value as Record<string, unknown>)) return 'Home';
+    if ('Away' in (value as Record<string, unknown>)) return 'Away';
+  }
+  return null;
+}
+
+function formatUserPick(bet?: BracketUserBet) {
+  const score = bet?.score;
+  if (!score) return null;
+
+  const home = Number(score.home ?? 0);
+  const away = Number(score.away ?? 0);
+  if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+
+  const penaltyWinner = normalizePenaltyWinner(bet?.penalty_winner ?? bet?.penaltyWinner);
+  const penaltyText = penaltyWinner ? ` · Pens ${penaltyWinner}` : '';
+  return `Your pick ${home}-${away}${penaltyText}`;
+}
+
 function getWinner(match: BracketMatch): 'home' | 'away' | null {
   const { score, penaltyWinner } = getFinalizedResult(match.result);
   if (!score) return null;
@@ -395,11 +425,13 @@ function TeamRow({ team, side, match }: { team: string; side: 'home' | 'away'; m
 function MatchNode({
   slot,
   predicted,
+  userBet,
   nowMs,
   onMatchClick,
 }: {
   slot: BracketSlot;
   predicted: boolean;
+  userBet?: BracketUserBet;
   nowMs: number;
   onMatchClick: (match: BracketMatch) => void;
 }) {
@@ -423,6 +455,8 @@ function MatchNode({
 
   const status = getMatchStatus(slot.match);
   const isFinal = status === 'Final';
+  const pickLabel = formatUserPick(userBet);
+  const showNoPick = isFinal && !predicted;
 
   return (
     <button
@@ -440,6 +474,8 @@ function MatchNode({
       </span>
       <span className="h-bracketNode__foot">
         <span className="h-bracketNode__time">{formatBracketTime(Number(slot.match.kick_off))}</span>
+        {pickLabel ? <span className="h-bracketNode__userPick">{pickLabel}</span> : null}
+        {showNoPick ? <span className="h-bracketNode__userPick h-bracketNode__userPick--missed">No pick</span> : null}
         <span className={`h-bracketNode__status h-bracketNode__status--${status.toLowerCase()}`}>{status}</span>
         {predicted ? <span className="h-bracketNode__predicted">Predicted</span> : null}
       </span>
@@ -452,6 +488,7 @@ function StageColumn({
   side,
   matches,
   predictedMatchIds,
+  userBetsByMatchId,
   nowMs,
   onMatchClick,
 }: {
@@ -459,6 +496,7 @@ function StageColumn({
   side: 'left' | 'right';
   matches: BracketMatch[];
   predictedMatchIds: Set<string>;
+  userBetsByMatchId?: Map<string, BracketUserBet>;
   nowMs: number;
   onMatchClick: (match: BracketMatch) => void;
 }) {
@@ -477,6 +515,7 @@ function StageColumn({
             <MatchNode
               slot={slot}
               predicted={!!slot.match && predictedMatchIds.has(String(slot.match.match_id))}
+              userBet={slot.match ? userBetsByMatchId?.get(String(slot.match.match_id)) : undefined}
               nowMs={nowMs}
               onMatchClick={onMatchClick}
             />
@@ -490,11 +529,13 @@ function StageColumn({
 function CenterColumn({
   matches,
   predictedMatchIds,
+  userBetsByMatchId,
   nowMs,
   onMatchClick,
 }: {
   matches: BracketMatch[];
   predictedMatchIds: Set<string>;
+  userBetsByMatchId?: Map<string, BracketUserBet>;
   nowMs: number;
   onMatchClick: (match: BracketMatch) => void;
 }) {
@@ -519,6 +560,7 @@ function CenterColumn({
                 key={`center-final-${slot.key}`}
                 slot={slot}
                 predicted={!!slot.match && predictedMatchIds.has(String(slot.match.match_id))}
+                userBet={slot.match ? userBetsByMatchId?.get(String(slot.match.match_id)) : undefined}
                 nowMs={nowMs}
                 onMatchClick={onMatchClick}
               />
@@ -531,6 +573,7 @@ function CenterColumn({
                 key={`center-third-${slot.key}`}
                 slot={slot}
                 predicted={!!slot.match && predictedMatchIds.has(String(slot.match.match_id))}
+                userBet={slot.match ? userBetsByMatchId?.get(String(slot.match.match_id)) : undefined}
                 nowMs={nowMs}
                 onMatchClick={onMatchClick}
               />
@@ -542,7 +585,7 @@ function CenterColumn({
   );
 }
 
-export function WorldCupBracket({ matches, predictedMatchIds, onMatchClick }: Props) {
+export function WorldCupBracket({ matches, predictedMatchIds, userBetsByMatchId, onMatchClick }: Props) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const knockoutMatches = matches.filter((match) => getMatchStageId(match));
   const registeredCount = knockoutMatches.length;
@@ -579,11 +622,18 @@ export function WorldCupBracket({ matches, predictedMatchIds, onMatchClick }: Pr
               side="left"
               matches={matches}
               predictedMatchIds={predictedMatchIds}
+              userBetsByMatchId={userBetsByMatchId}
               nowMs={nowMs}
               onMatchClick={onMatchClick}
             />
           ))}
-          <CenterColumn matches={matches} predictedMatchIds={predictedMatchIds} nowMs={nowMs} onMatchClick={onMatchClick} />
+          <CenterColumn
+            matches={matches}
+            predictedMatchIds={predictedMatchIds}
+            userBetsByMatchId={userBetsByMatchId}
+            nowMs={nowMs}
+            onMatchClick={onMatchClick}
+          />
           {[...SIDE_STAGE_IDS].reverse().map((stageId) => (
             <StageColumn
               key={`right-${stageId}`}
@@ -591,6 +641,7 @@ export function WorldCupBracket({ matches, predictedMatchIds, onMatchClick }: Pr
               side="right"
               matches={matches}
               predictedMatchIds={predictedMatchIds}
+              userBetsByMatchId={userBetsByMatchId}
               nowMs={nowMs}
               onMatchClick={onMatchClick}
             />
