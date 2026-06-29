@@ -1921,7 +1921,21 @@ body {
 
 .h-bracketNode--match .h-bracketNode__time,
 .h-bracketNode--match .h-bracketNode__pickMeta {
-  justify-self: end;
+  width: 100%;
+  justify-self: stretch;
+  text-align: right;
+}
+
+.h-bracketNode--match .h-bracketNode__foot {
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-content: stretch;
+}
+
+.h-bracketNode--match .h-bracketNode__timeGroup {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  justify-items: end;
+  text-align: right;
 }
 
 .h-bracketTeam {
