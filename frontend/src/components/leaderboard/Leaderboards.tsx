@@ -40,6 +40,7 @@ const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const MY_LB_KEY = 'scl_my_leaderboard_v1';
 const INDEXER_URL = import.meta.env.VITE_INDEXER_GRAPHQL_URL as string | undefined;
 const INDEXER_TIMEOUT_MS = 4_000;
+const INDEXER_UPCOMING_CANDIDATE_LIMIT = 100;
 
 function isLocalLeaderboardPreview() {
   if (typeof window === 'undefined') return false;
@@ -158,6 +159,41 @@ function displayTeamName(team: string) {
 
 function isFinalizedMatch(m: LeaderboardMatch) {
   return !!((m.result as any)?.Finalized || (m.result as any)?.finalized);
+}
+
+function isFutureOpenMatch(m: LeaderboardMatch, now = Date.now()) {
+  const kickOff = kickOffToMs(Number(m.kick_off));
+  return kickOff > now && !isFinalizedMatch(m);
+}
+
+function getBetAddressCandidates(account: any, walletHex: string | null) {
+  return Array.from(new Set([
+    walletHex,
+    typeof account?.decodedAddress === 'string' ? account.decodedAddress : null,
+    typeof account?.address === 'string' ? account.address : null,
+  ].filter(Boolean))) as string[];
+}
+
+async function fetchPredictedMatchIds(svc: Service, candidates: string[]) {
+  const results = await Promise.all(
+    candidates.map(async (candidate) => {
+      try {
+        const value = await (svc as any).queryBetsByUser(candidate);
+        return Array.isArray(value) ? value : [];
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  const ids = new Set<string>();
+  for (const bets of results) {
+    for (const bet of bets) {
+      const matchId = String(bet?.match_id ?? '');
+      if (matchId) ids.add(matchId);
+    }
+  }
+  return ids;
 }
 
 type Score = { home: number; away: number };
@@ -328,7 +364,7 @@ async function fetchFromIndexer(
         bolaoMatches(
           filter: { status: { in: ["UNRESOLVED", "PROPOSED"] } }
           orderBy: KICK_OFF_ASC
-          first: 10
+          first: ${INDEXER_UPCOMING_CANDIDATE_LIMIT}
         ) {
           nodes { matchId phase home away kickOff }
         }
@@ -380,17 +416,13 @@ async function fetchFromIndexer(
     });
     const ranked = rows.map((r, idx) => ({ ...r, rank: idx + 1 }));
 
-    // Upcoming matches: filter by kickoff > now (status filter already excludes finalized/cancelled)
+    // Keep a broad candidate set; the connected user's predicted matches are removed at render time.
     const now = Date.now();
     const upcomingMatches = matchNodes
       .map(normalizeMatch)
-      .filter((m) => {
-        const n = Number(m.kick_off);
-        if (!Number.isFinite(n) || n <= 0) return false;
-        const ms = n < 10_000_000_000 ? n * 1000 : n;
-        return ms > now;
-      })
-      .slice(0, 3);
+      .filter((m) => isFutureOpenMatch(m, now))
+      .sort((a, b) => kickOffToMs(Number(a.kick_off)) - kickOffToMs(Number(b.kick_off)))
+      .slice(0, INDEXER_UPCOMING_CANDIDATE_LIMIT);
 
     return { rows: ranked, upcomingMatches };
   } finally {
@@ -478,7 +510,7 @@ export default function Leaderboards() {
       setLoading(false);
       setRows(buildPreviewRows());
       setStateMatches(previewMatches);
-      setUpcomingMatches(previewMatches.filter((match) => kickOffToMs(Number(match.kick_off)) > Date.now()));
+      setUpcomingMatches(previewMatches.filter((match) => isFutureOpenMatch(match)));
       setPredictedMatchIds(new Set(['901']));
       setPodiumFinalized(!!previewPodiumResult);
       setR32LockTime(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -504,10 +536,10 @@ export default function Leaderboards() {
       setR32LockTime(chainState?.r32_lock_time ?? null);
       setPodiumResult(normalizePodiumStanding(chainState?.podium_result ?? chainState?.podiumResult ?? null));
 
-      if (svc && myWalletHex) {
+      const betAddressCandidates = getBetAddressCandidates(account, myWalletHex);
+      if (svc && betAddressCandidates.length) {
         try {
-          const bets = (await (svc as any).queryBetsByUser(myWalletHex)) as any[];
-          setPredictedMatchIds(new Set((bets ?? []).map((b) => String(b?.match_id ?? '')).filter(Boolean)));
+          setPredictedMatchIds(await fetchPredictedMatchIds(svc, betAddressCandidates));
         } catch {
           setPredictedMatchIds(new Set());
         }
@@ -597,17 +629,12 @@ export default function Leaderboards() {
         const now = Date.now();
         const upcoming = state.matches
           .map(normalizeMatch)
-          .filter((m: any) => {
-            const ko = Number(m?.kick_off ?? 0);
-            const ms = ko < 10_000_000_000 ? ko * 1000 : ko;
-            return !isFinalizedMatch(m) && ms > now;
-          })
+          .filter((m: LeaderboardMatch) => isFutureOpenMatch(m, now))
           .sort((a: any, b: any) => {
             const aMs = kickOffToMs(Number(a.kick_off));
             const bMs = kickOffToMs(Number(b.kick_off));
             return aMs - bMs;
-          })
-          .slice(0, 3);
+          });
         setUpcomingMatches(upcoming);
       }
     } catch (e: any) {
@@ -617,7 +644,7 @@ export default function Leaderboards() {
     } finally {
       setLoading(false);
     }
-  }, [api, connectedDisplayName, isApiReady, myWalletHex, previewLeaderboard, previewPodiumResult, toast]);
+  }, [account, api, connectedDisplayName, isApiReady, myWalletHex, previewLeaderboard, previewPodiumResult, toast]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -689,10 +716,7 @@ export default function Leaderboards() {
   const selectedUpcomingMatches = useMemo(() => {
     const now = Date.now();
     const upcoming = activeTournamentMatches
-      .filter((match) => {
-        const kickOff = kickOffToMs(Number(match.kick_off));
-        return kickOff > now && !isFinalizedMatch(match);
-      })
+      .filter((match) => isFutureOpenMatch(match, now))
       .sort((a, b) => kickOffToMs(Number(a.kick_off)) - kickOffToMs(Number(b.kick_off)));
 
     const unpredicted = upcoming.filter((match) => !predictedMatchIds.has(String(match.match_id)));
