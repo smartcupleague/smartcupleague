@@ -1931,6 +1931,13 @@ body {
   justify-content: stretch;
 }
 
+.h-bracketNode--match .h-bracketNode__status,
+.h-bracketNode--match .h-bracketNode__predicted {
+  width: max-content;
+  max-width: 100%;
+  justify-self: start;
+}
+
 .h-bracketNode--match .h-bracketNode__timeGroup {
   grid-column: 1 / -1;
   justify-self: stretch;
