@@ -390,7 +390,7 @@ function mergeBetsByMatchId(lists: any[][]): any[] {
 }
 
 type SortField = 'match_id_asc' | 'match_id_desc' | 'date_asc' | 'date_desc';
-type StatusFilter = '' | 'predicted' | 'not_predicted';
+type StatusFilter = '' | 'predicted' | 'not_predicted' | 'finalized_not_predicted';
 export const MatchesTableComponent: React.FC = () => {
   const { api, isApiReady } = useApi();
   const { account } = useAccount();
@@ -623,10 +623,19 @@ export const MatchesTableComponent: React.FC = () => {
     }
 
     // Status filter
-    if (filterStatus === 'predicted') {
-      list = list.filter((m) => userBetsByMatchId.has(m.match_id));
-    } else if (filterStatus === 'not_predicted') {
-      list = list.filter((m) => !userBetsByMatchId.has(m.match_id));
+    if (filterStatus) {
+      list = list.filter((m) => {
+        const hasUserPrediction = userBetsByMatchId.has(m.match_id);
+        if (filterStatus === 'predicted') return hasUserPrediction;
+
+        const result = getResultDetails(m.result);
+        if (filterStatus === 'finalized_not_predicted') {
+          return !hasUserPrediction && result.label === 'FINAL';
+        }
+
+        const window = predictionWindow(m.kick_off);
+        return !hasUserPrediction && result.label === 'OPEN' && !window.closed;
+      });
     }
 
     // Sort
@@ -809,6 +818,7 @@ export const MatchesTableComponent: React.FC = () => {
                   { value: '', label: 'All matches' },
                   { value: 'predicted', label: 'Already predicted' },
                   { value: 'not_predicted', label: 'Needs prediction' },
+                  { value: 'finalized_not_predicted', label: 'Finalized not predicted' },
                 ]}
               />
             </label>
