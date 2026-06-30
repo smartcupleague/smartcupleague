@@ -11,6 +11,7 @@ import { u8aToHex } from "@polkadot/util";
 
 import { Program as OracleProgram, PenaltyWinner } from "./oracle";
 import { BolaoProgram } from "./bolao";
+import { resolveOnFieldResult, type MappedResult } from "./result-mapping";
 import { runPriceFeed } from "./price-feed";
 import { classifyMatch, availableActionsFor, type CaseLabel } from "./finalization-utils";
 
@@ -63,6 +64,7 @@ interface SportMatch {
   status: string;
   score: {
     winner: string | null;
+    duration: string;
     fullTime: SportScore;
     penalties: SportScore;
   };
@@ -88,6 +90,7 @@ interface WCFixture {
   awayTeam: WCTeam;
   score: {
     winner: string | null;
+    duration: string;
     fullTime: SportScore;
     halfTime: SportScore;
     penalties: SportScore;
@@ -438,28 +441,12 @@ async function fetchWCTeams(): Promise<WCTeam[]> {
 
 /**
  * Map a SportMatch to Oracle-Program inputs.
- * Returns null if the match is not finished / scores are missing.
+ * Returns null if the match is not finished / scores are missing / data is inconsistent.
+ * The on-field resolution (penalty-shootout handling, guards) lives in ./result-mapping.
  */
-function mapMatchToOracle(
-  m: SportMatch,
-): { home: number; away: number; penalty_winner: PenaltyWinner | null } | null {
+function mapMatchToOracle(m: SportMatch): MappedResult | null {
   if (m.status !== "FINISHED") return null;
-  if (m.score.fullTime.home == null || m.score.fullTime.away == null) return null;
-
-  const home = m.score.fullTime.home;
-  const away = m.score.fullTime.away;
-
-  let penalty_winner: PenaltyWinner | null = null;
-  if (
-    home === away &&
-    m.score.penalties.home != null &&
-    m.score.penalties.away != null &&
-    m.score.penalties.home !== m.score.penalties.away
-  ) {
-    penalty_winner = m.score.penalties.home > m.score.penalties.away ? "Home" : "Away";
-  }
-
-  return { home, away, penalty_winner };
+  return resolveOnFieldResult(m.score, String(m.id));
 }
 
 /* ============================================================
@@ -1204,19 +1191,16 @@ app.post("/wc/sync", async (req, res) => {
 
     const eligible: SyncEntry[] = [];
     for (const m of matches) {
-      if (m.score.fullTime.home == null || m.score.fullTime.away == null) continue;
-      const home = m.score.fullTime.home;
-      const away = m.score.fullTime.away;
-      let penalty_winner: PenaltyWinner | null = null;
-      if (
-        home === away &&
-        m.score.penalties.home != null &&
-        m.score.penalties.away != null &&
-        m.score.penalties.home !== m.score.penalties.away
-      ) {
-        penalty_winner = m.score.penalties.home > m.score.penalties.away ? "Home" : "Away";
-      }
-      eligible.push({ id: m.id, home_team: m.homeTeam.name, away_team: m.awayTeam.name, home, away, penalty_winner });
+      const mapped = resolveOnFieldResult(m.score, String(m.id));
+      if (!mapped) continue;
+      eligible.push({
+        id: m.id,
+        home_team: m.homeTeam.name,
+        away_team: m.awayTeam.name,
+        home: mapped.home,
+        away: mapped.away,
+        penalty_winner: mapped.penalty_winner,
+      });
     }
 
     if (dryRun) {
