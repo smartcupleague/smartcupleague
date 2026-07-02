@@ -22,6 +22,18 @@ const PLAK_DECIMALS = 12n;
 const PREVIEW_WALLET_ADDRESS = '0x32a06f5e0a0e5b66c3bce45d3cb90a77278d048b1c71257ad22ddac2b1a8800b';
 
 const WalletMenuViewportGuard = createGlobalStyle`
+  [class*="Modal-module_overlay"],
+  [class*="Modal-module_modal"],
+  [class*="_modal_"],
+  [class*="_overlay_"],
+  [class*="_accounts_"],
+  [class*="_account_"],
+  [class*="_list_142au"],
+  [class*="_account_142au"],
+  [class*="_footer_142au"] {
+    z-index: 10000 !important;
+  }
+
   @media (max-width: 768px) {
     [class*="Modal-module_overlay"] {
       width: 100vw !important;
