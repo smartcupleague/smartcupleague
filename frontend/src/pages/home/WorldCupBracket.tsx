@@ -459,15 +459,28 @@ function getBracketGridRow(stageId: BracketStageId, slotIndex: number) {
 }
 
 function TeamRow({ team, side, match }: { team: string; side: 'home' | 'away'; match: BracketMatch }) {
-  const { score } = getFinalizedResult(match.result);
+  const { score, penaltyWinner } = getFinalizedResult(match.result);
   const winner = getWinner(match);
   const scoreValue = score ? score[side] : null;
+  const penaltyWinnerSide = penaltyWinner === 'Home' ? 'home' : penaltyWinner === 'Away' ? 'away' : null;
+  const showPenaltyWinnerTag = !!score && score.home === score.away && penaltyWinnerSide === side;
+  const winnerTagLabel = side === 'home' ? 'H' : 'A';
+  const winnerTagTitle = side === 'home' ? 'Home advances on penalties' : 'Away advances on penalties';
 
   return (
     <span className={'h-bracketTeam' + (winner === side ? ' h-bracketTeam--winner' : '')}>
       <TeamFlag team={team} className="h-flag h-bracketTeam__flag" />
       <span className="h-bracketTeam__name">{displayTeamName(team)}</span>
-      {scoreValue !== null ? <span className="h-bracketTeam__score">{scoreValue}</span> : null}
+      {scoreValue !== null ? (
+        <span className="h-bracketTeam__scoreWrap">
+          {showPenaltyWinnerTag ? (
+            <span className="h-bracketTeam__winnerTag" title={winnerTagTitle} aria-label={winnerTagTitle}>
+              {winnerTagLabel}
+            </span>
+          ) : null}
+          <span className="h-bracketTeam__score">{scoreValue}</span>
+        </span>
+      ) : null}
     </span>
   );
 }
