@@ -308,6 +308,47 @@ function getWinner(match: BracketMatch): 'home' | 'away' | null {
   return null;
 }
 
+function normalizeTeamKey(team: string) {
+  return String(team ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getFeederTeam(match: BracketMatch | undefined, rule: BracketFeederRule = 'winner') {
+  if (!match) return null;
+  const winner = getWinner(match);
+  if (!winner) return null;
+  const teamSide = rule === 'loser' ? (winner === 'home' ? 'away' : 'home') : winner;
+  return teamSide === 'home' ? match.home : match.away;
+}
+
+function getFeederMatchup(slot: BracketSlot, allMatches: BracketMatch[]) {
+  if (!slot.feederMatchIds || slot.feederMatchIds.length !== 2) return null;
+  const feederMatches = slot.feederMatchIds.map((matchId) =>
+    allMatches.find((match) => Number(match.match_id) === matchId)
+  );
+  const teams = feederMatches.map((match) => getFeederTeam(match, slot.feederRule));
+  if (!teams[0] || !teams[1]) return null;
+  return teams as [string, string];
+}
+
+function matchFitsFeederSlot(match: BracketMatch, slot: BracketSlot, allMatches: BracketMatch[]) {
+  const matchup = getFeederMatchup(slot, allMatches);
+  if (!matchup) return false;
+
+  const expected = matchup.map(normalizeTeamKey);
+  const actual = [normalizeTeamKey(match.home), normalizeTeamKey(match.away)];
+
+  return (
+    (actual[0] === expected[0] && actual[1] === expected[1]) ||
+    (actual[0] === expected[1] && actual[1] === expected[0])
+  );
+}
+
 function getMatchStatus(match: BracketMatch) {
   const { score } = getFinalizedResult(match.result);
   if (score) return 'Final';
@@ -352,6 +393,14 @@ function getHydratedStageSlots(stageId: BracketStageId, matches: BracketMatch[])
     const explicitSlot = hydratedSlots.find((slot) => slot.side === explicitSide && slot.index === explicitIndex);
     if (!explicitSlot || explicitSlot.match) continue;
     explicitSlot.match = match;
+    placed.add(match);
+  }
+
+  for (const match of stageMatches) {
+    if (placed.has(match)) continue;
+    const feederSlot = hydratedSlots.find((slot) => !slot.match && matchFitsFeederSlot(match, slot, matches));
+    if (!feederSlot) continue;
+    feederSlot.match = match;
     placed.add(match);
   }
 

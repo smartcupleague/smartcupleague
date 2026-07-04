@@ -17,6 +17,20 @@ function finalized(home: number, away: number, penaltyWinner: 'Home' | 'Away' | 
   return { Finalized: { score: { home, away }, penalty_winner: penaltyWinner } };
 }
 
+function winnerFromResult(teams: [string, string], result: unknown): string {
+  const finalized = (result as any)?.Finalized ?? (result as any)?.finalized;
+  const score = finalized?.score;
+  if (!score) return teams[0];
+
+  const home = Number(score.home ?? 0);
+  const away = Number(score.away ?? 0);
+  if (home > away) return teams[0];
+  if (away > home) return teams[1];
+
+  const penaltyWinner = finalized?.penalty_winner ?? null;
+  return penaltyWinner === 'Away' ? teams[1] : teams[0];
+}
+
 export function normalizePreviewBracketMode(value: string | null): PreviewBracketMode | null {
   if (!value) return null;
   if (value === '1' || value === 'full') return 'full';
@@ -65,15 +79,24 @@ function buildFullPreviewWorldCupBracketMatches(): PreviewBracketMatch[] {
     ['Colombia', 'Ghana'],
   ];
 
+  const r32Results = r32Teams.map((_, index) => fallbackR32Result(index));
+  const r32WinnerByMatchId = new Map(
+    r32Teams.map((teams, index) => [73 + index, winnerFromResult(teams, r32Results[index])])
+  );
+  const fromFeeders = (homeFeederId: number, awayFeederId: number): [string, string] => [
+    r32WinnerByMatchId.get(homeFeederId) ?? `W${homeFeederId}`,
+    r32WinnerByMatchId.get(awayFeederId) ?? `W${awayFeederId}`,
+  ];
+
   const r16Teams: Array<[string, string]> = [
-    ['Germany', 'France'],
-    ['South Africa', 'Netherlands'],
-    ['Portugal', 'Spain'],
-    ['United States', 'Belgium'],
-    ['Brazil', 'Ivory Coast'],
-    ['Mexico', 'England'],
-    ['Argentina', 'Australia'],
-    ['Switzerland', 'Colombia'],
+    fromFeeders(75, 78),
+    fromFeeders(73, 76),
+    fromFeeders(84, 83),
+    fromFeeders(82, 81),
+    fromFeeders(74, 77),
+    fromFeeders(79, 80),
+    fromFeeders(87, 86),
+    fromFeeders(85, 88),
   ];
 
   const qfTeams: Array<[string, string]> = [
@@ -110,7 +133,7 @@ function buildFullPreviewWorldCupBracketMatches(): PreviewBracketMatch[] {
         'ROUND_OF_32',
         teams,
         index < 8 ? -6 + index : 2 + index,
-        index < 8 ? fallbackR32Result(index) : null
+        index < 8 ? r32Results[index] : null
       )
     ),
     ...r16Teams.map((teams, index) =>
