@@ -1922,6 +1922,11 @@ impl Service {
     }
 
     #[export]
+    pub fn query_podium_pick(&self, user: ActorId) -> Option<PodiumPick> {
+        SmartCupState::state_ref().podium_picks.get(&user).cloned()
+    }
+
+    #[export]
     pub fn contract_version_4(&self) -> u32 {
         4
     }

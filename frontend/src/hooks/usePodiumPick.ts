@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useApi } from '@gear-js/react-hooks';
 import { Program, Service } from '@/hocs/lib';
+import { toHexAddress } from '@/utils/address';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
+const PREVIEW_WALLET_ADDRESS = '0x32a06f5e0a0e5b66c3bce45d3cb90a77278d048b1c71257ad22ddac2b1a8800b';
 
 export type ChampionshipPicks = {
   champion: string;
@@ -58,22 +60,39 @@ function cachePick(wallet: string, pick: ChampionshipPicks) {
   }
 }
 
-function clearCachedPick(wallet: string) {
-  const submittedKey = podiumSubmittedStorageKey(wallet);
-  const picksKey = podiumPicksStorageKey(wallet);
+function getPreviewWalletAddress() {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('previewWallet') !== '1') return null;
+  return params.get('previewWalletAddress') ?? PREVIEW_WALLET_ADDRESS;
+}
 
-  try {
-    if (submittedKey) window.localStorage.removeItem(submittedKey);
-    if (picksKey) window.localStorage.removeItem(picksKey);
-  } catch {
-    // Local cache is best-effort; chain state remains authoritative.
+function getWalletCandidates(account: ReturnType<typeof useAccount>['account']) {
+  return Array.from(new Set([
+    toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? getPreviewWalletAddress()),
+    toHexAddress(account?.decodedAddress),
+    toHexAddress((account as any)?.address),
+    toHexAddress(getPreviewWalletAddress()),
+    account?.decodedAddress,
+    (account as any)?.address,
+    getPreviewWalletAddress(),
+  ].filter(Boolean))) as string[];
+}
+
+function readCachedPickFromCandidates(candidates: string[]) {
+  for (const candidate of candidates) {
+    const cached = readCachedPick(candidate);
+    if (cached) return cached;
   }
+  return null;
 }
 
 export function usePodiumPick() {
   const { api, isApiReady } = useApi();
   const { account } = useAccount();
-  const wallet = account?.decodedAddress;
+  const wallet = toHexAddress(account?.decodedAddress ?? (account as any)?.address ?? getPreviewWalletAddress())
+    ?? account?.decodedAddress
+    ?? getPreviewWalletAddress();
 
   const [pick, setPick] = useState<ChampionshipPicks | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,7 +105,8 @@ export function usePodiumPick() {
       return null;
     }
 
-    const cached = readCachedPick(wallet);
+    const walletCandidates = getWalletCandidates(account);
+    const cached = readCachedPickFromCandidates(walletCandidates);
     if (cached) setPick(cached);
 
     if (!api || !isApiReady || !PROGRAM_ID) {
@@ -97,15 +117,23 @@ export function usePodiumPick() {
     setIsLoading(true);
     try {
       const svc = new Service(new Program(api, PROGRAM_ID));
-      const chainPick = normalizePick(await svc.queryPodiumPick(wallet));
-      setPick(chainPick);
+      let chainPick: ChampionshipPicks | null = null;
+
+      for (const candidate of walletCandidates) {
+        try {
+          chainPick = normalizePick(await svc.queryPodiumPick(candidate));
+        } catch {
+          chainPick = null;
+        }
+        if (chainPick) break;
+      }
+
+      setPick(chainPick ?? cached);
       setError(null);
       if (chainPick) {
         cachePick(wallet, chainPick);
-      } else {
-        clearCachedPick(wallet);
       }
-      return chainPick;
+      return chainPick ?? cached;
     } catch (err) {
       setPick(cached);
       setError(err);
@@ -113,7 +141,7 @@ export function usePodiumPick() {
     } finally {
       setIsLoading(false);
     }
-  }, [api, isApiReady, wallet]);
+  }, [account, api, isApiReady, wallet]);
 
   useEffect(() => {
     void refresh();

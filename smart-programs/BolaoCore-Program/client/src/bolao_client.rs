@@ -294,6 +294,10 @@ pub mod service {
             &self,
             user: ActorId,
         ) -> sails_rs::client::PendingCall<io::QueryPendingRefund, Self::Env>;
+        fn query_podium_pick(
+            &self,
+            user: ActorId,
+        ) -> sails_rs::client::PendingCall<io::QueryPodiumPick, Self::Env>;
         fn query_state(&self) -> sails_rs::client::PendingCall<io::QueryState, Self::Env>;
         fn query_user_points(
             &self,
@@ -585,6 +589,12 @@ pub mod service {
         ) -> sails_rs::client::PendingCall<io::QueryPendingRefund, Self::Env> {
             self.pending_call((user,))
         }
+        fn query_podium_pick(
+            &self,
+            user: ActorId,
+        ) -> sails_rs::client::PendingCall<io::QueryPodiumPick, Self::Env> {
+            self.pending_call((user,))
+        }
         fn query_state(&self) -> sails_rs::client::PendingCall<io::QueryState, Self::Env> {
             self.pending_call(())
         }
@@ -649,6 +659,7 @@ pub mod service {
         sails_rs::io_struct_impl!(QueryMatch (match_id: u64) -> Option<super::Match>);
         sails_rs::io_struct_impl!(QueryMatchesByPhase (phase: String) -> Vec<super::Match>);
         sails_rs::io_struct_impl!(QueryPendingRefund (user: ActorId) -> u128);
+        sails_rs::io_struct_impl!(QueryPodiumPick (user: ActorId) -> Option<super::PodiumPick>);
         sails_rs::io_struct_impl!(QueryState () -> super::IoSmartCupState);
         sails_rs::io_struct_impl!(QueryUserPoints (user: ActorId) -> u32);
         sails_rs::io_struct_impl!(QueryWalletClaimStatus (wallet: ActorId) -> super::WalletClaimStatus);
