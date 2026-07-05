@@ -6,6 +6,8 @@ import { toHexAddress } from '@/utils/address';
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as `0x${string}`;
 const PREVIEW_WALLET_ADDRESS = '0x32a06f5e0a0e5b66c3bce45d3cb90a77278d048b1c71257ad22ddac2b1a8800b';
 const MAINNET_BOLAO_PROGRAM_ID = '0x3fec9d4b68f95917e572e03f8615b2512b8a5051d462dcacb8e4fdc97e8b4894';
+const RAFAELMACHTURA_ADDRESS = '0x3aebcf27a685b45aebbfc2e37356a64998ebc73d5fc76b00b91c8f436791375a';
+const PROMKAV998_ADDRESS = '0x063c82480466e721d9ed2a7968f3c1f2095be77353837ddfc586df3b502d7b5b';
 const SMART_PREDICTOR_01_ADDRESS = '0x3251889ab4310bd5455556f825cacc372fef6592b48c11c7b73745ccd1d0800b';
 
 export type ChampionshipPicks = {
@@ -15,6 +17,18 @@ export type ChampionshipPicks = {
 };
 
 const VERIFIED_PODIUM_PICKS: Record<string, ChampionshipPicks> = {
+  // Verified on Vara mainnet at block 34128629, 2026-06-25T21:16:09Z.
+  [`${MAINNET_BOLAO_PROGRAM_ID}:${RAFAELMACHTURA_ADDRESS}`]: {
+    champion: 'Argentina',
+    runnerUp: 'France',
+    thirdPlace: 'Brazil',
+  },
+  // Verified on Vara mainnet at block 34163347, 2026-06-27T03:03:33Z.
+  [`${MAINNET_BOLAO_PROGRAM_ID}:${PROMKAV998_ADDRESS}`]: {
+    champion: 'France',
+    runnerUp: 'Argentina',
+    thirdPlace: 'Mexico',
+  },
   // Verified on Vara mainnet at block 34178069, 2026-06-27T15:59:36Z.
   // The currently deployed BolaoCore stores this pick but does not expose QueryPodiumPick.
   [`${MAINNET_BOLAO_PROGRAM_ID}:${SMART_PREDICTOR_01_ADDRESS}`]: {
