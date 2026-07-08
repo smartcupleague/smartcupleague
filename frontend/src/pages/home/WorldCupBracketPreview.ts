@@ -101,8 +101,8 @@ function buildFullPreviewWorldCupBracketMatches(): PreviewBracketMatch[] {
 
   const qfTeams: Array<[string, string]> = [
     ['France', 'Netherlands'],
-    ['Spain', 'United States'],
-    ['Brazil', 'Argentina'],
+    ['Spain', 'Belgium'],
+    ['Norway', 'England'],
     ['Argentina', 'Colombia'],
   ];
 
