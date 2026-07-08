@@ -373,6 +373,15 @@ function getSlotIndexFromMatch(match: BracketMatch, maxSlots: number) {
   return null;
 }
 
+function getCorrectedVisualSlot(match: BracketMatch): Pick<BracketSlot, 'side' | 'index'> | null {
+  if (getMatchStageId(match) !== 'qf') return null;
+
+  const teams = [normalizeTeamKey(match.home), normalizeTeamKey(match.away)].sort().join('|');
+  if (teams === 'belgium|spain') return { side: 'left', index: 1 };
+  if (teams === 'england|norway') return { side: 'right', index: 0 };
+  return null;
+}
+
 function getHydratedStageSlots(stageId: BracketStageId, matches: BracketMatch[]): BracketSlot[] {
   const templateSlots = getTemplateStageSlots(stageId);
   const hydratedSlots: BracketSlot[] = templateSlots.map((slot) => ({ ...slot, match: null }));
@@ -386,6 +395,15 @@ function getHydratedStageSlots(stageId: BracketStageId, matches: BracketMatch[])
     });
 
   const placed = new Set<BracketMatch>();
+
+  for (const match of stageMatches) {
+    const correctedSlot = getCorrectedVisualSlot(match);
+    if (!correctedSlot) continue;
+    const visualSlot = hydratedSlots.find((slot) => slot.side === correctedSlot.side && slot.index === correctedSlot.index);
+    if (!visualSlot || visualSlot.match) continue;
+    visualSlot.match = match;
+    placed.add(match);
+  }
 
   for (const match of stageMatches) {
     const explicitSide = normalizeBracketSide(match.bracket_side ?? match.bracketSide);
