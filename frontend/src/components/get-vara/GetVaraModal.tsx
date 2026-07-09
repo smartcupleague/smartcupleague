@@ -72,13 +72,6 @@ const VARA_BUY_OPTIONS: VaraBuyOption[] = [
     body: 'Use the VARA/USDT market if you already hold USDT or prefer an exchange order book.',
   },
   {
-    name: 'MEXC',
-    href: 'https://www.mexc.com/price/VARA',
-    label: 'VARA/USDT',
-    title: 'Trade the spot pair',
-    body: 'Another exchange route for users who already fund with stablecoins.',
-  },
-  {
     name: 'Crypto.com',
     href: 'https://crypto.com/price/vara-network',
     label: 'US app',
