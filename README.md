@@ -29,7 +29,7 @@ SmartCup League is a decentralized application (dApp) where users:
 
 1. **Connect a Polkadot wallet** (SubWallet) and deposit VARA tokens.
 2. **Place score predictions** on football matches before kick-off.
-3. **Earn match rewards** via a pari-mutuel pool — winners split 75% of each match pool.
+3. **Earn match rewards** via a pari-mutuel pool — winners split 85% of each match entry pool.
 4. **Accumulate leaderboard points** across the entire tournament (weighted by phase).
 5. **Compete for the Final Prize Pool** — funded by 10% of every entry + unclaimed balances.
 
@@ -143,8 +143,8 @@ Main prediction market contract. Handles the full tournament lifecycle.
 
 | Destination | Share |
 |---|---|
-| Match Winner Pool | 75% |
-| Season Final Prize Pool | 20% |
+| Match Winner Pool | 85% |
+| Season Final Prize Pool | 10% |
 | DAO Treasury | 5% |
 
 **Final Prize Pool distribution:**
