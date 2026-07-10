@@ -253,6 +253,12 @@ function getPlaceholderLabel(slot: BracketSlot) {
   return slot.feederMatchIds.map((matchId) => `${prefix}${matchId}`).join(' vs ');
 }
 
+function isCancelledResult(result: unknown): boolean {
+  if (result === 'Cancelled' || result === 'cancelled') return true;
+  return typeof result === 'object' && result !== null
+    && ((result as any).Cancelled !== undefined || (result as any).cancelled !== undefined);
+}
+
 function getFinalizedResult(result: unknown): { score?: { home: number; away: number }; penaltyWinner: 'Home' | 'Away' | null } {
   const finalized = (result as any)?.Finalized ?? (result as any)?.finalized;
   const score = finalized?.score;
@@ -350,6 +356,7 @@ function matchFitsFeederSlot(match: BracketMatch, slot: BracketSlot, allMatches:
 }
 
 function getMatchStatus(match: BracketMatch) {
+  if (isCancelledResult(match.result)) return 'Cancelled';
   const { score } = getFinalizedResult(match.result);
   if (score) return 'Final';
   const kickoff = kickOffToMs(Number(match.kick_off));

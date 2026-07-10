@@ -25,6 +25,7 @@ export type MappedResult = { home: number; away: number; penalty_winner: Penalty
 export function resolveOnFieldResult(
   score: { duration?: string; fullTime: ScoreSide; penalties: ScoreSide },
   ctx = "",
+  knockout = false,
 ): MappedResult | null {
   const tag = ctx ? ` match ${ctx}` : "";
   const { duration, fullTime, penalties } = score;
@@ -37,6 +38,17 @@ export function resolveOnFieldResult(
 
   // REGULAR / EXTRA_TIME: fullTime already holds the on-field result, no shootout.
   if (duration === "REGULAR" || duration === "EXTRA_TIME") {
+    // A knockout match cannot truly end level: a drawn on-field score here means the
+    // shootout data has not loaded yet. Feeding {draw, penalty_winner:null} would create a
+    // BolaoCore proposal that can never be finalized (finalize panics on a knockout draw
+    // without a penalty winner). Abstain so it surfaces in /bolao/pending-finalization and
+    // is retried once the API reports PENALTY_SHOOTOUT.
+    if (knockout && fullTime.home === fullTime.away) {
+      console.warn(
+        `[feed]${tag} skipped: knockout draw ${fullTime.home}-${fullTime.away} without penalties (duration="${duration}") — abstaining, awaiting shootout data`,
+      );
+      return null;
+    }
     return { home: fullTime.home, away: fullTime.away, penalty_winner: null };
   }
 

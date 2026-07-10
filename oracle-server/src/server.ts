@@ -12,6 +12,7 @@ import { u8aToHex } from "@polkadot/util";
 import { Program as OracleProgram, PenaltyWinner } from "./oracle";
 import { BolaoProgram } from "./bolao";
 import { resolveOnFieldResult, type MappedResult } from "./result-mapping";
+import { requireAdminToken } from "./auth";
 import { runPriceFeed } from "./price-feed";
 import { classifyMatch, availableActionsFor, type CaseLabel } from "./finalization-utils";
 
@@ -62,6 +63,10 @@ interface SportScore {
 interface SportMatch {
   id: number;
   status: string;
+  // football-data.org returns the competition stage (e.g. GROUP_STAGE, LAST_16,
+  // QUARTER_FINALS) on the single-match payload. Used to detect knockout matches so the
+  // feeder abstains on a drawn knockout score with no shootout data yet.
+  stage?: string;
   score: {
     winner: string | null;
     duration: string;
@@ -440,13 +445,31 @@ async function fetchWCTeams(): Promise<WCTeam[]> {
 }
 
 /**
+ * football-data.org stages that are single-elimination knockouts. A drawn on-field
+ * score in these stages means a shootout is pending, so the feeder must abstain until
+ * the penalty winner is known (see resolveOnFieldResult).
+ */
+const KNOCKOUT_STAGES = new Set([
+  "LAST_32",
+  "LAST_16",
+  "QUARTER_FINALS",
+  "SEMI_FINALS",
+  "THIRD_PLACE",
+  "FINAL",
+]);
+
+function isKnockoutStage(stage?: string): boolean {
+  return KNOCKOUT_STAGES.has((stage ?? "").toUpperCase());
+}
+
+/**
  * Map a SportMatch to Oracle-Program inputs.
  * Returns null if the match is not finished / scores are missing / data is inconsistent.
  * The on-field resolution (penalty-shootout handling, guards) lives in ./result-mapping.
  */
 function mapMatchToOracle(m: SportMatch): MappedResult | null {
   if (m.status !== "FINISHED") return null;
-  return resolveOnFieldResult(m.score, String(m.id));
+  return resolveOnFieldResult(m.score, String(m.id), isKnockoutStage(m.stage));
 }
 
 /* ============================================================
@@ -560,6 +583,21 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "2mb" }));
+
+/**
+ * Admin token gate for ALL mutating requests. Every POST/PUT/DELETE/PATCH is an
+ * admin/operator write (betting happens client→contract, never through this server),
+ * so guarding by method protects current and future write endpoints in one place and
+ * cannot be forgotten per-route. Read methods (GET/HEAD/OPTIONS) stay open.
+ */
+app.use((req, res, next) => {
+  const method = req.method.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+    next();
+    return;
+  }
+  requireAdminToken(req, res, next);
+});
 
 /* ============================================================
    HEALTH
@@ -1191,7 +1229,7 @@ app.post("/wc/sync", async (req, res) => {
 
     const eligible: SyncEntry[] = [];
     for (const m of matches) {
-      const mapped = resolveOnFieldResult(m.score, String(m.id));
+      const mapped = resolveOnFieldResult(m.score, String(m.id), isKnockoutStage(m.stage));
       if (!mapped) continue;
       eligible.push({
         id: m.id,
@@ -1357,6 +1395,58 @@ app.post("/bolao/cancel-proposed-result", async (req, res) => {
     return res.json({ ok: true, match_id: Number(matchId), result });
   } catch (e: any) {
     console.error("[/bolao/cancel-proposed-result]", e?.stack ?? e);
+    return res.status(400).json({ ok: false, error: e?.message });
+  }
+});
+
+/**
+ * POST /bolao/cancel-match
+ * Body: { match_id: number }
+ * Admin-only (token + GATEWAY_SEED admin role). Voids a match (Unresolved/Proposed →
+ * Cancelled): accrues per-bettor refunds in pending_refunds and returns freebet
+ * principal to the ledger. Terminal. Targets BolaoCore ONLY — the Oracle result is
+ * left untouched (so the auto-feeder keeps skipping it). Verify the outcome on-chain
+ * by RPC; HTTP ok does not prove the extrinsic landed.
+ */
+app.post("/bolao/cancel-match", async (req, res) => {
+  try {
+    const matchId = asMatchId(req.body?.match_id, "match_id");
+
+    const api = await getApi();
+    const signer = getGatewaySigner();
+    const bolao = getBolao(api);
+
+    const tx = bolao.service.cancelMatch(matchId);
+    const result = await sendTx(tx, signer, `cancelMatch:${matchId}`);
+
+    return res.json({ ok: true, match_id: Number(matchId), result });
+  } catch (e: any) {
+    console.error("[/bolao/cancel-match]", e?.stack ?? e);
+    return res.status(400).json({ ok: false, error: e?.message });
+  }
+});
+
+/**
+ * POST /bolao/push-refund
+ * Body: { user: string (ss58 or 0x hex) }
+ * Admin-only (token + GATEWAY_SEED admin role). Sends a user's pending refund to their
+ * wallet on their behalf so they do not have to sign claim_refund. Panics on-chain if
+ * the user has no pending refund. Verify on-chain by RPC.
+ */
+app.post("/bolao/push-refund", async (req, res) => {
+  try {
+    const user = asActorId(req.body?.user, "user");
+
+    const api = await getApi();
+    const signer = getGatewaySigner();
+    const bolao = getBolao(api);
+
+    const tx = bolao.service.adminPushRefund(user);
+    const result = await sendTx(tx, signer, `adminPushRefund:${user}`);
+
+    return res.json({ ok: true, user, result });
+  } catch (e: any) {
+    console.error("[/bolao/push-refund]", e?.stack ?? e);
     return res.status(400).json({ ok: false, error: e?.message });
   }
 });

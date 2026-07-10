@@ -203,13 +203,22 @@ function isFinalizedResult(result: any): boolean {
   return !!(result?.Finalized || result?.finalized);
 }
 
+function isCancelledResult(result: any): boolean {
+  if (result === 'Cancelled' || result === 'cancelled') return true;
+  return !!(result?.Cancelled !== undefined || result?.cancelled !== undefined);
+}
+
 function getResultDetails(result: any): {
   home: number;
   away: number;
-  tag: 'OPEN' | 'LIVE' | 'FINAL';
+  tag: 'OPEN' | 'LIVE' | 'FINAL' | 'CANCELLED';
   penaltyWinner: any | null;
 } {
   if (!result) return { home: 0, away: 0, tag: 'OPEN', penaltyWinner: null };
+
+  if (isCancelledResult(result)) {
+    return { home: 0, away: 0, tag: 'CANCELLED', penaltyWinner: null };
+  }
 
   if (result.Finalized?.score) {
     const s = result.Finalized.score;
@@ -262,6 +271,7 @@ function statusLabel(result: any) {
   const r = getResultDetails(result);
   if (r.tag === 'OPEN') return 'Open';
   if (r.tag === 'LIVE') return `Live (${r.home}-${r.away})`;
+  if (r.tag === 'CANCELLED') return 'Cancelled — refund available';
   return `Final (${r.home}-${r.away})`;
 }
 
@@ -1329,6 +1339,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }
 
   const poolVara = formatVaraFromPlanckFixed(totalPoolPlanck(match));
+  const isCancelled = chainResult.tag === 'CANCELLED';
   const topScoreHome = isFinalized ? chainResult.home : shownScore.home;
   const topScoreAway = isFinalized ? chainResult.away : shownScore.away;
   const displayedPredictionScore = hasExistingBet && userBetScore ? userBetScore : selectedScore;
@@ -1358,9 +1369,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
 
         <div className="mcx__midScore">
-          <div className="mcx__bigN">{topScoreHome}</div>
-          <div className="mcx__vs">VS</div>
-          <div className="mcx__bigN">{topScoreAway}</div>
+          <div className="mcx__bigN">{isCancelled ? '—' : topScoreHome}</div>
+          <div className="mcx__vs">{isCancelled ? 'CANCELLED' : 'VS'}</div>
+          <div className="mcx__bigN">{isCancelled ? '—' : topScoreAway}</div>
         </div>
 
         <div className="mcx__side">

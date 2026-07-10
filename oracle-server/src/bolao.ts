@@ -10,7 +10,8 @@ export type PenaltyWinner = 'Home' | 'Away';
 export type ResultStatus =
   | 'Unresolved'
   | { proposed: { score: Score; penalty_winner: PenaltyWinner | null; oracle: ActorId; proposed_at: number } }
-  | { finalized: { score: Score; penalty_winner: PenaltyWinner | null } };
+  | { finalized: { score: Score; penalty_winner: PenaltyWinner | null } }
+  | 'Cancelled';
 
 export interface Match {
   match_id: number;
@@ -59,6 +60,7 @@ export class BolaoProgram {
           Unresolved: 'Null',
           Proposed: '{"score":"Score","penalty_winner":"Option<PenaltyWinner>","oracle":"[u8;32]","proposed_at":"u64"}',
           Finalized: '{"score":"Score","penalty_winner":"Option<PenaltyWinner>"}',
+          Cancelled: 'Null',
         },
       },
       Match: {
@@ -351,6 +353,41 @@ export class BolaoService {
       'send_message',
       ['Service', 'SweepMatchDustToFinalPrize', match_id],
       '(String, String, u64)',
+      'Null',
+      this._program.programId,
+    );
+  }
+
+  /**
+   * Cancels a match (admin-only on-chain). Valid from Unresolved or Proposed.
+   * Marks the match Cancelled, accrues per-bettor refunds in pending_refunds,
+   * and returns freebet principal to the ledger. Terminal — no transition out.
+   */
+  public cancelMatch(match_id: number | string | bigint): TransactionBuilder<null> {
+    if (!this._program.programId) throw new Error('Program ID is not set');
+    return new TransactionBuilder<null>(
+      this._program.api,
+      this._program.registry,
+      'send_message',
+      ['Service', 'CancelMatch', match_id],
+      '(String, String, u64)',
+      'Null',
+      this._program.programId,
+    );
+  }
+
+  /**
+   * Admin pushes a user's pending refund to their wallet on their behalf
+   * (admin-only on-chain), so the user does not have to sign claim_refund.
+   */
+  public adminPushRefund(user: string): TransactionBuilder<null> {
+    if (!this._program.programId) throw new Error('Program ID is not set');
+    return new TransactionBuilder<null>(
+      this._program.api,
+      this._program.registry,
+      'send_message',
+      ['Service', 'AdminPushRefund', user],
+      '(String, String, [u8;32])',
       'Null',
       this._program.programId,
     );

@@ -85,3 +85,34 @@ describe('resolveOnFieldResult — guards (abstain → null)', () => {
       .toBeNull();
   });
 });
+
+describe('resolveOnFieldResult — knockout draw without penalties (abstain)', () => {
+  // A knockout match cannot truly end level: a REGULAR/EXTRA_TIME draw means the
+  // shootout data has not loaded yet. Feeding {draw, null} would create a BolaoCore
+  // proposal that can never be finalized, so the feeder must abstain (return null).
+  it('knockout REGULAR 0-0 draw → null (abstains, awaits shootout)', () => {
+    expect(resolveOnFieldResult({ duration: 'REGULAR', fullTime: ft(0, 0), penalties: pen(null, null) }, 'm96', true))
+      .toBeNull();
+    expect(warnSpy).toHaveBeenCalledOnce();
+  });
+
+  it('knockout EXTRA_TIME 1-1 draw → null (abstains)', () => {
+    expect(resolveOnFieldResult({ duration: 'EXTRA_TIME', fullTime: ft(1, 1), penalties: pen(0, 0) }, 'm', true))
+      .toBeNull();
+  });
+
+  it('knockout REGULAR with a decisive score (2-1) is unaffected', () => {
+    expect(resolveOnFieldResult({ duration: 'REGULAR', fullTime: ft(2, 1), penalties: pen(null, null) }, 'm', true))
+      .toEqual({ home: 2, away: 1, penalty_winner: null });
+  });
+
+  it('knockout PENALTY_SHOOTOUT still resolves the winner (0-0, pens 4-3 → 0-0 Home)', () => {
+    expect(resolveOnFieldResult({ duration: 'PENALTY_SHOOTOUT', fullTime: ft(4, 3), penalties: pen(4, 3) }, 'm', true))
+      .toEqual({ home: 0, away: 0, penalty_winner: 'Home' });
+  });
+
+  it('NON-knockout (group) 0-0 draw is kept as a valid draw, not abstained', () => {
+    expect(resolveOnFieldResult({ duration: 'REGULAR', fullTime: ft(0, 0), penalties: pen(null, null) }, 'm', false))
+      .toEqual({ home: 0, away: 0, penalty_winner: null });
+  });
+});
