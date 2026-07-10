@@ -584,20 +584,12 @@ app.use(
 );
 app.use(express.json({ limit: "2mb" }));
 
-/**
- * Admin token gate for ALL mutating requests. Every POST/PUT/DELETE/PATCH is an
- * admin/operator write (betting happens client→contract, never through this server),
- * so guarding by method protects current and future write endpoints in one place and
- * cannot be forgotten per-route. Read methods (GET/HEAD/OPTIONS) stay open.
- */
-app.use((req, res, next) => {
-  const method = req.method.toUpperCase();
-  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
-    next();
-    return;
-  }
-  requireAdminToken(req, res, next);
-});
+// NOTE: admin auth is currently applied per-route (only the new cancel-match and
+// push-refund endpoints require x-admin-token). A global mutating-method guard was
+// intentionally NOT used because the Gmail-gated admin UI calls the pre-existing write
+// endpoints (finalize-result, propose-from-oracle, etc.) without a token, and a global
+// guard locked it out. Properly securing ALL admin writes is tracked as tech debt:
+// migrate to server-side Google ID-token (JWT) verification the admin UI can satisfy.
 
 /* ============================================================
    HEALTH
@@ -1408,7 +1400,7 @@ app.post("/bolao/cancel-proposed-result", async (req, res) => {
  * left untouched (so the auto-feeder keeps skipping it). Verify the outcome on-chain
  * by RPC; HTTP ok does not prove the extrinsic landed.
  */
-app.post("/bolao/cancel-match", async (req, res) => {
+app.post("/bolao/cancel-match", requireAdminToken, async (req, res) => {
   try {
     const matchId = asMatchId(req.body?.match_id, "match_id");
 
@@ -1433,7 +1425,7 @@ app.post("/bolao/cancel-match", async (req, res) => {
  * wallet on their behalf so they do not have to sign claim_refund. Panics on-chain if
  * the user has no pending refund. Verify on-chain by RPC.
  */
-app.post("/bolao/push-refund", async (req, res) => {
+app.post("/bolao/push-refund", requireAdminToken, async (req, res) => {
   try {
     const user = asActorId(req.body?.user, "user");
 
