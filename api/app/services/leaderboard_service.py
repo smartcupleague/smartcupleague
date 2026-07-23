@@ -24,6 +24,17 @@ def _safe_str(val) -> str:
     return str(int(val))
 
 
+def _max_amount(*values) -> str:
+    """Return the largest valid planck amount without losing integer precision."""
+    parsed: list[int] = []
+    for value in values:
+        try:
+            parsed.append(int(value or 0))
+        except (TypeError, ValueError):
+            continue
+    return str(max(parsed, default=0))
+
+
 def _derive_match_pool_amount(amount_planck: str) -> str:
     try:
         amount = int(amount_planck or "0")
@@ -106,6 +117,9 @@ class LeaderboardService:
                         exact_count=int(row.get("exact_count") or 0),
                         outcome_count=int(row.get("outcome_count") or 0),
                         total_claimed_planck=_safe_str(row.get("total_claimed_planck")),
+                        final_prize_claimed_planck=_safe_str(
+                            row.get("final_prize_claimed_planck")
+                        ),
                         updated_at=row.get("updated_at"),
                     )
                 )
@@ -126,6 +140,7 @@ class LeaderboardService:
               exactCount
               outcomeCount
               totalClaimedRaw
+              finalPrizeClaimedRaw
               updatedAt
             }
           }
@@ -163,8 +178,13 @@ class LeaderboardService:
             )
             existing["exact_count"] = int(node.get("exactCount") or 0)
             existing["outcome_count"] = int(node.get("outcomeCount") or 0)
-            existing["total_claimed_planck"] = _safe_str(
-                existing.get("total_claimed_planck") or node.get("totalClaimedRaw")
+            existing["total_claimed_planck"] = _max_amount(
+                existing.get("total_claimed_planck"),
+                node.get("totalClaimedRaw"),
+            )
+            existing["final_prize_claimed_planck"] = _max_amount(
+                existing.get("final_prize_claimed_planck"),
+                node.get("finalPrizeClaimedRaw"),
             )
             existing["updated_at"] = existing.get("updated_at") or node.get("updatedAt")
             by_wallet[wallet] = existing

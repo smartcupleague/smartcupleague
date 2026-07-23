@@ -55,6 +55,7 @@ class LeaderboardEntry(BaseModel):
     exact_count: int
     outcome_count: int
     total_claimed_planck: str  # Large integer as string to avoid float precision loss
+    final_prize_claimed_planck: str = "0"
     updated_at: Optional[datetime] = None
 
 

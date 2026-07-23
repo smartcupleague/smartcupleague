@@ -96,6 +96,7 @@ type FinalPrizeClaimStatus = {
   final_prize_finalized: boolean;
   eligible: boolean;
   amount_claimable: string;
+  allocation_amount: string;
   already_claimed: boolean;
   points: number;
 };
@@ -107,6 +108,7 @@ type ApiLeaderboardRow = {
   exact_count: number;
   outcome_count?: number;
   total_claimed_planck: string;
+  final_prize_claimed_planck?: string;
 };
 
 type Score = { home: number; away: number };
@@ -300,6 +302,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [userBets, setUserBets] = useState<any[]>([]);
   const [claimStatus, setClaimStatus] = useState<FinalPrizeClaimStatus | null>(null);
+  const [finalizedPrizePoolHighWaterBn, setFinalizedPrizePoolHighWaterBn] = useState(0n);
   const [claimLoading, setClaimLoading] = useState(false);
   const [apiLeaderboardRow, setApiLeaderboardRow] = useState<ApiLeaderboardRow | null>(null);
   const [apiLeaderboardRows, setApiLeaderboardRows] = useState<ApiLeaderboardRow[]>([]);
@@ -406,13 +409,26 @@ export default function Home() {
       const svc = new CoreService(coreProgram);
       const status = (await (svc as any).queryFinalPrizeClaimStatus(account.decodedAddress)) as any;
 
-      setClaimStatus({
-        wallet: String(status?.wallet ?? ''),
-        final_prize_finalized: Boolean(status?.final_prize_finalized),
-        eligible: Boolean(status?.eligible),
-        amount_claimable: status?.amount_claimable?.toString?.() ?? '0',
-        already_claimed: Boolean(status?.already_claimed),
-        points: Number(status?.points ?? 0),
+      setClaimStatus((previous) => {
+        const wallet = String(status?.wallet ?? '');
+        const amountClaimable = status?.amount_claimable?.toString?.() ?? '0';
+        const previousAllocation =
+          addressKey(previous?.wallet ?? '') === addressKey(wallet)
+            ? safeBigInt(previous?.allocation_amount ?? 0)
+            : 0n;
+        const currentAllocation = safeBigInt(amountClaimable);
+
+        return {
+          wallet,
+          final_prize_finalized: Boolean(status?.final_prize_finalized),
+          eligible: Boolean(status?.eligible),
+          amount_claimable: amountClaimable,
+          allocation_amount: (
+            currentAllocation > previousAllocation ? currentAllocation : previousAllocation
+          ).toString(),
+          already_claimed: Boolean(status?.already_claimed),
+          points: Number(status?.points ?? 0),
+        };
       });
     } catch (e) {
       console.error(e);
@@ -692,7 +708,19 @@ export default function Home() {
   const poolsInfo = useMemo(() => {
     const matches = activeMatches;
     const allPoolsBn = matches.length ? sumAllMatchPools(matches) : 0n;
-    const finalPrizeBn = safeBigInt(coreState?.final_prize_accumulated ?? 0);
+    const finalPrizeAccumulatedBn = safeBigInt(coreState?.final_prize_accumulated ?? 0);
+    const finalPrizeClaimableBn = safeBigInt(coreState?.final_prize_claimable_total ?? 0);
+    const finalPrizeClaimedBn = apiLeaderboardRows.reduce(
+      (total, row) => total + safeBigInt(row.final_prize_claimed_planck ?? 0),
+      0n,
+    );
+    const observedFinalPrizeBn = coreState?.final_prize_finalized
+      ? finalPrizeClaimableBn + finalPrizeClaimedBn
+      : finalPrizeAccumulatedBn;
+    const finalPrizeBn =
+      observedFinalPrizeBn > finalizedPrizePoolHighWaterBn
+        ? observedFinalPrizeBn
+        : finalizedPrizePoolHighWaterBn;
     const feeBn = safeBigInt(coreState?.protocol_fee_accumulated ?? 0);
     const withBets = matches.filter((m) => m.has_bets).length;
     const totalPredictions = matches.reduce((acc, m) => acc + (m.participants?.length ?? 0), 0);
@@ -705,7 +733,21 @@ export default function Home() {
       totalMatches: matches.length,
       totalPredictions,
     };
-  }, [activeMatches, coreState]);
+  }, [activeMatches, apiLeaderboardRows, coreState, finalizedPrizePoolHighWaterBn]);
+
+  useEffect(() => {
+    if (!coreState?.final_prize_finalized) {
+      setFinalizedPrizePoolHighWaterBn(0n);
+      return;
+    }
+
+    const claimedBn = apiLeaderboardRows.reduce(
+      (total, row) => total + safeBigInt(row.final_prize_claimed_planck ?? 0),
+      0n,
+    );
+    const observedBn = safeBigInt(coreState.final_prize_claimable_total) + claimedBn;
+    setFinalizedPrizePoolHighWaterBn((previous) => observedBn > previous ? observedBn : previous);
+  }, [apiLeaderboardRows, coreState]);
 
   const finalizedMatches = useMemo(() => {
     return activeMatches
@@ -851,7 +893,12 @@ export default function Home() {
     }
 
     const backendClaimedBn = safeBigInt(apiLeaderboardRow?.total_claimed_planck ?? 0);
-    const totalEarnedBn = backendClaimedBn > deterministicEarnedBn ? backendClaimedBn : deterministicEarnedBn;
+    const matchEarnedBn = backendClaimedBn > deterministicEarnedBn ? backendClaimedBn : deterministicEarnedBn;
+    const allocatedFinalPrizeBn = safeBigInt(claimStatus?.allocation_amount ?? 0);
+    const claimedFinalPrizeBn = safeBigInt(apiLeaderboardRow?.final_prize_claimed_planck ?? 0);
+    const finalPrizeEarnedBn =
+      allocatedFinalPrizeBn > claimedFinalPrizeBn ? allocatedFinalPrizeBn : claimedFinalPrizeBn;
+    const totalEarnedBn = matchEarnedBn + finalPrizeEarnedBn;
     const netResultBn = totalEarnedBn - settledStakedBn;
     const netPerformancePct =
       settledStakedBn > 0n
@@ -859,7 +906,7 @@ export default function Home() {
         : null;
 
     return { totalStakedBn, settledStakedBn, pendingStakedBn, totalEarnedBn, netResultBn, netPerformancePct };
-  }, [account, activeUserBets, activeMatches, apiLeaderboardRow]);
+  }, [account, activeUserBets, activeMatches, apiLeaderboardRow, claimStatus]);
 
   const totalStakedText = useMemo(() => {
     if (!account) return '—';
@@ -1075,7 +1122,7 @@ export default function Home() {
       await response();
       toast.success('Prize claimed successfully');
 
-      await Promise.all([fetchCoreState(), fetchFinalPrizeClaimStatus()]);
+      await Promise.all([fetchCoreState(), fetchFinalPrizeClaimStatus(), fetchApiLeaderboardRow()]);
     } catch (e) {
       console.error(e);
       toast.error('Failed to claim prize');
@@ -1092,6 +1139,7 @@ export default function Home() {
     claimablePrizeBn,
     fetchCoreState,
     fetchFinalPrizeClaimStatus,
+    fetchApiLeaderboardRow,
     ensureVoucher,
     invalidateVoucher,
   ]);
