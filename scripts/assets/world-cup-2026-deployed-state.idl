@@ -1,0 +1,103 @@
+// Read-only IDL snapshot for the BolaoCore code deployed for World Cup 2026.
+//
+// The repository's current BolaoCore IDL has evolved beyond the deployed
+// program. In particular, the deployed IoSmartCupState does not contain
+// `podium_result`, while it does contain `freebet_ledger_program_id`.
+// Keep this snapshot immutable so the historical audit remains reproducible.
+
+type Score = struct {
+  home: u8,
+  away: u8,
+};
+
+type PenaltyWinner = enum {
+  Home,
+  Away,
+};
+
+type ResultStatus = enum {
+  Unresolved,
+  Proposed: struct {
+    score: Score,
+    penalty_winner: opt PenaltyWinner,
+    oracle: actor_id,
+    proposed_at: u64,
+  },
+  Finalized: struct {
+    score: Score,
+    penalty_winner: opt PenaltyWinner,
+  },
+  Cancelled,
+};
+
+type Match = struct {
+  match_id: u64,
+  phase: str,
+  home: str,
+  away: str,
+  kick_off: u64,
+  result: ResultStatus,
+  match_prize_pool: u128,
+  has_bets: bool,
+  participants: vec actor_id,
+  total_winner_stake: u128,
+  total_claimed: u128,
+  settlement_prepared: bool,
+  dust_swept: bool,
+  finalized_at: opt u64,
+};
+
+type PhaseConfig = struct {
+  name: str,
+  start_time: u64,
+  end_time: u64,
+  points_weight: u32,
+};
+
+type UserBetView = struct {
+  match_id: u64,
+  score: Score,
+  penalty_winner: opt PenaltyWinner,
+  stake_in_match_pool: u128,
+  freebet_principal: u128,
+  claimed: bool,
+};
+
+type FinalPrizeClaimStatus = struct {
+  wallet: actor_id,
+  final_prize_finalized: bool,
+  eligible: bool,
+  amount_claimable: u128,
+  already_claimed: bool,
+  points: u32,
+};
+
+type IoSmartCupState = struct {
+  admins: vec actor_id,
+  operators: vec actor_id,
+  treasury: actor_id,
+  protocol_fee_accumulated: u128,
+  final_prize_accumulated: u128,
+  matches: vec Match,
+  phases: vec PhaseConfig,
+  user_points: vec struct { actor_id, u32 },
+  podium_finalized: bool,
+  r32_lock_time: opt u64,
+  final_prize_finalized: bool,
+  final_prize_claimable_total: u128,
+  final_prize_rounding_dust: u128,
+  vara_price_usd_micro: u64,
+  price_cached_at: u64,
+  price_staleness_limit_ms: u64,
+  freebet_ledger_program_id: opt actor_id,
+};
+
+constructor {
+  New : (admin: actor_id, treasury: actor_id);
+};
+
+service Service {
+  query QueryBetsByUser : (user: actor_id) -> vec UserBetView;
+  query QueryFinalPrizeClaimStatus : (wallet: actor_id) -> FinalPrizeClaimStatus;
+  query QueryState : () -> IoSmartCupState;
+};

@@ -18,6 +18,10 @@ import { WORLD_CUP_TEAM_LABELS } from '@/utils/teams';
 import { WorldCupBracket } from './WorldCupBracket';
 import { buildPreviewWorldCupBracketMatches, normalizePreviewBracketMode } from './WorldCupBracketPreview';
 import {
+  getWorldCup2026Results,
+  getWorldCup2026WalletResult,
+} from '@/data/worldCup2026Results';
+import {
   getPodiumCorrectCount,
   getPodiumEarnedPoints,
   getChampionshipPickLockMs,
@@ -45,6 +49,7 @@ const DAO_PROGRAM_ID = import.meta.env.VITE_DAOPROGRAM as string;
 
 const VARA_DECIMALS = 12;
 const CHAMPIONSHIP_PICK_PREDICTIONS = 3;
+const WORLD_CUP_RESULTS = getWorldCup2026Results(CORE_PROGRAM_ID);
 
 type CoreMatch = {
   match_id: number | string;
@@ -297,6 +302,23 @@ export default function Home() {
     const addr = account?.decodedAddress ?? (account as any)?.address ?? null;
     return toHexAddress(addr);
   }, [account]);
+  const archivedWalletResult = useMemo(
+    () => getWorldCup2026WalletResult(CORE_PROGRAM_ID, myWalletHex),
+    [myWalletHex],
+  );
+  const archivedClaimStatus = useMemo<FinalPrizeClaimStatus | null>(() => {
+    if (!myWalletHex || !archivedWalletResult) return null;
+    const allocation = archivedWalletResult.finalPrizeAllocationPlanck;
+    return {
+      wallet: myWalletHex,
+      final_prize_finalized: true,
+      eligible: safeBigInt(allocation) > 0n,
+      amount_claimable: archivedWalletResult.finalPrizeAmountClaimablePlanck,
+      allocation_amount: allocation,
+      already_claimed: archivedWalletResult.finalPrizeClaimed,
+      points: archivedWalletResult.points,
+    };
+  }, [archivedWalletResult, myWalletHex]);
 
   const [coreState, setCoreState] = useState<CoreState | null>(null);
   const [daoProposals, setDaoProposals] = useState<DaoProposal[]>([]);
@@ -308,6 +330,10 @@ export default function Home() {
   const [apiLeaderboardRow, setApiLeaderboardRow] = useState<ApiLeaderboardRow | null>(null);
   const [apiLeaderboardRows, setApiLeaderboardRows] = useState<ApiLeaderboardRow[]>([]);
   const [derivedAccuracyByWallet, setDerivedAccuracyByWallet] = useState<Map<string, AccuracyStats>>(new Map());
+
+  useEffect(() => {
+    setClaimStatus(archivedClaimStatus);
+  }, [archivedClaimStatus]);
 
   useEffect(() => {
     void (async () => {
@@ -401,8 +427,12 @@ export default function Home() {
   }, [coreProgram, myWalletHex]);
 
   const fetchFinalPrizeClaimStatus = useCallback(async () => {
-    if (!coreProgram || !account) {
+    if (!account) {
       setClaimStatus(null);
+      return;
+    }
+    if (!coreProgram) {
+      setClaimStatus(archivedClaimStatus);
       return;
     }
 
@@ -411,31 +441,42 @@ export default function Home() {
       const status = (await (svc as any).queryFinalPrizeClaimStatus(account.decodedAddress)) as any;
 
       setClaimStatus((previous) => {
-        const wallet = String(status?.wallet ?? '');
+        const wallet = String(status?.wallet ?? myWalletHex ?? '');
         const amountClaimable = status?.amount_claimable?.toString?.() ?? '0';
         const previousAllocation =
           addressKey(previous?.wallet ?? '') === addressKey(wallet)
             ? safeBigInt(previous?.allocation_amount ?? 0)
             : 0n;
         const currentAllocation = safeBigInt(amountClaimable);
+        const archivedAllocation = safeBigInt(
+          archivedWalletResult?.finalPrizeAllocationPlanck ?? 0,
+        );
+        const allocationAmount = [previousAllocation, currentAllocation, archivedAllocation].reduce(
+          (largest, amount) => amount > largest ? amount : largest,
+          0n,
+        );
 
         return {
           wallet,
           final_prize_finalized: Boolean(status?.final_prize_finalized),
           eligible: Boolean(status?.eligible),
           amount_claimable: amountClaimable,
-          allocation_amount: (
-            currentAllocation > previousAllocation ? currentAllocation : previousAllocation
-          ).toString(),
+          allocation_amount: allocationAmount.toString(),
           already_claimed: Boolean(status?.already_claimed),
           points: Number(status?.points ?? 0),
         };
       });
     } catch (e) {
       console.error(e);
-      setClaimStatus(null);
+      setClaimStatus(archivedClaimStatus);
     }
-  }, [coreProgram, account]);
+  }, [
+    account,
+    archivedClaimStatus,
+    archivedWalletResult?.finalPrizeAllocationPlanck,
+    coreProgram,
+    myWalletHex,
+  ]);
 
   const fetchApiLeaderboardRow = useCallback(async () => {
     try {
@@ -718,10 +759,11 @@ export default function Home() {
     const observedFinalPrizeBn = coreState?.final_prize_finalized
       ? finalPrizeClaimableBn + finalPrizeClaimedBn
       : finalPrizeAccumulatedBn;
-    const finalPrizeBn =
-      observedFinalPrizeBn > finalizedPrizePoolHighWaterBn
-        ? observedFinalPrizeBn
-        : finalizedPrizePoolHighWaterBn;
+    const finalPrizeBn = [
+      observedFinalPrizeBn,
+      finalizedPrizePoolHighWaterBn,
+      safeBigInt(WORLD_CUP_RESULTS?.reconciliation.finalPrizePoolPlanck ?? 0),
+    ].reduce((largest, amount) => amount > largest ? amount : largest, 0n);
     const feeBn = safeBigInt(coreState?.protocol_fee_accumulated ?? 0);
     const withBets = matches.filter((m) => m.has_bets).length;
     const matchPredictions = matches.reduce(
@@ -731,14 +773,20 @@ export default function Home() {
     const championshipPredictions = coreState?.podium_finalized
       ? CHAMPIONSHIP_PICK_PREDICTIONS
       : 0;
-    const totalPredictions = matchPredictions + championshipPredictions;
+    const observedPredictions = matchPredictions + championshipPredictions;
+    const totalPredictions =
+      WORLD_CUP_RESULTS?.reconciliation.consolidatedPredictionCount ??
+      observedPredictions;
 
     return {
       allPoolsText: formatTokenCompact(allPoolsBn),
       finalPrizeText: formatTokenCompact(finalPrizeBn),
       feeText: formatTokenCompact(feeBn),
       matchesWithBets: withBets,
-      totalMatches: matches.length,
+      totalMatches:
+        matches.length ||
+        WORLD_CUP_RESULTS?.reconciliation.matchCount ||
+        0,
       totalPredictions,
     };
   }, [activeMatches, apiLeaderboardRows, coreState, finalizedPrizePoolHighWaterBn]);
@@ -817,7 +865,11 @@ export default function Home() {
 
   const userPredStats = useMemo(() => {
     if (!account || !activeUserBets.length || !activeMatches.length) {
-      return { made: 0, exactResults: 0, correctOutcomes: 0 };
+      return {
+        made: archivedWalletResult?.matchPredictionCount ?? 0,
+        exactResults: 0,
+        correctOutcomes: 0,
+      };
     }
 
     let exact = 0;
@@ -846,10 +898,41 @@ export default function Home() {
       if (fOut !== 0 && bOut === fOut) outcome++;
     }
 
-    return { made: activeUserBets.length, exactResults: exact, correctOutcomes: outcome };
-  }, [account, activeUserBets, activeMatches]);
+    return {
+      made:
+        archivedWalletResult?.matchPredictionCount ??
+        activeUserBets.length,
+      exactResults: exact,
+      correctOutcomes: outcome,
+    };
+  }, [account, activeUserBets, activeMatches, archivedWalletResult?.matchPredictionCount]);
 
   const predictionFinancials = useMemo(() => {
+    if (account && archivedWalletResult) {
+      const totalStakedBn = safeBigInt(
+        archivedWalletResult.totalStakedPlanck,
+      );
+      const settledStakedBn = safeBigInt(
+        archivedWalletResult.settledStakedPlanck,
+      );
+      const totalEarnedBn = safeBigInt(
+        archivedWalletResult.totalEarnedPlanck,
+      );
+      const netResultBn = totalEarnedBn - settledStakedBn;
+      const netPerformancePct =
+        settledStakedBn > 0n
+          ? (Number(netResultBn) / Number(settledStakedBn)) * 100
+          : null;
+      return {
+        totalStakedBn,
+        settledStakedBn,
+        pendingStakedBn: 0n,
+        totalEarnedBn,
+        netResultBn,
+        netPerformancePct,
+      };
+    }
+
     if (!account || !activeUserBets.length) {
       return {
         totalStakedBn: 0n,
@@ -914,7 +997,14 @@ export default function Home() {
         : null;
 
     return { totalStakedBn, settledStakedBn, pendingStakedBn, totalEarnedBn, netResultBn, netPerformancePct };
-  }, [account, activeUserBets, activeMatches, apiLeaderboardRow, claimStatus]);
+  }, [
+    account,
+    activeUserBets,
+    activeMatches,
+    apiLeaderboardRow,
+    archivedWalletResult,
+    claimStatus,
+  ]);
 
   const totalStakedText = useMemo(() => {
     if (!account) return '—';
@@ -1036,6 +1126,27 @@ export default function Home() {
   const claimablePrizeText = useMemo(
     () => formatTokenCompact(claimStatus?.amount_claimable ?? 0, VARA_DECIMALS),
     [claimStatus]
+  );
+
+  const prizeWonBn = useMemo(() => {
+    const allocationBn = safeBigInt(claimStatus?.allocation_amount ?? 0);
+    const indexedClaimBn = safeBigInt(apiLeaderboardRow?.final_prize_claimed_planck ?? 0);
+    const archivedAllocationBn = safeBigInt(
+      archivedWalletResult?.finalPrizeAllocationPlanck ?? 0,
+    );
+    return [allocationBn, indexedClaimBn, archivedAllocationBn].reduce(
+      (largest, amount) => amount > largest ? amount : largest,
+      0n,
+    );
+  }, [
+    apiLeaderboardRow?.final_prize_claimed_planck,
+    archivedWalletResult?.finalPrizeAllocationPlanck,
+    claimStatus?.allocation_amount,
+  ]);
+
+  const prizeWonText = useMemo(
+    () => formatTokenCompact(prizeWonBn, VARA_DECIMALS),
+    [prizeWonBn],
   );
 
   const canClaimPrize = useMemo(() => {
@@ -1356,19 +1467,31 @@ export default function Home() {
 
             <div className="h-prize__content">
             <div className="h-prize__big">
-              <div className="h-prize__value">{coreState ? poolsInfo.finalPrizeText : '—'}</div>
+              <div className="h-prize__value">
+                {coreState || WORLD_CUP_RESULTS ? poolsInfo.finalPrizeText : '—'}
+              </div>
               <div className="h-prize__unit">{usdcLabel}</div>
             </div>
 
             <div className="h-prize__rows">
               <div className="h-row">
                 <span className="muted">Predictions made</span>
-                <span>{coreState ? poolsInfo.totalPredictions.toLocaleString() : '—'}</span>
+                <span>
+                  {coreState || WORLD_CUP_RESULTS
+                    ? poolsInfo.totalPredictions.toLocaleString()
+                    : '—'}
+                </span>
               </div>
 
               <div className="h-row">
-                <span className="muted">Available to claim</span>
-                <span>{account && claimStatus ? `${claimablePrizeText} ${usdcLabel}` : '—'}</span>
+                <span className="muted">
+                  {claimStatus?.already_claimed ? 'You won' : 'Available to claim'}
+                </span>
+                <span>
+                  {account && claimStatus
+                    ? `${claimStatus.already_claimed ? prizeWonText : claimablePrizeText} ${usdcLabel}`
+                    : '—'}
+                </span>
               </div>
 
               <div className="h-row">
