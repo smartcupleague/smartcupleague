@@ -132,9 +132,9 @@ general-purpose indexer is intentionally out of scope for this checklist.
 
 - [x] Review the final diff without modifying unrelated local work.
 - [x] Commit the audit report, snapshot, loader, UI changes, and tests together.
-- [ ] Push the commit to the main repository.
-- [ ] Verify the deployed production page.
-- [ ] Record the deployment URL and verification date below.
+- [x] Push the commit to the main repository.
+- [x] Verify the deployed production page.
+- [x] Record the deployment URL and verification date below.
 
 ## Evidence and Decisions
 
@@ -173,6 +173,10 @@ general-purpose indexer is intentionally out of scope for this checklist.
 
 ## Deployment Record
 
-- Commit:
-- Deployment URL:
-- Verified at:
+- Implementation commit: `9eed60fee019057eedb6ae63c2c1b785d9b742f2`.
+- Deployment URL: `https://www.smartcupleague.com/progress`.
+- Production bundle: `assets/index-By3KpmSy.js`.
+- Verified at: `2026-07-24` (Europe/Madrid).
+- Production evidence: the deployed bundle contains the audited World Cup
+  program ID, finalized pool amount `355712059046285553`, SmartPredictor_01
+  Total Earned amount `821398484240985293`, and the `You won` UI label.
