@@ -44,6 +44,7 @@ const CORE_PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const DAO_PROGRAM_ID = import.meta.env.VITE_DAOPROGRAM as string;
 
 const VARA_DECIMALS = 12;
+const CHAMPIONSHIP_PICK_PREDICTIONS = 3;
 
 type CoreMatch = {
   match_id: number | string;
@@ -723,7 +724,14 @@ export default function Home() {
         : finalizedPrizePoolHighWaterBn;
     const feeBn = safeBigInt(coreState?.protocol_fee_accumulated ?? 0);
     const withBets = matches.filter((m) => m.has_bets).length;
-    const totalPredictions = matches.reduce((acc, m) => acc + (m.participants?.length ?? 0), 0);
+    const matchPredictions = matches.reduce(
+      (acc, m) => acc + (m.participants?.length ?? 0),
+      0,
+    );
+    const championshipPredictions = coreState?.podium_finalized
+      ? CHAMPIONSHIP_PICK_PREDICTIONS
+      : 0;
+    const totalPredictions = matchPredictions + championshipPredictions;
 
     return {
       allPoolsText: formatTokenCompact(allPoolsBn),
