@@ -17,6 +17,7 @@ import { reportBet, reportClaim } from '@/utils/statsReporter';
 import { dispatchPredictionPlaced } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
 import { API_BASE_URL } from '@/utils/api';
+import { getStaticCoreState, isStaticRenderDataEnabled } from '@/data/staticRenderData';
 
 const PROGRAM_ID = import.meta.env.VITE_BOLAOCOREPROGRAM as string;
 const FREEBET_LEDGER_ID = import.meta.env.VITE_FREEBET_LEDGER_ID as string | undefined;
@@ -595,13 +596,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [isDemoPreview, previewFreebetState]);
 
   const fetchState = useCallback(async () => {
+    const archivedState = isStaticRenderDataEnabled() ? getStaticCoreState() : null;
     if (isDemoPreview) {
       setState(demoState(matchId));
       setLoading(false);
       return;
     }
 
-    if (!api || !isApiReady) {
+    if ((!api || !isApiReady) && !archivedState) {
       if (IS_DEV_PREVIEW) {
         setState(demoState(matchId));
         setLoading(false);
@@ -614,8 +616,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     setLoading(true);
 
     try {
-      const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const s = (await (svc as any).queryState()) as any;
+      const s = archivedState ?? (await new Service(new Program(api!, PROGRAM_ID as HexString)).queryState()) as any;
 
       const normalized: IoBolaoState = {
         matches: Array.isArray(s?.matches)

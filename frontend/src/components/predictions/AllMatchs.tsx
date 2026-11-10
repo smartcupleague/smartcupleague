@@ -17,6 +17,7 @@ import { reportClaim } from '@/utils/statsReporter';
 import { PREDICTION_PLACED_EVENT } from '@/utils/predictionEvents';
 import { toHexAddress } from '@/utils/address';
 import { API_BASE_URL } from '@/utils/api';
+import { getStaticCoreState, isStaticRenderDataEnabled } from '@/data/staticRenderData';
 import { TOURNAMENT_TAB_ORDER, getTournamentByKey, isWCPhase, matchPath } from '@/utils';
 import { PiEraserBold, PiMagnifyingGlassBold } from 'react-icons/pi';
 
@@ -424,6 +425,7 @@ export const MatchesTableComponent: React.FC = () => {
   }, []);
 
   const fetchMatches = useCallback(async () => {
+    const archivedState = isStaticRenderDataEnabled() ? getStaticCoreState() : null;
     const useLocalPreview = isLocalPredictedPreview();
     const usePenaltyPreview = isLocalPenaltyPreview();
     if (usePenaltyPreview) {
@@ -431,15 +433,14 @@ export const MatchesTableComponent: React.FC = () => {
       setLoading(false);
       return;
     }
-    if (!api || !isApiReady) {
+    if ((!api || !isApiReady) && !archivedState) {
       if (useLocalPreview) setMatches(LOCAL_PREVIEW_MATCHES);
       return;
     }
     setLoading(true);
 
     try {
-      const svc = new Service(new Program(api, PROGRAM_ID as HexString));
-      const state = (await (svc as any).queryState()) as CoreState & { matches?: any[] };
+      const state = (archivedState ?? await new Service(new Program(api!, PROGRAM_ID as HexString)).queryState()) as CoreState & { matches?: any[] };
       const list = (state as any)?.matches ?? [];
 
       const normalized: MatchInfo[] = (Array.isArray(list) ? list : []).map((m: any) => ({
