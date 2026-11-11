@@ -374,6 +374,11 @@ function isIndexerRequest(url: URL) {
 }
 
 async function staticResponse(url: URL, method: string, body: BodyInit | null | undefined) {
+  if (url.hostname.includes('smartcupleague-oracle.onrender.com') && method === 'GET') {
+    if (url.pathname === '/sports/crests') return jsonResponse({ crests: {} });
+    if (url.pathname === '/sports/match-crests') return jsonResponse({ matches: {} });
+  }
+
   if (isIndexerRequest(url) && method === 'POST') {
     return jsonResponse({
       data: {
