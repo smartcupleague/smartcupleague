@@ -10,6 +10,7 @@ import { StyledWallet, getPreviewWalletAddress } from '@/components/wallet/Walle
 import { AppFooter } from '@/components/layout/footer/AppFooter';
 import { MobileTabBar } from '@/components/layout/mobile-nav';
 import { API_BASE_URL } from '@/utils/api';
+import { getStaticCoreState, isStaticRenderDataEnabled } from '@/data/staticRenderData';
 import { PREDICTION_PLACED_EVENT, type PredictionPlacedDetail } from '@/utils/predictionEvents';
 import { decodeAddress } from '@polkadot/util-crypto';
 import { u8aToHex } from '@polkadot/util';
@@ -229,6 +230,7 @@ function Match() {
   }, [api, isApiReady]);
 
   const fetchState = useCallback(async () => {
+    const archivedState = isStaticRenderDataEnabled() ? getStaticCoreState() : null;
     if (previewMatch) {
       setState(demoState(matchId));
       setError(null);
@@ -236,7 +238,7 @@ function Match() {
       return;
     }
 
-    if (!program) {
+    if (!program && !archivedState) {
       if (IS_DEV_PREVIEW) {
         setState(demoState(matchId));
         setError(null);
@@ -251,8 +253,7 @@ function Match() {
     setError(null);
 
     try {
-      const svc = new Service(program);
-      const s = (await svc.queryState()) as any;
+      const s = archivedState ?? (await new Service(program!).queryState()) as any;
 
       const matches: MatchInfo[] = (Array.isArray(s?.matches) ? s.matches : []).map((m: any) => ({
         match_id: String(m?.match_id ?? '').trim(),

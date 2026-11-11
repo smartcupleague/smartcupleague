@@ -4,6 +4,9 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { App } from './App';
 import { ToastProvider } from './hooks/useToast';
+import { installStaticRenderDataFetch } from './data/staticRenderData';
+
+installStaticRenderDataFetch();
 
 const container = document.getElementById('root');
 const root = createRoot(container as HTMLElement);

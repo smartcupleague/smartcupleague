@@ -540,10 +540,59 @@ async function main() {
                 earnings.matchRewardWalletPayoutPlanck +
                 finalPrizeAllocation
               ).toString(),
+              predictions: row.bets
+                .map((bet) => ({
+                  matchId: Number(bet.match_id),
+                  score: {
+                    home: Number(bet.score.home),
+                    away: Number(bet.score.away),
+                  },
+                  penaltyWinner: bet.penalty_winner ?? null,
+                  stakeInMatchPoolPlanck: asBigInt(
+                    bet.stake_in_match_pool,
+                  ).toString(),
+                  freebetPrincipalPlanck: asBigInt(
+                    bet.freebet_principal,
+                  ).toString(),
+                  claimed: Boolean(bet.claimed),
+                }))
+                .sort((left, right) => left.matchId - right.matchId),
             },
           ];
         }),
     );
+
+    const archivedMatches = matches
+      .map((match) => {
+        const finalized = finalizedResult(match);
+        return {
+          matchId: Number(match.match_id),
+          phase: String(match.phase),
+          home: String(match.home),
+          away: String(match.away),
+          kickOff: asBigInt(match.kick_off).toString(),
+          status: cancelledResult(match)
+            ? "cancelled"
+            : finalized
+              ? "finalized"
+              : "unresolved",
+          finalScore: finalized
+            ? {
+                home: Number(finalized.score.home),
+                away: Number(finalized.score.away),
+                penaltyWinner: finalized.penalty_winner ?? null,
+              }
+            : null,
+          participantCount: Array.isArray(match.participants)
+            ? match.participants.length
+            : 0,
+          totalClaimedPlanck: asBigInt(match.total_claimed ?? 0).toString(),
+          totalWinnerStakePlanck: asBigInt(
+            match.total_winner_stake ?? 0,
+          ).toString(),
+        };
+      })
+      .sort((left, right) => left.matchId - right.matchId);
 
     const totalWalletPayout = [...earningsByWallet.values()].reduce(
       (total, earnings) =>
@@ -566,7 +615,6 @@ async function main() {
       provenance: {
         generatedAt: new Date().toISOString(),
         network: "vara-mainnet",
-        rpcUrl: RPC_URL,
         asOfBlock,
         asOfBlockHash,
         deployedIdl:
@@ -596,6 +644,7 @@ async function main() {
           allocatedFinalPrizeTotal.toString(),
         allMatchesReconciled: true,
       },
+      matches: archivedMatches,
       wallets,
     };
     const serializedSnapshot = `${JSON.stringify(snapshot, null, 2)}\n`;

@@ -2,6 +2,15 @@
 import { GearApi, decodeAddress } from '@gear-js/api';
 import { TypeRegistry } from '@polkadot/types';
 import { TransactionBuilder, getServiceNamePrefix, getFnNamePrefix, ZERO_ADDRESS } from 'sails-js';
+import {
+  getStaticBetsByUser,
+  getStaticCoreState,
+  getStaticFinalPrizeClaimStatus,
+  getStaticMatch,
+  getStaticMatchesByPhase,
+  getStaticUserPoints,
+  isStaticRenderDataEnabled,
+} from '../data/staticRenderData';
 
 export type ActorId = string;
 
@@ -679,6 +688,7 @@ export class Service {
     value?: number | string | bigint,
     atBlock?: `0x${string}`,
   ): Promise<UserBetView[]> {
+    if (isStaticRenderDataEnabled()) return getStaticBetsByUser(String(user)) as UserBetView[];
     const payload = this._program.registry.createType('(String, String, [u8;32])', ['Service', 'QueryBetsByUser', user]).toHex();
     const reply = await this._program.api.message.calculateReply({
       destination: this._program.programId,
@@ -699,6 +709,7 @@ export class Service {
     value?: number | string | bigint,
     atBlock?: `0x${string}`,
   ): Promise<FinalPrizeClaimStatus> {
+    if (isStaticRenderDataEnabled()) return getStaticFinalPrizeClaimStatus(String(wallet)) as FinalPrizeClaimStatus;
     const payload = this._program.registry.createType('(String, String, [u8;32])', ['Service', 'QueryFinalPrizeClaimStatus', wallet]).toHex();
     const reply = await this._program.api.message.calculateReply({
       destination: this._program.programId,
@@ -719,6 +730,7 @@ export class Service {
     value?: number | string | bigint,
     atBlock?: `0x${string}`,
   ): Promise<Match | null> {
+    if (isStaticRenderDataEnabled()) return getStaticMatch(match_id) as Match | null;
     const payload = this._program.registry.createType('(String, String, u64)', ['Service', 'QueryMatch', match_id]).toHex();
     const reply = await this._program.api.message.calculateReply({
       destination: this._program.programId,
@@ -739,6 +751,7 @@ export class Service {
     value?: number | string | bigint,
     atBlock?: `0x${string}`,
   ): Promise<Match[]> {
+    if (isStaticRenderDataEnabled()) return getStaticMatchesByPhase(phase) as Match[];
     const payload = this._program.registry.createType('(String, String, String)', ['Service', 'QueryMatchesByPhase', phase]).toHex();
     const reply = await this._program.api.message.calculateReply({
       destination: this._program.programId,
@@ -758,6 +771,7 @@ export class Service {
     value?: number | string | bigint,
     atBlock?: `0x${string}`,
   ): Promise<IoSmartCupState> {
+    if (isStaticRenderDataEnabled()) return getStaticCoreState() as unknown as IoSmartCupState;
     const payload = this._program.registry.createType('(String, String)', ['Service', 'QueryState']).toHex();
     const reply = await this._program.api.message.calculateReply({
       destination: this._program.programId,
@@ -778,6 +792,7 @@ export class Service {
     value?: number | string | bigint,
     atBlock?: `0x${string}`,
   ): Promise<number> {
+    if (isStaticRenderDataEnabled()) return getStaticUserPoints(String(user));
     const payload = this._program.registry.createType('(String, String, [u8;32])', ['Service', 'QueryUserPoints', user]).toHex();
     const reply = await this._program.api.message.calculateReply({
       destination: this._program.programId,
