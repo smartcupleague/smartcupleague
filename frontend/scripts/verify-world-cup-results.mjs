@@ -83,11 +83,10 @@ const claimedWinner = wallets.find(
     BigInt(result.finalPrizeAllocationPlanck) > 0n &&
     result.finalPrizeClaimed,
 );
-const unclaimedWinner = wallets.find(
+const unclaimedWinners = wallets.filter(
   ([, result]) =>
     BigInt(result.finalPrizeAllocationPlanck) > 0n &&
-    !result.finalPrizeClaimed &&
-    BigInt(result.finalPrizeAmountClaimablePlanck) > 0n,
+    !result.finalPrizeClaimed,
 );
 const matchOnlyWinner = wallets.find(
   ([, result]) =>
@@ -101,7 +100,10 @@ const nonWinner = wallets.find(
 );
 
 assert(claimedWinner, "Missing claimed final-prize winner fixture");
-assert(unclaimedWinner, "Missing unclaimed final-prize winner fixture");
+assert(
+  unclaimedWinners.length === 0,
+  "Archived final-prize state still contains an unclaimed winner",
+);
 assert(matchOnlyWinner, "Missing match-only winner fixture");
 assert(nonWinner, "Missing non-winner fixture");
 assert(
@@ -127,7 +129,6 @@ delete process.env.VITE_API_URL;
 delete process.env.VITE_INDEXER_GRAPHQL_URL;
 for (const [wallet, expected] of [
   claimedWinner,
-  unclaimedWinner,
   matchOnlyWinner,
   nonWinner,
 ]) {
@@ -155,7 +156,7 @@ console.log(
       walletCount: wallets.length,
       fixtures: {
         claimedWinner: claimedWinner[0],
-        unclaimedWinner: unclaimedWinner[0],
+        unclaimedWinnerCount: unclaimedWinners.length,
         matchOnlyWinner: matchOnlyWinner[0],
         nonWinner: nonWinner[0],
       },
